@@ -53,9 +53,7 @@ h1{font-size:1.1rem;font-weight:800;color:#0a1628;margin-bottom:6px}
 
   <button class="btn big" id="copy-btn">📋 แตะเพื่อคัดลอก</button>
 
-  <div class="progress-wrap" id="progress-wrap">
-    <div class="progress-bar"></div>
-  </div>
+  <!-- progress bar removed: ใช้ banner ชี้ X แทน -->
 </div>
 
 <script>
@@ -97,61 +95,50 @@ function setIcon(type, mark, title, sub){
   document.getElementById('sub').textContent = sub;
 }
 
-// ปิดหน้าตัวเอง — ลองหลายวิธีตามลำดับ
-async function autoClose(){
-  // 1. รอ liff.init() เสร็จก่อน (สูงสุด 1.5 วินาที)
+// (autoClose ถูกแทนที่ด้วย silentAutoClose + showBigCloseHint)
+
+// (showManualCloseInstruction ถูกแทนที่ด้วย showBigCloseHint)
+
+// ลองปิดเงียบๆ — ถ้าไม่ได้ใน 2 วินาที → แสดง banner ใหญ่ชี้ปุ่ม X
+function startCountdown(){
+  // ลองปิดอัตโนมัติ (เงียบๆ ไม่ promise)
+  setTimeout(silentAutoClose, 800);
+  // ถ้ายังอยู่ 2 วินาที → แสดง banner ชี้ปุ่ม X (honest)
+  setTimeout(function(){
+    if(!document.hidden){
+      showBigCloseHint();
+    }
+  }, 2000);
+}
+
+// ลองปิดเงียบๆ — ไม่ wait, ไม่ promise, ทำได้ก็ดี ไม่ได้ก็ไม่เป็นไร
+async function silentAutoClose(){
+  // 1. รอ liff.init() (สูงสุด 800ms)
   if(typeof liff !== 'undefined'){
-    for(let i = 0; i < 15; i++){
+    for(let i = 0; i < 8; i++){
       if(window._liffReady) break;
       await new Promise(r => setTimeout(r, 100));
     }
   }
-
-  // 2. LIFF closeWindow (ดีที่สุด ถ้าอยู่ใน LINE in-app browser)
+  // 2. ลอง liff.closeWindow
   if(typeof liff !== 'undefined' && liff.closeWindow){
-    try{
-      liff.closeWindow();
-      // กันเหนียว — ถ้า closeWindow ไม่ทำงานจริง รอ 500ms แล้ว fallback
-      await new Promise(r => setTimeout(r, 500));
-    } catch(e){ console.warn('liff.closeWindow failed:', e); }
+    try{ liff.closeWindow(); } catch(e){}
   }
-
-  // 3. ถ้ายังไม่ปิด ลอง LINE deep link (เด้งกลับ LINE app)
-  try{
-    window.location.href = 'line://nv/chats';
-    return;
-  } catch(e){}
-
-  // 4. window.close()
+  // 3. ลอง window.close
   try{ window.close(); } catch(e){}
-
-  // 5. history.back()
-  if(window.history.length > 1){
-    try{ window.history.back(); return; } catch(e){}
-  }
-
-  // 6. สุดท้าย — เปิด LINE หน้าหลัก
-  window.location.href = 'https://line.me/R/';
 }
 
-// แสดง manual instruction ถ้าผ่านไปเกิน 3 วินาทียังไม่ปิด
-function showManualCloseInstruction(){
-  const tip = document.createElement('div');
-  tip.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#dc2626;color:#fff;padding:12px 18px;border-radius:24px;font-size:.85rem;font-weight:700;z-index:200;box-shadow:0 6px 20px rgba(220,38,38,.4);text-align:center;max-width:90vw';
-  tip.innerHTML = '👆 แตะปุ่ม X มุมขวาบนเพื่อกลับ LINE ได้เลยค่ะ';
-  document.body.appendChild(tip);
-}
-
-// แสดง countdown ก่อน auto-close + เตือนถ้าค้างเกิน 3 วินาที
-function startCountdown(){
-  document.getElementById('progress-wrap').classList.add('show');
-  setTimeout(autoClose, 1600);
-  // ถ้าผ่าน 3 วินาที (1.6 countdown + ~1.5 closeWindow attempt) แล้วยังอยู่ → แสดงคำแนะนำ manual
-  setTimeout(function(){
-    if(!document.hidden){
-      showManualCloseInstruction();
-    }
-  }, 3500);
+// แสดง banner ใหญ่ชี้ปุ่ม X — honest UX
+function showBigCloseHint(){
+  if(document.getElementById('big-hint')) return;
+  const hint = document.createElement('div');
+  hint.id = 'big-hint';
+  hint.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#06c755;color:#fff;padding:14px 16px;z-index:200;font-size:.95rem;font-weight:800;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:slideDown .3s ease;display:flex;align-items:center;justify-content:center;gap:8px';
+  hint.innerHTML = '<span style="font-size:1.4rem">👆</span><span>แตะปุ่ม <strong style="background:rgba(255,255,255,0.25);padding:2px 8px;border-radius:4px">✕</strong> มุมขวาบนเพื่อกลับแชต LINE</span>';
+  document.body.appendChild(hint);
+  const style = document.createElement('style');
+  style.textContent = '@keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}';
+  document.head.appendChild(style);
 }
 
 async function doCopy(text){
@@ -199,12 +186,11 @@ async function doCopy(text){
 }
 
 function onCopySuccess(){
-  setIcon('success', '\u2713', 'คัดลอกเรียบร้อย', 'กำลังกลับไปแชต LINE...');
-  showToast('✓ คัดลอกแล้ว — กำลังปิดหน้า');
+  setIcon('success', '\u2713', 'คัดลอกเรียบร้อย', 'ข้อความอยู่ใน clipboard แล้ว — แตะ X มุมขวาบนเพื่อกลับ LINE');
+  showToast('✓ คัดลอกแล้ว');
   const btn = document.getElementById('copy-btn');
   btn.className = 'btn success';
-  btn.textContent = '✓ คัดลอกแล้ว — กลับแชตใน 1.5 วินาที';
-  btn.disabled = true;
+  btn.textContent = '✓ คัดลอกแล้ว — แตะอีกครั้งได้';
   startCountdown();
 }
 
