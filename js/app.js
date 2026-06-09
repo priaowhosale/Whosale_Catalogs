@@ -766,6 +766,20 @@ function showSuccessModal(orderId){
 }
 
 // แสดง fallback modal (สำหรับ browser ปกติ / desktop)
+// เปิด modal ใหญ่แสดง QR ขนาด full ให้สแกนง่าย
+function openQrZoom(qrSrc){
+  const z = document.createElement('div');
+  z.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;cursor:zoom-out';
+  z.innerHTML =
+    '<div style="background:#fff;padding:18px;border-radius:16px;box-shadow:0 12px 48px rgba(0,0,0,.5)">'
+    +'<img src="'+qrSrc+'" alt="QR ใหญ่" style="display:block;width:min(85vw,500px);height:min(85vw,500px);max-width:500px;max-height:500px">'
+    +'</div>'
+    +'<div style="color:#fff;font-size:.95rem;margin-top:18px;font-weight:700;text-align:center;line-height:1.6">📲 เปิดกล้อง LINE ในมือถือ<br>เล็งให้เต็มกรอบ QR แล้วรอสักครู่</div>'
+    +'<button style="margin-top:16px;padding:10px 24px;background:#fff;color:#0a1628;border:none;border-radius:24px;font-weight:700;cursor:pointer;font-family:inherit;font-size:.9rem">ปิด (หรือแตะที่ไหนก็ได้)</button>';
+  z.onclick = function(){ document.body.removeChild(z); };
+  document.body.appendChild(z);
+}
+
 function showFallbackModal(orderId, timestamp, text){
   // auto copy
   if(navigator.clipboard) navigator.clipboard.writeText(text).catch(function(){});
@@ -776,7 +790,10 @@ function showFallbackModal(orderId, timestamp, text){
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   // ใช้ line.me/R/msg/text/ → เปิด LINE share dialog พร้อม text pre-fill
   const lineShareUrl = 'https://line.me/R/msg/text/?'+encodeURIComponent(text);
-  const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(lineShareUrl);
+  // QR: ใช้ ECC=L + margin=4 เพื่อลด density (สแกนง่ายขึ้นด้วยกล้องคุณภาพต่ำ)
+  const qrBase = 'https://api.qrserver.com/v1/create-qr-code/?ecc=L&margin=4&data='+encodeURIComponent(lineShareUrl);
+  const qrUrl  = qrBase + '&size=240x240';   // default ใน modal
+  const qrBig  = qrBase + '&size=600x600';   // ใหญ่สำหรับคลิกขยาย
 
   mo.innerHTML =
     '<div style="background:#fff;border-radius:16px;padding:24px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3)">'
@@ -791,7 +808,7 @@ function showFallbackModal(orderId, timestamp, text){
         +'<button id="fbCloseBtn" style="width:100%;padding:10px;background:#eee;color:#555;border:none;border-radius:10px;cursor:pointer;font-size:.82rem;font-family:inherit">ปิด</button>'
         +'</div>'
       : '<div style="display:flex;gap:14px;align-items:center;background:#f4f8fc;padding:14px;border-radius:10px;margin-bottom:10px">'
-        +'<img src="'+qrUrl+'" alt="QR" style="width:120px;height:120px;border-radius:8px;background:#fff">'
+        +'<img id="qrImgEl" src="'+qrUrl+'" alt="QR — คลิกเพื่อขยาย" title="คลิกเพื่อขยาย QR" style="width:140px;height:140px;border-radius:8px;background:#fff;cursor:zoom-in;border:2px solid #e6f1fb;transition:all .15s" onclick="openQrZoom(\''+qrBig+'\')">'
         +'<div style="flex:1;font-size:.78rem;color:#0a1628;line-height:1.5"><strong style="color:#2080be">📲 สแกน QR ด้วยกล้อง LINE ในมือถือ</strong><br>1. LINE จะถามว่าส่งไปแชตไหน<br>2. <strong>เลือก เปรียว คอสเมติกส์</strong><br>3. ข้อความออเดอร์จะ pre-fill ให้แล้ว → กดส่งได้เลย</div>'
         +'</div>'
         +'<div style="display:flex;gap:8px">'
