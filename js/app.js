@@ -441,16 +441,22 @@ function renderCart(){
   else{
     let h='';
     for(const c of cart){
-      h+='<div class="cart-item">'
-        +'<div style="font-size:.8rem;font-weight:700;margin-bottom:4px">'+esc(c.name)+'</div>'
-        +'<div style="font-size:.75rem;color:var(--txt3)">#'+c.code+(c.baseUnit?' · '+c.baseUnit:'')+'</div>'
-        +'<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'
+      const prod = allProducts.find(p => p.code === c.code);
+      const imgUrl = (prod && prod.imageUrl) ? prod.imageUrl : '';
+      h+='<div class="cart-item" style="display:flex;gap:10px;align-items:flex-start">'
+        +(imgUrl
+            ? '<img src="'+imgUrl+'" alt="" loading="lazy" onerror="this.style.display=\'none\'" style="width:52px;height:52px;border-radius:6px;object-fit:cover;background:#f4f8fc;flex-shrink:0;border:1px solid var(--border)">'
+            : '<div style="width:52px;height:52px;border-radius:6px;background:linear-gradient(135deg,#dceeff,var(--border));flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--acc);font-weight:800;font-size:.85rem">?</div>')
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:.8rem;font-weight:700;margin-bottom:4px;line-height:1.35">'+esc(c.name)+'</div>'
+        +'<div style="font-size:.7rem;color:var(--txt3)">#'+c.code+(c.baseUnit?' · '+c.baseUnit:'')+'</div>'
+        +'<div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">'
         +'<button onclick="changeQty(\''+c.code+'\',-1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer">−</button>'
-        +'<span style="font-weight:700">'+c.qty+'</span>'
+        +'<span style="font-weight:700;min-width:18px;text-align:center">'+c.qty+'</span>'
         +'<button onclick="changeQty(\''+c.code+'\',1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer">+</button>'
-        +'<span style="flex:1;text-align:right;font-weight:700;color:var(--acc)">'+(c.price*c.qty).toLocaleString('th-TH')+' บาท</span>'
-        +'<button onclick="removeCart(\''+c.code+'\')" style="color:#dc2626;background:none;border:none;cursor:pointer">✕</button>'
-        +'</div></div>';
+        +'<span style="flex:1;text-align:right;font-weight:700;color:var(--acc);font-size:.85rem">'+(c.price*c.qty).toLocaleString('th-TH')+' บาท</span>'
+        +'<button onclick="removeCart(\''+c.code+'\')" style="color:#dc2626;background:none;border:none;cursor:pointer;font-size:.95rem">✕</button>'
+        +'</div></div></div>';
     }
     items.innerHTML=h;
   }

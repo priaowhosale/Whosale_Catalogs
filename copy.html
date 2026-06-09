@@ -8,24 +8,27 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Thai",sans-serif}
-body{background:#f4f8fc;color:#0a1628;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.card{background:#fff;border-radius:16px;padding:28px 24px;max-width:480px;width:100%;box-shadow:0 8px 32px rgba(32,128,190,.15);text-align:center}
-.icon{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:32px;font-weight:bold}
+body{background:#f4f8fc;color:#0a1628;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px}
+.card{background:#fff;border-radius:16px;padding:24px 20px;max-width:480px;width:100%;box-shadow:0 8px 32px rgba(32,128,190,.15);text-align:center}
+.icon{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:30px;font-weight:bold}
 .icon.success{background:#e8f8ee;color:#06c755}
 .icon.warn{background:#fef3c7;color:#d97706}
 .icon.error{background:#fee2e2;color:#dc2626}
-h1{font-size:1.15rem;font-weight:800;color:#0a1628;margin-bottom:6px}
-.sub{font-size:.82rem;color:#4e9ecf;margin-bottom:18px;line-height:1.5}
-.preview{background:#f4f8fc;border:1px solid #b8d9f0;border-radius:10px;padding:14px;text-align:left;font-family:"Noto Sans Thai",monospace,sans-serif;font-size:.78rem;color:#0a1628;line-height:1.7;max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;margin-bottom:14px}
-.btn{display:block;width:100%;background:linear-gradient(135deg,#25a9e0,#0065a8);color:#fff;border:none;border-radius:10px;padding:12px;font-size:.95rem;font-weight:700;cursor:pointer;font-family:inherit;margin-top:10px;transition:all .15s}
-.btn:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(32,128,190,.35)}
-.btn:active{transform:translateY(0)}
-.btn.alt{background:#fff;color:#2080BE;border:1.5px solid #2080BE}
-.toast{position:fixed;top:24px;left:50%;transform:translateX(-50%) translateY(-120px);background:#0a1628;color:#fff;padding:10px 18px;border-radius:24px;font-size:.85rem;font-weight:600;z-index:100;transition:transform .3s;box-shadow:0 6px 24px rgba(0,0,0,.25)}
-.toast.show{transform:translateX(-50%) translateY(0)}
-.tip{font-size:.72rem;color:#4e9ecf;margin-top:14px;line-height:1.5}
-.meta{display:flex;justify-content:space-between;font-size:.7rem;color:#7badd0;margin-bottom:10px}
+.icon.ready{background:#e6f1fb;color:#2080BE}
+h1{font-size:1.1rem;font-weight:800;color:#0a1628;margin-bottom:6px}
+.sub{font-size:.82rem;color:#4e9ecf;margin-bottom:14px;line-height:1.5}
+.meta{display:flex;justify-content:space-between;font-size:.7rem;color:#7badd0;margin-bottom:8px;padding:0 2px}
 .meta strong{color:#0065a8;font-weight:700}
+.preview{background:#f4f8fc;border:1px solid #b8d9f0;border-radius:10px;padding:12px;text-align:left;font-family:"Noto Sans Thai",monospace,sans-serif;font-size:.78rem;color:#0a1628;line-height:1.7;max-height:240px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;margin-bottom:14px}
+.btn{display:block;width:100%;background:linear-gradient(135deg,#25a9e0,#0065a8);color:#fff;border:none;border-radius:10px;padding:14px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;margin-top:8px;transition:all .15s;box-shadow:0 4px 12px rgba(32,128,190,.3)}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(32,128,190,.45)}
+.btn:active{transform:translateY(0)}
+.btn.alt{background:#fff;color:#2080BE;border:1.5px solid #2080BE;box-shadow:none;font-weight:600;padding:11px;font-size:.9rem}
+.btn.big{padding:18px;font-size:1.05rem;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 4px 12px rgba(32,128,190,.3)}50%{box-shadow:0 8px 24px rgba(32,128,190,.55)}}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-120px);background:#0a1628;color:#fff;padding:10px 20px;border-radius:24px;font-size:.85rem;font-weight:700;z-index:100;transition:transform .3s;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.tip{font-size:.72rem;color:#4e9ecf;margin-top:10px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -33,9 +36,9 @@ h1{font-size:1.15rem;font-weight:800;color:#0a1628;margin-bottom:6px}
 <div class="toast" id="toast"></div>
 
 <div class="card" id="card">
-  <div class="icon success" id="icon">✓</div>
-  <h1 id="title">คัดลอกเรียบร้อย</h1>
-  <div class="sub" id="sub">เนื้อหาอยู่ใน clipboard แล้ว — paste ที่ไหนก็ได้</div>
+  <div class="icon ready" id="icon">📋</div>
+  <h1 id="title">พร้อมคัดลอก</h1>
+  <div class="sub" id="sub">แตะปุ่มสีฟ้าด้านล่างเพื่อคัดลอกลง clipboard</div>
 
   <div class="meta">
     <span>รูปแบบ: <strong id="fmt-label">-</strong></span>
@@ -44,10 +47,10 @@ h1{font-size:1.15rem;font-weight:800;color:#0a1628;margin-bottom:6px}
 
   <div class="preview" id="preview">กำลังประมวลผล...</div>
 
-  <button class="btn" id="copy-btn">คัดลอกอีกครั้ง</button>
-  <button class="btn alt" onclick="window.close()">ปิดหน้าต่าง</button>
+  <button class="btn big" id="copy-btn">📋 แตะเพื่อคัดลอก</button>
+  <button class="btn alt" id="back-btn">← กลับไปแชต LINE</button>
 
-  <div class="tip">หากปิดอัตโนมัติไม่ได้ ปิด tab นี้ด้วยตัวเองได้เลยค่ะ</div>
+  <div class="tip" id="tip">หากปุ่ม "กลับไปแชต" ไม่ทำงาน แตะปุ่ม X มุมขวาบนได้ค่ะ</div>
 </div>
 
 <script>
@@ -58,7 +61,6 @@ const FMT_LABELS = {
   list: 'รายการ + Order ID'
 };
 
-// URL-safe base64 decode → UTF-8
 function b64UrlDecode(b64){
   try{
     b64 = String(b64 || '').replace(/-/g,'+').replace(/_/g,'/');
@@ -70,17 +72,16 @@ function b64UrlDecode(b64){
 }
 
 function getParam(name){
-  const m = new URLSearchParams(location.search);
-  return m.get(name);
+  return new URLSearchParams(location.search).get(name);
 }
 
 function showToast(msg, isError){
   const t = document.getElementById('toast');
   t.textContent = msg;
-  t.style.background = isError ? '#dc2626' : '#0a1628';
+  t.style.background = isError ? '#dc2626' : '#06c755';
   t.classList.add('show');
   clearTimeout(window._tt);
-  window._tt = setTimeout(() => t.classList.remove('show'), 2500);
+  window._tt = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
 function setIcon(type, mark, title, sub){
@@ -96,32 +97,65 @@ async function doCopy(text){
     setIcon('error', '!', 'ไม่มีข้อมูล', 'URL ไม่ถูกต้องหรือว่างเปล่า');
     return false;
   }
-  try{
-    await navigator.clipboard.writeText(text);
-    setIcon('success', '\u2713', 'คัดลอกเรียบร้อย', 'เนื้อหาอยู่ใน clipboard แล้ว — paste ที่ไหนก็ได้');
-    showToast('คัดลอกแล้ว');
-    return true;
-  } catch(err){
-    // Fallback สำหรับ browser เก่า / clipboard API ไม่อนุญาต
+
+  // วิธี 1: modern clipboard API (HTTPS + user gesture)
+  if(navigator.clipboard && navigator.clipboard.writeText){
     try{
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(ta);
-      if(ok){
-        setIcon('success', '\u2713', 'คัดลอกเรียบร้อย', 'ใช้วิธี fallback');
-        showToast('คัดลอกแล้ว');
-        return true;
-      }
-    } catch(e2){}
-    setIcon('warn', '!', 'คัดลอกอัตโนมัติไม่สำเร็จ', 'แตะปุ่ม "คัดลอกอีกครั้ง" หรือเลือกข้อความเองจากกล่องด้านล่าง');
-    showToast('แตะปุ่มคัดลอกอีกครั้ง', true);
-    return false;
+      await navigator.clipboard.writeText(text);
+      setIcon('success', '\u2713', 'คัดลอกเรียบร้อย', 'เนื้อหาอยู่ใน clipboard แล้ว — กลับไป paste ในแชตได้เลย');
+      showToast('✓ คัดลอกแล้ว');
+      // ทำให้ปุ่มเปลี่ยนสีแสดงว่าทำสำเร็จ
+      const btn = document.getElementById('copy-btn');
+      btn.style.background = '#06c755';
+      btn.textContent = '✓ คัดลอกแล้ว — แตะอีกครั้งได้';
+      btn.classList.remove('big');
+      return true;
+    } catch(err){
+      console.warn('clipboard.writeText failed:', err);
+    }
   }
+
+  // วิธี 2: fallback execCommand (เบราว์เซอร์เก่า)
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(ok){
+      setIcon('success', '\u2713', 'คัดลอกเรียบร้อย', 'ใช้วิธีสำรอง — paste ได้ตามปกติ');
+      showToast('✓ คัดลอกแล้ว');
+      const btn = document.getElementById('copy-btn');
+      btn.style.background = '#06c755';
+      btn.textContent = '✓ คัดลอกแล้ว';
+      return true;
+    }
+  } catch(e){ console.warn('execCommand failed:', e); }
+
+  // ทั้ง 2 วิธีไม่ได้
+  setIcon('warn', '!', 'คัดลอกไม่สำเร็จ', 'กรุณาเลือกข้อความในกล่องด้านล่าง แล้วก๊อปด้วยตัวเอง');
+  showToast('แตะค้างที่ข้อความเพื่อ select', true);
+  return false;
+}
+
+function goBack(){
+  // วิธี 1: history.back()
+  if(window.history.length > 1){
+    window.history.back();
+    return;
+  }
+  // วิธี 2: window.close()
+  try{ window.close(); } catch(e){}
+  // ถ้ายังไม่ปิด แสดง tip
+  document.getElementById('tip').textContent = 'แตะปุ่ม X มุมขวาบนของหน้าเพื่อปิด';
+  document.getElementById('tip').style.color = '#dc2626';
+  document.getElementById('tip').style.fontWeight = '700';
 }
 
 (function init(){
@@ -140,10 +174,28 @@ async function doCopy(text){
   document.getElementById('preview').textContent = decoded;
   document.getElementById('byte-count').textContent = decoded.length;
 
-  // กดอัตโนมัติเลย (ปุ่ม retry สำหรับ browser ที่ต้อง user gesture)
-  doCopy(decoded);
+  // เก็บ text ไว้
+  window._copyText = decoded;
 
-  document.getElementById('copy-btn').addEventListener('click', () => doCopy(decoded));
+  // ปุ่ม copy
+  document.getElementById('copy-btn').addEventListener('click', () => doCopy(window._copyText));
+
+  // ปุ่มกลับ
+  document.getElementById('back-btn').addEventListener('click', goBack);
+
+  // ลอง auto-copy แต่ไม่บังคับ — ถ้า fail ก็ไม่แสดง warning
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(decoded).then(() => {
+      setIcon('success', '\u2713', 'คัดลอกอัตโนมัติเรียบร้อย', 'เนื้อหาอยู่ใน clipboard แล้ว — กลับไป paste ได้เลย');
+      showToast('✓ คัดลอกแล้ว');
+      const btn = document.getElementById('copy-btn');
+      btn.style.background = '#06c755';
+      btn.textContent = '✓ คัดลอกแล้ว — แตะอีกครั้งได้';
+      btn.classList.remove('big');
+    }).catch(() => {
+      // ไม่ได้ก็ไม่เป็นไร ผู้ใช้แตะปุ่มเอง
+    });
+  }
 })();
 </script>
 
