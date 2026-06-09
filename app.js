@@ -1,0 +1,1091 @@
+
+'use strict';
+let RAW_DATA = {}; // populated by loadCatalogData() before init() runs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const CAT_NAMES={C01:'เครื่องสำอาง',C02:'ผลิตภัณฑ์ดูแลผิวหน้า',C03:'ผลิตภัณฑ์ดูแลผิวกาย',
+  C04:'ผลิตภัณฑ์ดูแลเส้นผม',C05:'น้ำหอม',C06:'อุปกรณ์เพื่อความงาม',
+  C07:'อาหารเสริม',C08:'คอนซูเมอร์',C09:'แฟชั่น&ไลฟ์สไตล์'};
+const CAT_EMOJI={C01:'💄',C02:'🧴',C03:'🛁',C04:'💆',C05:'🌸',C06:'🛍️',C07:'💊',C08:'🛒',C09:'👜'};
+const PER_PAGE=40;
+let allProducts=[],filtered=[],cart=[];
+let curCat='all',curSub='all',curTag='all';
+let curSearch='',curPage=1,viewMode='grid';
+let subcatMap={},navHistory=[];
+
+const BRAND_LOGOS = {
+  "BHAESAJ เภสัช": "assets/brands/BHAESAJ.png",
+  "CERAVE เซราวี": "assets/brands/CERAVE.png",
+  "CLEARNOSE เคลียร์โนส": "assets/brands/CLEARNOSE.png",
+  "JANUA แจนยัวร์": "assets/brands/JANUA.png",
+  "OLAY โอเลย์": "assets/brands/OLAY.png",
+  "RATCHA รัชชา": "assets/brands/RATCHA.png",
+  "REXONA เรโซนา": "assets/brands/REXONA.png",
+  "SMOOTHE สมูทอี": "assets/brands/SMOOTHE.png",
+  "TAOYEABLOK เต่าเหยียบโลก": "assets/brands/TAOYEABLOK.png",
+  "THECHARMINGGARDEN เดอะชาร์มมิ่งการ์เด้น": "assets/brands/THECHARMINGGARDEN.png"
+};
+
+function brandColor(name){
+  const colors=['#2080be','#e05c8a','#5c8ae0','#e08020','#20a860',
+    '#9b59b6','#e74c3c','#16a085','#d35400','#2c3e50'];
+  let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))%colors.length;
+  return colors[Math.abs(h)];
+}
+function brandInitials(name){
+  const en=name.match(/^[A-Z0-9&]+/);
+  return en?en[0].substring(0,2):name.substring(0,2).toUpperCase();
+}
+function brandLogoTag(brand){
+  if(!brand)return '';
+  const url=(BRAND_LOGOS&&BRAND_LOGOS[brand])||'';
+  if(url){
+    return '<img class="brand-logo" src="'+url+'" alt="">'
+  }
+  return '<span class="brand-logo-fallback" style="background:'+brandColor(brand)+'">'+brandInitials(brand)+'</span>';
+}
+
+
+function goTag(tag){
+  _pushHistory();
+  document.getElementById('home').style.display='none';
+  document.getElementById('catalog').style.display='';
+  curCat='all';curSub='all';curTag=tag;curSearch='';curPage=1;
+  const si=document.getElementById('catSearch');if(si)si.value='';
+  applyFilter();updateSidebarActive();updateMobActive();
+  const b=document.getElementById('backBtnBar');
+  if(b){if(navHistory.length>0)b.classList.add('show');else b.classList.remove('show');}
+  const tagLabel=tag==='Hot'?'🔥 สินค้าขายดี':'✨ สินค้าใหม่';
+  updateActiveCatBar('all',tagLabel,tag==='Hot'?'🔥':'✨');
+}
+
+function init(){
+  const sub=document.getElementById('loadingSub');
+  if(sub)sub.textContent='กำลัง parse ข้อมูล '+Object.values(RAW_DATA).reduce((s,v)=>s+v.length,0).toLocaleString('th-TH')+' รายการ...';
+  const products=[];const smap={};
+  for(const [cat,arr] of Object.entries(RAW_DATA)){
+    smap[cat]=new Set();
+    for(const raw of arr){
+      if(!raw[0])continue;
+      if(!raw[4]||raw[4]<=0)continue;
+      const p={
+        code:String(raw[0]),name:raw[1]||'',
+        cat:cat+' '+(CAT_NAMES[cat]||''),catId:cat,
+        subCat:raw[2]||'',status:'',tag:raw[3]||'',
+        stdPrice:Number(raw[4])||0,retailPrice:0,
+        packQty:Number(raw[8])||1,baseUnit:raw[9]||'',
+        stock:Number(raw[5])||0,imageUrl:raw[6]||'',
+        brand:raw[7]||'',excelOrder:Number(raw[10])||0,
+      };
+      products.push(p);
+      if(p.subCat)smap[cat].add(p.subCat);
+    }
+  }
+  allProducts=products;
+  for(const k of Object.keys(smap))
+    subcatMap[k]=[...smap[k]].sort((a,b)=>a.localeCompare(b,'th'));
+  buildSidebar();buildMobCats();applyFilter();
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('home').style.display='';
+}
+
+function updateActiveCatBar(catId,label,icon){
+  const bar=document.getElementById('activeCatBar');
+  const lbl=document.getElementById('activeCatLabel');
+  const ico=document.getElementById('activeCatIcon');
+  if(!bar)return;
+  if(catId&&catId!=='all'){
+    if(ico)ico.textContent=(icon?icon+' ':'');
+    if(lbl)lbl.textContent='กำลังดู: '+label;
+    bar.classList.add('show');
+  } else {bar.classList.remove('show');}
+}
+function _pushHistory(){navHistory.push({cat:curCat,sub:curSub,tag:curTag,search:curSearch,page:curPage,scrollY:window.scrollY||window.pageYOffset||0});}
+function goBack(){
+  if(!navHistory.length){goHome();return;}
+  const p=navHistory.pop();
+  curCat=p.cat;curSub=p.sub;curTag=p.tag;curSearch=p.search;curPage=p.page;
+  document.getElementById('home').style.display='none';
+  document.getElementById('catalog').style.display='';
+  const si=document.getElementById('catSearch');if(si)si.value=curSearch;
+  applyFilter();updateSidebarActive();updateMobActive();
+  const b=document.getElementById('backBtnBar');
+  if(b){if(navHistory.length>0)b.classList.add('show');else b.classList.remove('show');}
+  updateActiveCatBar(curCat,CAT_NAMES[curCat]||curSearch,CAT_EMOJI[curCat]||'🏷️');
+  const _sy=p.scrollY||0;setTimeout(()=>window.scrollTo({top:_sy,behavior:'instant'}),80);
+}
+function goHome(){
+  navHistory=[];
+  const hb=document.getElementById('backBtnBar');if(hb)hb.classList.remove('show');
+  updateActiveCatBar('all','','');
+  document.getElementById('catalog').style.display='none';
+  document.getElementById('home').style.display='';
+  window.scrollTo(0,0);
+}
+function goCat(catId){
+  _pushHistory();
+  document.getElementById('home').style.display='none';
+  document.getElementById('catalog').style.display='';
+  curCat=catId;curSub='all';curTag='all';curSearch='';curPage=1;
+  const si=document.getElementById('catSearch');if(si)si.value='';
+  applyFilter();updateSidebarActive();updateMobActive();
+  const b=document.getElementById('backBtnBar');if(b)b.classList.add('show');
+  updateActiveCatBar(catId,CAT_NAMES[catId],CAT_EMOJI[catId]);
+}
+function goB(brand){
+  _pushHistory();
+  document.getElementById('home').style.display='none';
+  document.getElementById('catalog').style.display='';
+  curCat='all';curSub='all';curTag='all';curSearch=brand;curPage=1;
+  const si=document.getElementById('catSearch');if(si)si.value=brand;
+  applyFilter();updateSidebarActive();updateMobActive();
+  const b=document.getElementById('backBtnBar');if(b)b.classList.add('show');
+  updateActiveCatBar('brand',brand,'🏷️');
+}
+function doSearch(){
+  const q=(document.getElementById('homeSearch').value||'').trim();
+  if(!q)return;
+  _pushHistory();
+  document.getElementById('home').style.display='none';
+  document.getElementById('catalog').style.display='';
+  curCat='all';curSub='all';curTag='all';curSearch=q;curPage=1;
+  const si=document.getElementById('catSearch');if(si)si.value=q;
+  applyFilter();updateActiveCatBar('search','ค้นหา: '+q,'🔍');
+  const b=document.getElementById('backBtnBar');if(b)b.classList.add('show');
+}
+function setMobTag(tag){
+  curTag=tag;curCat='all';curSub='all';curPage=1;
+  document.getElementById('home').style.display='none';
+  document.getElementById('catalog').style.display='';
+  const si=document.getElementById('catSearch');if(si)si.value='';
+  curSearch='';
+  applyFilter();
+  const b=document.getElementById('backBtnBar');if(b)b.classList.add('show');
+  const label=tag==='Hot'?'🔥 สินค้าขายดี':'✨ สินค้าใหม่';
+  updateActiveCatBar('filter',label,'');
+  document.querySelectorAll('.mob-cat-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.mob-tag-btn').forEach(b=>{
+    if((tag==='Hot'&&b.textContent.includes('ขายดี'))||(tag==='New'&&b.textContent.includes('ใหม่')))b.classList.add('active');
+  });
+}
+
+
+// === Search Tokens (จากชื่อสินค้าจริง) ===
+const SEARCH_TOKENS = ["กรัม", "ครีม", "เซรั่ม", "คัลเลอร์", "spf50", "แฮร์", "ลิป", "พาวเดอร์", "สกิน", "แอนด์", "เคที่ดอลล์", "เพอร์ฟูม", "โลแลน", "แอคเน่", "โกลว์", "บอดี้", "ไบรท์", "ยูวี", "โลชั่น", "ฟาวเดชั่น", "นีเวีย", "เบบี้ไบร์ท", "แชมพู", "โอดีบีโอ", "มาสก์", "เจล", "ออยล์", "คุชชั่น", "ไวท์เทนนิ่ง", "ไวท์", "เมลินดา", "นรา", "ศรีจันทร์", "เอ็กซ์ตร้า", "เมอร์เรซกา", "อาย", "ไฮยา", "วอเตอร์", "บูสเตอร์", "แคร์", "สเปรย์", "คลีนซิ่ง", "ดีแคช", "ทินท์", "spf", "เนเชอรัล", "ทรีทเม้นท์", "สมูทโตะ", "บลัช", "ฟาร์เกอร์", "คอนโทรล", "แผ่น", "บราวน์", "การ์นิเย่", "เบจ", "โรจูคิส", "พลัส", "แมนชอง", "อัพ", "เลิฟ", "คิวท์เพรส", "ซันสกรีน", "กลูต้า", "ซีเคร็ท", "เบอริน่า", "โปร", "โจจิ", "ยัง", "แมท", "ไบร์ท", "ซีเวนน่า", "คัลเลอร์ส", "มาสเตอร์", "ชาร์มิส", "แมทท์", "คอลลาเจน", "เพอร์เฟค", "วาสลีน", "ชิ้น", "มิซึมิ", "เคลียร์", "พาเลท", "เจลลี่", "คิส", "ไลท์", "ฟาวน์เดชั่น", "เมย์เบลลีน", "แคร์บิว", "พิกเซล", "spf30", "วิตามิน", "โฟม", "สมูท", "โรส", "แจ๊บส์", "บราวอิท", "นามิ", "ไบรท์เทนนิ่ง", "เฟรช", "ซูพรีม", "hce", "ครีมย้อมผม", "โรลออน", "เคเอ", "ดอกเตอร์พงศ์", "ออร่า", "มาสคาร่า", "ลอรีอัล", "ไมเซล่า", "เมค", "พีช", "แบล็ค", "จุฬาเฮิร์บ", "มาส์ก", "ศศิ", "เมคอัพ", "แอนตี้", "ปารีส", "คลีนเซอร์", "คัฟเวอร์", "ซุปเปอร์", "เฟเชียล", "เจ้านาง", "เมน", "แมตต์", "เบบี้", "อายแชโดว์", "อิน", "บราว", "พรีเมี่ยม", "มิสทิน", "คอนซีลเลอร์", "ไฮโดรเจล", "มิลค์", "เคราติน", "ชีค", "อัลตร้า", "วอช", "โปรเฟสชั่นนอล", "แอคทีฟ", "ซูเปอร์", "ไพรเมอร์", "เพนซิล", "แพลนท์เนอรี่", "ชายน์", "ครูเซ็ท", "เลนส์สัมผัส", "ซีซี", "แป้ง", "แนทเชอรัลส์", "มอยส์เจอร์", "แพ็คคู่", "ออล", "ดราย", "ลิควิด", "เพียว", "พอร์เลส", "คู่", "มิลเล่", "ไบร์ทเทนนิ่ง", "ซัน", "โซป", "เนทูร่า", "เดย์", "โพชั่น", "ทรีตเมนต์", "ซากุระ", "อิเวอร์รี่", "เบอร์", "เดอะ", "ฟอร์", "สครับ", "ซิสต้าร์", "ฮันนี่", "อิ้งค์", "ซอฟต์", "มาย", "วิตามินซี", "พาเลทท์", "ฟลอรัล", "ซันซิล", "แมส", "สคินทิฟฟิค", "เรด", "เดลี่", "บิวตี้", "สติ๊ก", "มาสก์ชีท", "ซาช่า", "แคริ่ง", "ชวาร์สคอฟ", "มิส", "โซล", "ซุปเปอร์สเตย์", "แกลดทูโกลว์", "สวีท", "ดูโอ้", "แดซเซิล", "บีบี", "spf35", "แลช", "สีดำ", "ไนท์", "อินเทนซีฟ", "เฮลธี้", "บาล์ม", "วอเตอร์เมลอน", "เจนเทิล", "เพอร์เฟ็ค", "พอร์", "แพ็ค", "เรเดียนซ์", "ลอง", "วิตซี", "สปอต", "มิราเคิล", "รีแพร์", "อายแลช", "ทิ้นท์", "ซอฟท์", "เซราไมด์", "โซลูชั่น", "ริช", "เคลียร์โนส", "ฮาดะ", "ลาโบะ", "สปา", "1:1", "เชอรีล่อน", "ฟิกซ์", "ฮาร์ท", "ไฮยาลูรอน", "ดิวอี้", "ซิกเนเจอร์", "เลิฟลี่", "คอมพลีท", "ชาร์มมิ่ง", "ไลเนอร์", "เพ็นซิล", "เรตินอล", "บิโอเร", "แพด", "วิป", "แว๊กซ์", "ถุงน่อง", "เชอร์รี่", "เมจิก", "เพิร์ล", "แอชลี่ย์", "เลดี้", "รีฟิล", "แอร์รี่", "พอนด์ส", "มีเดียม", "ทรี", "บาย", "โยเกิร์ต", "สมูทอี", "แชโดว์", "ไนอะซินาไมด์", "ไวตามิน", "เอ็กซ์เซลเลนซ์", "เดอ", "คาริโอ้", "คัฟเวอเรจ", "ออเวส์", "แมทต์", "ไฟน์", "กลาส", "ดาร์ก", "โกลด์", "เอสเซนส์", "บอนเน่", "อินฟิวส์ชั่น", "พาร์ฟูม", "แจนยัวร์", "ขนตาปลอมมีกาวในตัว", "กาวใส", "ช่อ", "ซอง", "แฮนดี้เฮิร์บ", "ครีมมี่", "อายไลเนอร์", "รีจู", "โทเมโท", "ดีพ", "คอตตอน", "ฟลอเลส", "ฟิตมี", "สลิม", "อโล", "โทนเนอร์", "โพรเทคชั่น", "เซนซิทีฟ", "เดอลิเซ่", "ซอลท์", "ครีมอาบน้ำ", "เภสัช", "สเตรท", "รุ่น", "เนเจอร์โค้ด", "บอลลูนบรา", "ขนตาปลอม", "ผลิตภัณฑ์สำหรับการดูแลเลนส์สัมผัส", "กลอสซี่", "พิงค์", "แอมพูล", "เบอร์รี่", "คัลเลอร์ฟูล", "แคนดี้", "บลอสซั่ม", "ป๊อป", "ซันฟลาวเวอร์", "ดับเบิ้ล", "เพอร์เฟคท์", "ทัช", "ไซส์", "มู้ด", "อายบราว", "เอสเซ้นส์", "การ์เด้น", "เบิสท์", "วิธ", "นู้ด", "ชูการ์", "ออน", "แอปเปิ้ล", "พาวเวอร์", "ฟรี", "เฟซ", "ตรางู", "คอนทัวร์", "คูล", "เลม่อน", "รีมูฟเวอร์", "เฟส", "รัชชา", "10เอ็กซ์", "ไมโคร", "ซูทติ้ง", "เอเอชเอ", "15มล", "โฟมมิ่ง", "โชกุบุสซึโมโนกาตาริ", "คอนดิชันเนอร์", "โบทานิคแฮร์คัลเลอร์เซรั่ม", "แชมพูปิดผมขาว", "ดาร์ลิ่ง", "เต่าเหยียบโลก", "แกลม", "คลาสสิค", "สโนว์", "วัน", "เอ็นชานเท็ด", "ซิก้า", "ฟิต", "สกินนี่", "เซ็กซี่", "สีน้ำตาลเข้ม", "ดิออริจินัล", "ไฟโต", "โพรเทค", "คอสเมติก", "เกลือสปา", "ซิตร้า", "แคปซูล", "พอช", "แปรงสีฟัน", "ไบโอเซฟตี้", "กลอส", "เวลเวท", "เกิร์ล", "ออเร้นจ์", "นิวยอร์ก", "ไวนิล", "เกรซ", "พิ้งค์", "ฟิลเตอร์", "5เอ็กซ์", "spf25", "ไลท์เบจ", "โทน", "od276", "โกลว์อิ้ง", "สเนล", "แอรี่", "มอยส์เจอร์ไรซิ่ง", "วอเตอร์พรูฟ", "เคลย์", "ฮาดะบิเรอิ", "ลาลิโอ", "ซันลูชั่น", "นูโทรจีนา", "เซราวี", "โอเลย์", "เซนกะ", "สีชมพู", "โปรเฟสชั่นแนล", "จอห์นสัน", "จินนาย", "ฟราแกรนซ์", "90มล", "เฮอร์บัล", "โคทา", "เฮอเบิล", "brown", "ยัวร์", "spf15", "วอเตอร์เมล่อน", "คอรัล", "อิงค์", "คารา", "ลิปสติก", "แบริเออร์", "เบลอ", "อินสตาแกลม", "แฟลช", "เก็ตแอนด์โกลว์", "รีทัช", "เค้ก", "เบลอริ่ง", "ทรานส์ลูเซนท์", "วานิลลา", "ไอวอรี่", "โทนอัพ", "เฟิร์ส", "ลองแวร์", "บิวตี้แลป", "สกาย", "อายไลน์เนอร์", "ไลน์เนอร์", "คอฟฟี่", "สลีปปิ้ง", "พรีเมียม", "มิว", "ไบโอ", "อโลเวร่า", "เฟิร์ม", "พีดีอาร์เอ็น", "ชีท", "เอจจิ้ง", "คูลลิ่ง", "คามู", "คาริสต้า", "กิฟฟารีน", "รอยัลบิวตี้", "เอ็ม", "เดอร์มา", "อิท", "บลีชชิ่ง", "โอเค", "คาซูมิ", "เจเอ็มเอฟ", "ยาสีฟัน", "เอลิส", "บอช", "ลอมบ์", "มูส", "มอยส์", "แม็กซ์", "แซนด์", "เอลิซ่า", "เฮลเล็นน่า", "จุ๊ยซี่", "ซีเอชวาย", "บาบาร่า", "ผิวสองสี", "มอยซ์เจอร์ไรซิ่ง", "spf40", "ไบท์", "เซนโดริ", "อินวิซิเบิล", "ยูธ", "ดีดี", "คูชั่น", "บีเคแอคเน่", "เพอร์เฟ็กต์", "สเตย์", "หัวปั๊ม", "ดรีม", "เอจ", "คลีน", "ไฮไลท์เตอร์", "เซ็ทติ้ง", "แพทช์", "เพรชเชิส", "ไฮเดรทติ้ง", "อาร์บูติน", "บูสต์", "อควา", "บีเอสซี", "ฟอร์มูล่า", "คลีนแอนด์เคลียร์", "ดีพคลีน", "เมนโทลาทั่ม", "สูตร", "บอดี้โลชั่น", "ทองสุข", "แฮร์สปา", "ไลโอ", "อินเทนซ์แคร์", "บัวหลวง", "แอบโซลูต", "ฟิกเซล", "แองเจิ้ล", "ชั้น", "ดีไอวาย", "ซีรี่ย์", "ขนตาแบบช่อ", "กาวในตัว", "ตาบน", "เม็ด", "กัมมี่", "ทูธเพสท์", "เลดี้แคร์", "วีแคร์", "ลาสติ้ง", "กาแล็กซี่", "วอลลุ่ม", "บลูมมิ่ง", "วอร์ม", "จอย", "ออริจินัล", "ดีเซ้ย์", "ทูเวย์", "ผิวขาว", "ทรีดี", "เพาเดอร์", "ออย", "ชิฟฟ่อน", "ริบบ้อน", "เอสเซนเชียล", "เบส", "บลู", "พอร์เลสฟาวเดชั่น", "ไลฟ์ฟอร์ด", "30มล", "จูเน่", "เรียล", "อายดอล", "ชาโดว์", "วิ้งค์", "บลิงค์", "สีน้ำตาล", "ดอลลี่", "สวีทฮาร์ท", "เดอร์มีดี", "ไทยแลนด์", "มูดส์", "ไฮเดรติ้ง", "อินเทนซ์", "วิต", "อินวิซิเบิ้ล", "สกินซิสต้า", "มิสท์", "เมลาสม่า", "คาเมลเลีย", "มนตรี", "กริป", "วิตามินอี", "วิภาดา", "ลักส์", "โบย่า", "แว็กซ์", "วีท", "บอดี้ไวท์เทนนิ่งโลชั่น", "เฮลธีเออร์", "สมุนไพรไทย", "ลอเลนติส", "แอนตี้แดนดรัฟ", "จีน่า", "สีขาว", "ซุปเปอร์วี", "น้ำหอม", "ดีโอโดแรนท์", "เรโซนา", "แบบตะขอ", "บอกต่อ", "วีด้า", "เมดิก้า", "กลิตเตอร์", "วายโอยู", "วิทซีวอเตอร์ทินท์", "ยูสตาร์", "คริสตัล", "กรีน", "แบร์", "อัลมอนด์", "เกลซ", "บลัด", "ดราก้อน", "บลูม", "ฟินิช", "สปีด", "เวย์", "c21", "เดอลีฟทานาคา", "เอซ", "ดรีมมี่", "บรัช", "ออริจินอล", "สกินแคร์", "7มล", "ซิลกี้", "มัลติ", "เซ็ท", "เอ็กซ์", "โรแมนซ์", "เมคเกอร์", "น้ำตาลเข้ม", "ออโต้", "ดินสอเขียนคิ้ว", "อายโบรว์", "พ็อกเก็ต", "เอจเลส", "มาส์ค", "เฟเชี่ยล", "เคียวร์ซิส", "เปปไทด์", "นิกส์", "เบิร์ส", "28ดี", "อัลทิเมท", "คอนเซนเทรท", "มอยซ์เจอร์", "มอยส์เจอไรซิ่ง", "สมูธ", "เคลนเซอร์", "แอคเน่เอด", "ลูมินัส", "เก็ท", "เบนเนท", "คิวเท็น", "ทับทิม", "อันเดอร์อาร์ม", "รีสโตร์", "สีเนื้อ", "อัญชัน", "บอนด์", "แฮร์โค้ท", "ครีมยืดผม", "เอ็น", "ชิเซโด้", "ภูมิพฤกษา", "มิสต์", "พิมรี่พาย", "แป้งระงับกลิ่นกาย", "เครื่องหนีบผม", "ไฟเบอร์", "อินทิเมท", "โซฟี", "สำลีแผ่น", "เอนด์เลส", "สตรอเบอร์รี่", "พลัมพิ่ง", "มินิมอล", "เกลซด์", "ฟิลเลอร์", "รัน", "ฟลัฟฟี่", "ชิลด์", "แฮปปี้", "คาราเมล", "ซิสทูซิส", "วันทูบิวตี้ฟูล", "ซีโร่", "บูเต้", "คอมแพค", "ลูส", "คอมฟอร์ท", "สุรีย์พร", "พิงก์กิช", "ปริกลี่ฮีท", "เลเยอร์", "เฟิร์สท", "วอทส์", "เบลอรี่", "พาราไดซ์", "ทูพี", "โอ้", "ดอท", "บีดี", "คอเรคเตอร์", "ไอดีล", "โซลา", "เอสเซ็นเชียล", "ดีเฟนซ์", "เคิร์ล", "โกโก้", "คิ้วท์ซี่", "od2035", "แอช", "โนส", "ดินสอเชือก", "โปรสลิมบราวเพนซิล", "ไลน์", "โอเวอร์ไนท์", "ไฮโดร", "แอซิด", "บีเอชเอ", "แอนติ", "รีไวทัลไลซิ่ง", "รีเฟรช", "คอมเพล็กซ์", "วอเตอร์รี", "ฟลูอิด", "แอดวานซ์", "เฮอร์เบิล", "สปอตเลส", "บีเฟสต้า", "เอฟ", "โยโกะ", "อาเซปโซ", "กำจัดขน", "ชมพู", "เรเดียนท์", "บลิ๊งค์", "เซรั่มคอนดิชันเนอร์", "แฟนตาซี", "แฟรี่ปาย", "ครีมนวด", "ฟ้า", "โกแฮร์", "ดาเมจ", "แดเมจด์", "ดิ๊พโซ่", "มิ้ลค์", "มอลลี่", "เจโฟร์ท", "จูโน่", "มาดามฟิน", "เดย์สเตย์", "เดอร์", "อะมัวร์", "ไอดู", "คละสี", "รับปริญญา", "หนีบ", "เอสเค", "แปรงปัดแก้ม", "แลชเชส", "สกินแล็บ", "เทพไทย", "เคล็นเซอร์", "ก้าน", "ไวพส์", "ดรีมอาย", "เลิฟลี่พลัส", "โรเซ", "ซอฟเลนส์", "คอนแทคเลนส์ชนิดใส", "ลิปอิท", "รูจ", "ลิปแคร์", "ออโรร่า", "พีดีอาร์เอน", "แทททู", "เอ็นจอย", "รีจูไลท์", "จุ้ยซี่", "บลิส", "ไชน์", "มูน", "บอนนี่", "ฟิท", "ชีนเน่", "ออยล์ฟรี", "พัฟ", "spf20", "เซ็ตติ้ง", "เซลีน่า", "บล็อก", "เอบีน่า", "แป้งเย็น", "รีแล็กซิ่ง", "เวย์ส", "เนอเชอรัล", "อีส", "มูด", "ลาเวนเดอร์", "โฟร์", "คิวบ์", "แมจิก", "อัลติเมท", "ฟูล", "ซีซีครีม", "50มล", "เดอร์ร่า", "โกลวี่", "เฉดดิ้ง", "อีซี่", "อินน์", "ลิฟต์", "ฟิกซิ่ง", "ไนน์", "เกรย์", "mc3120", "ap006", "พาชิ", "ชาร์โคล", "แบล็คเฮด", "ไฮเดรชั่น", "ลองแกน", "แอนไท", "เซวา", "ไฮดราเฟนซ์", "มายด์", "บิวตี้ทรี", "ดีเฟนเดอร์", "พรี", "เบลมมิช", "รีแพร์ริ่ง", "ซีรั่ม", "ยันฮี", "วิท", "เบบี้เฟซ", "แผ่นฟิล์มซับความมัน", "แดซเซิลมี", "รดา", "โคโคนัท", "ดีท็อกซ์", "ซอลต์", "ลาโวจอย", "กลูต้าโกลว์", "เนล", "นัมจู", "เมเนจเจเบิ้ล", "มะกรูด", "เยลโล่", "เอลแซฟ", "เทรซาเม่", "เคอราติน", "คอนดิชั่นเนอร์", "โกท", "อินทัช", "บาลานซ์", "สไตล์ลิ่ง", "คิท", "คริสทาไลซิ่ง", "เอช", "เซ็ต", "พิค", "แพนโทน", "โฮลด์", "ปั๊ม", "อีเวนนี่ย์", "โฟลว์", "เออ", "พิงคึ", "สโนว์เกิร์ล", "โคโลญ", "คูลคิก", "บราแบบเชือก", "ซัพพอร์ท", "ลินีน", "นู๊ด", "พัฟแป้งฝุ่น", "ทรูสเลน", "ด็อกเตอร์", "เรย์", "ฟลูออไรด์", "เดนทิสเต้", "แฟรี่วิงส์", "ชนิด", "เอเม่", "แคริสม่า", "วันทัช", "ตัวหนีบ", "วาเลนไทน์", "มิดไนท์", "พีชชี่", "ราสเบอร์รี่", "ลีฟ", "เบลอลิ่ง", "ฑาบายน้องฉัตร", "คลิกคลิก", "ลาวา", "แครอท", "แมสก์", "เฟรนด์ลี่", "มิลค์กี้", "เกรป", "ครัช", "ป๊อบ", "มิฮาดะ", "ไลแลค", "เบคก้า", "ยาฟู", "n10", "y20", "อาร์รอน", "สปีดไวท์", "สเปเชี่ยล", "p10", "spf50pa", "เมลิน", "บลัชเชอร์", "บลัชออน", "สตาร์", "แบล็ก", "เมคอัพเฮ้าส์", "พินช์", "อีอี", "ลิขวิด", "โกลว์วี่", "คอนซิลเลอร์", "5มล", "เอทูพี", "เพอร์เฟกต์", "โคฟเว่อร์สกิน", "เนเจอรัล", "โคฟเวอร์", "กลาสซี่", "วันเดอร์", "เรฟลอน", "ล็อค", "โกลวี่ทินท์", "แอร์", "ทิ้นต์", "od4015", "มิลก์", "เก็ต", "บราวคาร่า", "เมจิ", "บัตเตอร์ฟลาย", "น้ำตาล", "od2019", "od2014", "เมลโลว์", "ช็อต", "คอลเลคเตอร์", "od2030", "od1334", "เมลท์", "เพน", "เพ็น", "แฟลต", "สมาร์ท", "ออร์โต้", "โบรว์", "md3041", "od2036", "เชป", "od703", "นีดดี้", "บลอนด์", "พาเลตต์", "สตริบส์", "ซัลเฟอร์", "เอสเซนต์", "ลาเจน", "อายมาสก์", "3ดี", "ไมโครไบโอม", "แอม", "เวร่า", "กลาสสกิน", "อะควา", "โพรเท็ค", "บานาน่าโบ๊ท", "มาเชอรี่", "เอ็กซ์ตรีม", "ออร์แกนิค", "โดรน", "เดย์ครีม", "ไนท์ครีม", "พรทิน่า", "พรทิพย์", "เฮ็กซิล", "มัลติวิตามิน", "มอยเจอร์ไรเซอร์", "รีไวทัลลิฟท์", "ไทม์เลส", "อ๊อกซีเคียว", "ดีเฟนส์", "เดอลีฟ", "อินเท็นซีฟ", "เซนเทลล่า", "ซาลิไซลิค", "ขนาด", "พีลลิ่ง", "โปรวาเมด", "โอลด์ร๊อค", "ซอลล์", "โทนนิ่ง", "บี5", "เพียวริก้าส์", "วิปโซป", "เคลนซิ่ง", "พรีมโนบุ", "สมูทติ้ง", "แกสบี้", "สเต็ป", "ไซเดอร์", "สบู่", "แพดส์", "odr03", "พรามี่", "คอสมิค", "บิวตี้เนเจอร์", "สูตรนมแพะ", "มะขาม", "วิตามินบี3", "สมูทตี้", "บาธ", "ไลบรารี่", "เลท", "โปรทอน", "สปาร์คกลิ้ง", "บอดี้วอช", "กรัมhm109", "ตลับสีน้ำเงิน", "เท็นซูเปอร์", "ฟู้ด", "ลาวีด้า", "ซุปเปอร์ฟู้ด", "เฟรชล็อค", "เนส", "ฟรีขนาดพกพา", "อาร์", "สวีทมัสค์", "โมมิจิ", "แดเมจ", "น้ำนมข้าว", "สีเทา", "ไบโอเวช", "ไบโอติน", "ผมทำสี", "เนเจอร์", "กรีนไบโอ", "สตรอง", "ทรีทเม้นต์", "เอ็กซ์แทร็ค", "แกลทท์", "แชมพูเปลี่ยนสีผม", "มิลค์กี้ออกซี่", "สีดำธรรมชาติ", "เลเวล", "โกรกอโรม่า", "od1", "พาสเทล", "เฟรชไลท์", "พาแคร์", "เบซซี่", "สเปรย์แข็ง", "ซีวิค", "ฟิโอน่า", "เซต", "บีช", "เฮอร์แมน", "เพอร์สไปแรนท์", "ดีโอเดอะแรนท์", "ลาวีเลีย", "ซีแอนด์อี", "แอนติเพอสไปแรนท์", "ชาวเวอร์คลีน", "สีทาเล็บ", "โซลินเจน", "ไดร์เป่าผม", "มีดกันคิ้ว", "เคิร์ลเลอร์", "แปรง", "เพอร์เฟคพาสเทล", "mc4286", "ผลิตภัณฑ์อาหารเสริม", "ผลิตภัณฑ์เสริมอาหาร", "แอล", "เจจูวิต้า", "ทรีเมจิก", "โบต้าพี", "กาแฟปรุงสำเร็จชนิดผง", "คาโมมายล์", "เมดิก้าไฟเบอร์", "เซ็นโซดายน์", "เฟมินีน", "หน้ากากอนามัยทางการแพทย์", "ทองเต็มถัง", "รถพยาบาล", "สำลีก้าน", "ผ้าเช็ดทำความสะอาด", "คาดผมสี", "ซีแอนด์ซี", "มาญ่า", "เฟรนลี่", "ช่อดอกไม้", "ดอกกุหลาบ", "โชว์", "ชิคมอยส์เจอร์", "นูริชชิ่ง", "บับเบิ้ล", "บริค", "ไซรัป", "เภสัชกร", "ลิปบาล์ม", "สตรอว์เบอร์รี่", "พุดดิ้ง", "รัช", "คอร์เรคเตอร์", "ดรอป", "ซีวีด", "ฟิตติ้ง", "เชปเปอร์", "mc2074", "โมฟว์", "ป๊อปปี้", "ฟลาวเวอร์", "โรซี่", "แล็กเกอร์", "โฟกัส", "โมจิ", "แม่เลียบ", "รีฟิล12", "ชิมเมอร์", "นัมเบอร์", "ตลับแดง", "เอ็กซ์3", "ผิวขาวเหลือง", "spf12", "เซริเซ่", "เมเย่อร์", "wink", "ซียู", "คัฟเวอร์เรจ", "เอชดี", "โทเมโท่", "โกลว์เฟรนด์", "ควีน", "นิวทรัล", "ฟอล", "ลุค", "โกลเด้น", "hf239", "เนียน", "เนเชอรัลเบจ", "โกล์ด", "ไพร์เมอร์", "เบิร์น", "วานิลา", "มอร์", "5กรัม", "ลูมิ", "รองพื้น", "เอสเซนซ์", "เวลเว็ท", "ออล์", "คัลเลอร์สเตย์", "คอมบิเนชั่น", "ออยลี่", "od450", "เซมิ", "ซายน์", "เอฟเวอลาสติ้ง", "ฮิดเดน", "วอลุ่ม", "ชาโคล", "ลิฟท์", "ล็อก", "มัทฉะ", "แอชบราวน์", "สไตลิ่ง", "hf240", "โฟลทิ้ง", "hf808", "อายเมซิ่ง", "ออฟ", "od2023", "hf660", "hf659", "วู้ดดี้", "จีน่าแกลม", "ไฮไลท์", "โบทานิค", "ชาร์ป", "hf772", "วิช", "ดาร์ค", "โฉมใหม่", "น้ำตาลอ่อน", "ช็อกโกแลต", "สตอรี่", "es004", "ดินสอแดงมีกบ", "แฟลท", "โอบิวซ์", "เครออน", "ซอร์ส", "ออโตเมทิค", "hf206", "ไทนี่", "hf182", "เลิฟลี", "hf661", "โคลด์", "เรเดี้ยน", "มัควอร์ธ", "อีสสกิน", "วอเทอร์", "เอซี", "มินิไมซิ่ง", "สติก", "มิกซ์", "มินิทส์", "ซิงค์", "มอยซ์", "สตอเบอร์รี่", "สตริป", "สุภาภรณ์", "อัลฟ่า", "โพเมเกรเนต", "เท็กซ์เจอร์", "ดีฟ", "บลูมมี่", "ดีป", "ราชิ", "นาโน", "ซันสกรีนโลชั่น", "พีโอนี", "อเนสซ่า", "เนค", "เอ็กซ์เพิร์ท", "ซันเบรลล่า", "ทริปเปิ้ล", "รีเฟรชชิ่ง", "ลูมินัส630", "ชูทติ้ง", "โซฟ", "คลาริตี้", "ไนอาซอร์ซินอล", "มาดามออร์แกนิก", "อินเทนส์", "บีทรี", "บาลานเซอร์", "ไกลโคลิค", "อะลิเซ่", "จินเส็ง", "พอมิกราเนท", "เยอเพิล", "สตรอเบอรี่", "รีเจนเนอรีส", "คอนเซนเทรด", "ฟิสิโอเจล", "วูเน่", "โรลเลอร์", "ลิลลี่", "บี3", "อีเวน", "ออกซิเจน", "ถุงเติม", "เอนไซม์", "ไรซ์", "สีแดง", "อีลิท", "สกินอ๊อกซี่", "ไฮโดรเจลลี่", "เเพด", "มิเนรัล", "เซตติ้ง", "150มล", "ซันฟอเรสท์", "ฮอกไกโด", "ซิลค์กี้", "พอก", "รอว์ร่า", "อิงอร", "มิลล์", "บอดี้บาธ", "เจลอาบน้ำ", "มิกซ์เบอร์รี่", "เจแปนนิส", "ครีมกำจัดขน", "เชียบัตเตอร์", "บลิงก์", "กรัมhm062", "hm099", "บอดี้แคร์", "พีทัลล์", "แครนเบอร์รี่", "บอดี้ครีม", "วิตามินไวท์เทนนิ่ง", "สูตรผสม", "สูตรผสมสารป้องกันแสงแดด", "เอ็กซ์ตร้าไวท์เทนนิ่งโลชั่น", "สูตรผสมอัลฟ่าอาร์บูติน", "อีฟส์", "เมเจอร์", "คามูคามู", "บอดี้ซันเซรั่ม", "โฟโตเอจ", "แอสตาแซนธิน", "น้ำมันมะพร้าว", "ใบหมี่", "72เอช", "สีม่วง", "แพนทีน", "แฮร์ฟอล", "โทนิค", "q10", "250มล", "นิกาโอะ", "เคมิคัลลี", "ออยลี", "รูตส์", "ดีพราวด์", "โปรตีน", "แฮร์สเปรย์", "นูเทรียน", "สำหรับผมชี้ฟูไร้น้ำหนัก", "สำหรับผมแห้งเสีย", "จีนีวี่", "บัวทอง", "สีเขียว", "ฟรีแอนด์ฟรี", "เมอร์เมด", "น้ำยาดัดผม", "คอรัลล์", "นอร์มอล", "เพิร์ม", "สูตรครีม", "สีน้ำตาลประกายทอง", "บีเง็น", "mix", "ผงฟอก", "12%", "สีน้ำตาลคาราเมล", "ระดับ", "โค้ด", "มายคัลเลอร์", "ฟรีสไตล์มูส", "มาดาม", "วีวี่", "ทูซัมวัน", "fin", "มุนอาเฮ้าส์", "เจ็ต", "เมอร์รี่", "ราวด์", "เรดรูล", "คอลลิ่ง", "โพล", "ดีโอ", "เชฟเลส", "ดีโอโดแร็นท์", "ดาร์กวูด", "กรรไกรตัดหนัง", "ลิมาร์ค", "กรรไกรตัดเล็บ", "ซิลิโคนปิกจุก", "รุ่น009", "อริส", "มีฟัน", "et8860", "หวีช่าง", "กรรไกรตัดขนจมูก", "คอสลุคส์", "พัฟคุชชั่น", "ใบมีด", "กาวติดขนตา", "กันน้ำ", "ดอล", "บาร์บี้อาย", "เลน", "ไดอารี่", "อายลิด", "เทป", "เบลล์เลอรีน", "คิวทิ", "เอ็กซ์เอส", "15ซอง", "คาร์นิทีน", "คีเลท", "ยอดรัก", "ฟิลลิปส์", "กลางคืน", "มิสเซอร์", "ลอรีเอะ", "มีปีก", "ลิส", "เซนซิทีฟแคร์", "แลคตาซิด", "แผ่นอนามัย", "หงส์ไทย", "เวลแคร์", "กระดาษเช็ดหน้า", "ทิชชู่", "คิวอาย", "คิสซี่", "รีนิว", "เพอร์โพส", "ซิลิโคน", "mini", "คันแกรชเชอเลเชิ่น", "ปืนฉีดน้ำ", "แก้วน้ำสองใบ", "a455", "แดง", "ออทัมน์", "ไวน์", "ไวบ์", "กลิ่นสตรอเบอร์รี่", "ซีค", "วูด", "ช็อคโกแลต", "จูซี่", "ออเรนจ์", "แคร์ริ่ง", "บีไวลด์", "แกรม", "ช็อกโก", "ฟรุตตี้ป๊อป", "ยูซุ", "ไอซิ่ง", "เคลาดี้", "เดสเซิร์ท", "คลิก", "บราวนี่", "แบมบี้", "เมเปิ้ล", "พาย", "โซดา", "คอรอล", "รัม", "สวีทตี้", "ซันไชน์", "ป็อป", "เชอร์เบท", "สีผึ้ง", "01เยลโล่เบจ", "ซิลค์", "ซาติน", "พิงค์คิช", "ไดมอนด์", "นัมเบอร์วัน", "คอมแพ็ค", "ซีซีพาวเดอร์แพ็ค", "เอสเทติก", "เชนจิ้ง", "แอ็พเพียแร็นซ์", "แมช", "n40", "กรูออยล์", "เจนทู", "วิงส์", "เมจิกกลูต้าแพ็ค", "เวอร์88", "แฟรี่", "เดท", "เฉดส์", "พีเอช", "มาร์เบิล", "สไมล์", "ลาเต้", "ฮินท์", "อ็อฟ", "ลาย", "p02", "od1332", "ฮันนี่เบจ", "ไดฟูกุ", "โพรเท็กชั่น", "เวททูพาวเดอร์", "คอนเซ็นเทรต", "เอฟเฟกต์", "เบลอร์", "แวร์", "แซสซี่", "แคน", "พีเทล", "สปีดคัฟเวอร์", "มีเดียมเบจ", "สปีดไวท์ซีซีครีม", "เคเอ็มเอ", "ซอฟต์เบจ", "สกินอัพ", "01ไลท์", "อัลตรา", "hf559", "od6003", "od424", "ดาร์คสปอต", "ฟลอเล็ซ", "c01", "บีคิวโคฟเวอร์", "เขียว", "ไฮเปอร์เคิร์ล", "ไฮเปอร์", "เคอร์ลิ่ง", "od798", "โมเดล", "อะเวค", "คาเฟอีน", "เวรี่", "คอมบ์", "เพรสโซ่", "hf617", "บรอนซ์", "พิ้ง", "คอปเปอร์", "เอิร์ธ", "เมลโล่", "พาเลต", "มันช์", "od2024", "ทรีทส์", "od2034", "บีท", "a463", "ธรี", "g64", "hf646", "นอริชชิ่ง", "mc5083", "เพอร์เพิล", "เบลนดิ้ง", "mc5110", "อายไลนเนอร์", "อินเนอร์", "ดีพบราวน์", "แม็กซิมอล", "อัพแอนด์ดาวน์", "ทวิส", "mc3077", "ซุปเปอร์แบล็ค", "ลองลาสติ้ง", "พรีไซน์", "n450", "บรู๊คกี้", "ชูก้า", "สีน้ำตาลอ่อน", "ซีรีย์", "ดรออิ้ง", "บราวทูบี", "ดาร์กบราวน์", "น้ำตาลดำ", "น้ำตาลแดง", "วู้ด", "เชอร์รี่บราวน์", "จินเจอร์", "เบลด", "สลิมฟิต", "hf147", "สลิปปิ้ง", "คิสสกินแคร์", "ไฟท์ติ้ง", "นาคิส", "โทเมโท้", "ทีทรี", "แอคแพร์", "ไนอาซิน", "แอควิต้า", "คูคัมเบอร์", "ซาลิไซลิก", "เมลท์ติ้ง", "เฟิร์มมิ่ง", "24เค", "ปทุมมาศ", "ครีมขัดหน้า", "บูสท์", "คิวคัมเบอร์", "สปอท", "ริงเคิล", "สลีปเวลล์", "ฮีตติ้ง", "คาล์มมิ่ง", "ไบโอม", "มาสก์7", "มิเนอรัล", "บูส", "แทมมารีน", "15เอ็กซ์", "แอคก้า", "ดีเอสพี", "ไฮบริด", "การ์ด", "จ๊ะจ๋า", "ยูวีโพรเทคชั่น", "อะควาริช", "วอเตอร์รี่", "บล็อค", "มาซ่า", "ลูมิเนสเซนส์", "แฟบูลัส", "ซันบล็อก", "เอ็นเอ", "สีแพสเทล", "ซันล็อค", "วอเทอรี่", "กวนอิม", "เมลาสม่าโปร", "จิงเจอร์", "ณัชชา", "ไบโอมพลัส", "ดิอินกรีเดียนส์", "เลมอน", "ไบร์ทเทนนิ่งเจล", "บิวตี้ล็อกซ์", "บีควอล่า", "นีโอ", "ไฮยาลูรอนิค", "ฟิลลิ่ง", "โรช", "โพเซย์", "สกินชี", "แบร์ริเออร์", "ไนอาซินาไมด์", "เอ็มเอสเฮช", "อาร่า", "อาร์ซีซี", "เรดี้ทูไวท์", "มอยเจอร์ไรซิ่ง", "สการ์", "ทะเมโท", "อินโนเวทีฟ", "สคัลป์ติ้ง", "มีฝา", "โททัลเอฟเฟ็คส์", "7อิน1", "กราวิช", "แอคโนไฟท์", "คอมพลีต", "แรดิช", "รีคัฟเวอรี่", "เรติแนล", "แอนไทเอจจิ้ง", "บีไลค์", "พลัสไวท์", "ฮีรูสการ์", "ไวท์ทามินซี", "โดส", "โซนาอิ", "นิสิต", "คามิลเลีย", "มอยซ์เจอไรซิ่ง", "บี12", "ดัล", "ไมเซลแอร์", "ซูททิง", "เอสเอ", "ยูชุ", "อะมิโน", "ออยล์คอนโทรลโทนเนอร์", "ฟอร์เมน", "เพียวริฟายอิ้ง", "แอลกอฮอล์", "ไมเซลล่า", "ซีบัม", "ปันนี่", "โซพ", "ซอฟท์เทนนิ่ง", "เคลียร์เฟส", "เซตาฟิล", "ดีพวอช", "เคลียร์ริ่ง", "กลิ่นแอปเปิ้ล", "จัมโบ้", "คอมเฟรย์", "เอ็กซ์โฟลิเอตติ้ง", "ซูทธิง", "โทนเนอร์แพด", "นอน", "ไอออนิก", "เอเวียง", "บอดี้สครับ", "สูตรมะขาม", "เดอะควีน", "แม่แสงดี", "มิลด์", "เธาซันด์", "มีดี", "เดลี่เคท", "สบู่สมุนไพรกลั่น", "ไฮจินิค", "สบู่สมุนไพร", "ไชนีส", "เวทช์", "ไมด้า", "ph5", "น่ารัก", "เจเมล่า", "จิงโกะ", "บัตเตอร์", "เลอสกิน", "ไทนี่มี", "เจวาลิน", "ทัลค์", "ชิโรอิ", "มิ้นท์", "ทานาคา", "อินเทนซีฟออร่า", "พิณนารา", "ริเอ็น", "เดลิเคท", "100%", "เฮลธี", "กลูต้าไธโอน", "เจเค", "แลป", "ไวเทนนิ่ง", "ดีโอเดอแรนท์", "สูตรผสมคอลลาเจน", "และวิตามินบี3", "โยคี", "จัสมิน", "พอลก้า", "สกินโดส", "บีบีครีม", "80มล", "ไอดอล", "ไอส์แลนด์", "มิสท์สเปรย์", "ซันแคร์", "เทอราพี", "บอนวอน", "มายช้อยส์", "ว่านหางจระเข้", "สคัลลี่", "เมนทอล", "เพปไทด์บอนด์", "เคราตินบอนด์", "แคนตาลูป", "แชมพูสมุนไพร", "รีเฟรชแชมพู", "แอนตี้เยลโล่", "เอกซ์แทรกซ์", "เซเว่น", "เฮิร์บส", "ซากุระเฟรช", "อิทช์ฟรี", "ดีทอกซ์", "แบคทีเรีย", "เซรั่มแชมพู", "ผมแห้งเสีย", "รีจอยส์", "ทรีอินวัน", "โกล์ดมิลค์", "ลองแฮร์", "ทรีทเมนท์", "หมักผม", "เอลราเคิล", "ฝาเขียว", "รีเซตเตอร์", "แฮร์สปามาสก์", "ไฮโซ", "อะโวคาโด", "เซสซะมี", "เพอร์เฟคติ้ง", "รีครีเอเตอร์", "ปานี่", "โอลีฟ", "แลสลวย", "มัลติไวตามิน", "ทรีตเมนท์", "หมักเนทูร่า", "อินเทนซ์เเคร์", "เพล็กซ์", "แฮร์เซรั่ม", "แฮร์ฮีทโปรเทคเตอร์", "ซิลกี้ซีวีด", "ฮีท", "เดลี่แฮร์เซรั่ม", "สำหรับผมทำสี", "เนทูร่าเดลี่แฮร์เซรั่ม", "อาหารผม", "วิตามินแพ็คคู่", "ปั้ม", "เซรั่มบำรุงผมชนิดเจล", "แฟชั่น", "ลีกาโน่", "แฮร์เซรั่มเคราติน", "ทุกสภาพเส้นผม", "สำหรับทุกสภาพเส้นผม", "ไบโอวูเมนส์", "แฮร์โลชั่น", "โอเชี่ยน", "คอร์นี่", "เวฟ", "ข้าวโพด", "สูตร2", "สูตรเข้มข้น", "เสตรทเทนเนอร์", "ยูนิโดส", "ยืด", "สเตรทเทนนิ่ง", "อัลม่า", "เวลล่า", "สีชมพูพาสเทล", "b799", "b499", "b699", "ผงย้อมผม", "สีน้ำตาลธรรมชาติ", "ซีน", "ผงฟอกผม", "สีทอง", "น้ำตาลประกายทอง", "พาออนเซเว่นเอท", "เอ็กซ์เซลเล้นซ์", "สีน้ำตาลปานกลางประกายทองเหลือบมะฮอกกานี", "แฮร์ไลน์คูชั่น", "สีน้ำตาลประกายแดง", "สตาร์ลิสต์", "สเปรย์ฝุ่นทัฟท์", "แลคเกอร์", "ฟรีสไตล์", "ลอสต์", "พอยซั่น", "เครซี่", "วันซ์อะพอนอะบีช", "สวีทดิว", "เพลย์", "ดอลล์", "ไวท์มูน", "คลาวด์", "แพชชั่น", "ลัคซูรี่", "love", "เอ็มเค", "แมน", "แพร์", "ฟัน", "แฟร์", "โคโลญจ์", "ผงระงับกลิ่นเท้า", "จูเลียต", "อิมแพ็ค", "โพแทสเซียม", "อะลัม", "อีพิค", "ออเทนติก", "ดิฟฟี่", "รีลอน", "เฮอร์มันน์", "อินาเมล", "ผลิตภัณฑ์น้ำยาทาเล็บ", "บราปีกนก", "ซิลิโคนปิดจุก", "เต็มตัวไซต์ใหญ่", "แผ่นซิลิโคนกันรองเท้ากัด", "ถุงมือยางบิวตี้", "อเนกประสงค์", "ไซต์", "deedee", "กลาง", "su288", "ใหญ่", "su389", "กิ๊บดำ", "ซีเคแอล", "เครื่องม้วนผม", "hb010008", "พีเออี", "เออร์", "ที่ดัดขนตา", "เฟเธอร์", "แปรงบลัชแก้ม", "mc4280", "พัฟแต่งหน้า", "od8012", "เอลละเกินท์", "br03", "ฟองน้ำแต่งหน้า", "n222", "ติดตา2ชั้น", "มีกาว", "เบิร์ธเดย์", "ไซด์", "เอ็ก", "สปอนจ์", "เลซี่", "ซีรีส์", "แถว", "แมลงปอ", "แปรงแต่งหน้า", "aa202", "od848", "ขนตาล่าง", "แหนบติดขนตาปลอม", "มิลลิกรัม", "กลูตาแมกซ์", "จีเอ็ม", "แอสต้าแซนธิน", "ไดเตอร์", "คูมิโกะ", "อาหารเสริม", "บ้านแก้วใสเฮิร์บ", "ลูกปัด", "วิสทร้า", "อะเซโรล่า", "เชอรี่", "กลิ่นแอปเปิ้ลเขียว", "ชายนิ่ง", "ดอกเด่", "โครเมี่ยม", "เนเจอร์กิฟ", "จีไนท์", "พี่หนิง", "แจ่มใส", "เอส", "ซิสส์", "ซูเลียน", "ยาสีฟันสมุนไพรสูตรเข้มข้น", "ไหมขัดฟัน", "วายทูบี", "บายโภคา", "ลิสเตอรีน", "มัลติแคร์", "ไนท์ทาม", "แอนตี้คาวิตี้", "แฮวอน", "ยาสีฟันไวท์", "เลดี้แคร์คลีน", "64hs", "กลางวัน", "บีเอส", "รอยัล", "เคล็นซิ่ง", "ผ้าอนามัยกลางคืนแบบกางเกง", "ผ้าอนามัยกลางวันแบบกางเกง", "แคร์ฟรี", "ซอฟคลีน", "เสือดาว", "แทนใจ", "วอลลีแอส", "จูลี่", "สำลีแผ่นชนิดนุ่ม", "100ก้าน", "แถม", "ฮากุ", "คลีนนี่", "สูตรน้ำแร่", "เนเจอรัลซอฟท์", "เบบี้ไวพส์", "มามี่", "คลีนิกซ์", "สำลีแผ่นชนิดรีดขอบ", "โซซอฟ", "เจลหล่อลื่นสูตรน้ำ", "กระเป๋า", "ยางรัดผม", "คาดผม", "คาดผมดำกลาง", "คาดผมดำใหญ่", "กิ๊บติดผมดอกไม้", "คิตตี้คาวาอิ", "ออลอินวัน", "พริตตี้ดอล", "มนตรา", "มูเตลู", "ลักซ์ซี่", "วิชเชส", "เฮลโล", "คิตตี้", "ไอเลนส์", "ดรอพส์", "gray", "glaz", "cream", "lisa", "supassara", "ยูเลนส์", "ตุ๊กตา", "ดีบีเอฟ", "dream", "all", "clear", "drops", "herbal"];
+
+function normalizeQ(s){
+  return s.toLowerCase().replace(/[\s\-\/\(\)&+,\.#]+/g,' ').trim();
+}
+
+function matchProduct(p, words){
+  const haystack = (p.name+' '+p.code+' '+(p.brand||'')+' '+(p.subCat||'')).toLowerCase();
+  return words.every(function(w){
+    // exact include
+    if(haystack.includes(w)) return true;
+    // prefix match ใน tokens
+    return SEARCH_TOKENS.some(function(t){ return t.startsWith(w) && haystack.includes(t); });
+  });
+}
+
+function applyFilter(){
+  const q=normalizeQ(curSearch);
+  const words=q?q.split(' ').filter(function(w){return w.length>0;}):[];
+  filtered=allProducts.filter(function(p){
+    if(curCat!=='all'&&!q&&p.catId!==curCat)return false;
+    if(curSub!=='all'&&p.subCat!==curSub)return false;
+    if(curTag==='Hot'&&p.tag!=='สินค้าขายดี')return false;
+    if(curTag==='New'&&p.tag!=='สินค้าใหม่')return false;
+    if(words.length>0){if(!matchProduct(p,words))return false;}
+    return true;
+  });
+  filtered.sort((a,b)=>(a.excelOrder||0)-(b.excelOrder||0));
+  renderResultCnt();renderSubcats();renderProducts();renderPagination();
+}
+
+function buildSidebar(){
+  const sb=document.getElementById('sidebar');if(!sb)return;
+  let h='<div class="sb-hdr">กรองสินค้า</div>';
+  h+='<button class="sb-btn active" onclick="setTag(\'all\')">ทั้งหมด</button>';
+  h+='<button class="sb-btn" onclick="setTag(\'Hot\')">🔥 สินค้าขายดี</button>';
+  h+='<button class="sb-btn" onclick="setTag(\'New\')">✨ สินค้าใหม่</button>';
+  h+='<div class="sb-divider"></div>';
+  h+='<div class="sb-hdr">หมวดหมู่</div>';
+  h+='<button class="sb-btn" onclick="goCat(\'all\')">🗂 ทั้งหมด</button>';
+  for(const [k,v] of Object.entries(RAW_DATA)){
+    h+='<button class="sb-btn" onclick="goCat(\''+k+'\')">'+(CAT_EMOJI[k]||'')+' '+(CAT_NAMES[k]||k)+' ('+v.length+')</button>';
+  }
+  sb.innerHTML=h;
+}
+function buildMobCats(){
+  const mb=document.getElementById('mobCats');if(!mb)return;
+  let h='<button class="mob-cat-btn active" onclick="setMobTag(\'all\')">ทั้งหมด</button>';
+  h+='<button class="mob-cat-btn mob-tag-btn" onclick="setMobTag(\'Hot\')">🔥 ขายดี</button>';
+  h+='<button class="mob-cat-btn mob-tag-btn" onclick="setMobTag(\'New\')">✨ ใหม่</button>';
+  h+='<span style="width:1px;background:var(--border);align-self:stretch;margin:4px 2px"></span>';
+  for(const k of Object.keys(RAW_DATA)){
+    h+='<button class="mob-cat-btn" onclick="goCat(\''+k+'\')">'+(CAT_EMOJI[k]||'')+' '+(CAT_NAMES[k]||k)+'</button>';
+  }
+  mb.innerHTML=h;
+}
+function updateSidebarActive(){document.querySelectorAll('#sidebar .sb-btn').forEach(b=>b.classList.remove('active'));}
+function updateMobActive(){document.querySelectorAll('#mobCats .mob-cat-btn').forEach(b=>b.classList.remove('active'));}
+function setTag(tag){curTag=tag;curPage=1;applyFilter();}
+function setSub(sub){
+  curSub=sub;curPage=1;
+  document.querySelectorAll('.sub-btn').forEach(b=>b.classList.toggle('active',b.dataset.val===sub));
+  applyFilter();
+}
+function setView(v){
+  viewMode=v;
+  document.getElementById('vGrid').classList.toggle('active',v==='grid');
+  document.getElementById('vList').classList.toggle('active',v==='list');
+  renderProducts();
+}
+
+function renderResultCnt(){const el=document.getElementById('resultCnt');if(el)el.textContent='แสดง '+filtered.length.toLocaleString('th-TH')+' รายการ';}
+function renderSubcats(){
+  const bar=document.getElementById('subcatBar');if(!bar)return;
+  if(curCat==='all'||curSearch){bar.innerHTML='';return;}
+  const subs=subcatMap[curCat]||[];
+  if(!subs.length){bar.innerHTML='';return;}
+  let h='<button class="sub-btn '+(curSub==='all'?'active':'')+'" data-val="all" onclick="setSub(\'all\')">ทั้งหมด</button>';
+  for(const s of subs){
+    h+='<button class="sub-btn '+(curSub===s?'active':'')+'" data-val="'+s+'" onclick="setSub(\''+s.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')">'+s+'</button>';
+  }
+  bar.innerHTML=h;
+}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function badge(p){
+  if(p.tag==='สินค้าใหม่')return '<span class="badge-new">✨ ใหม่</span>';
+  if(p.tag==='สินค้าขายดี')return '<span class="badge-hot">🔥 ขายดี</span>';
+  return '';
+}
+function imgTag(p){
+  if(p.imageUrl)return '<img src="'+p.imageUrl+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
+  return '<div class="p-img-ph">🧴</div>';
+}
+function priceRow(p){
+  const ws=p.stdPrice>0?p.stdPrice.toLocaleString('th-TH')+' บาท':'-';
+  return '<span class="p-price">'+ws+'</span>';
+}
+function packInfo(p){return p.baseUnit||'';}
+function stockInfo(p){
+  if(p.stock>0)return '<span class="stock-in">✓ '+p.stock+'</span>';
+  return '<span class="stock-empty">สินค้าหมดชั่วคราว</span>';
+}
+function cardBtn(p){
+  const item=cart.find(c=>c.code===p.code);
+  const isOOS=p.tag==='สินค้าหมดชั่วคราว'||p.stock===0;
+  if(item&&item.qty>0){
+    return '<div id="cbtn-'+p.code+'" class="qty-ctrl">'
+      +'<button onclick="removeCardItem(\''+p.code+'\')">−</button>'
+      +'<input id="qi-'+p.code+'" type="number" value="'+item.qty+'" min="1" max="999"'
+      +' onchange="setCartQty(\''+p.code+'\',this.value)"  onclick="event.stopPropagation()">'
+      +'<button onclick="addCart(\''+p.code+'\')">+</button>'
+      +'</div>';
+  }
+  if(isOOS){
+    return '<button id="cbtn-'+p.code+'" class="preorder-btn" style="width:100%;padding:5px 0" onclick="addCart(\''+p.code+'\')">'+'🛒 สั่งจอง</button>';
+  }
+  return '<button id="cbtn-'+p.code+'" class="add-btn" style="width:100%;padding:5px 0;margin-bottom:0" onclick="addCart(\''+p.code+'\')">'+'+ ใส่ตะกร้า</button>';
+}
+function renderProducts(){
+  const area=document.getElementById('prodArea');if(!area)return;
+  const start=(curPage-1)*PER_PAGE;
+  const page=filtered.slice(start,start+PER_PAGE);
+  if(!page.length){area.innerHTML='<div class="no-result"><h3>ไม่พบสินค้า</h3><p>ลองค้นหาคำอื่น</p></div>';return;}
+  if(viewMode==='grid'){
+    let html='<div class="prod-grid">';
+    for(const p of page){
+      html+='<div class="p-card">'
+        +'<div class="p-img">'+imgTag(p)+'</div>'
+        +'<div class="p-body">'
+        +'<span class="p-code">#'+p.code+'</span>'
+        +'<div class="p-name">'+esc(p.name)+'</div>'
+        +'<div class="p-brand">'+esc(p.brand)+'</div>'
+        +'<div class="p-price-row">'+priceRow(p)+(badge(p)?'<span class="p-badge-inline">'+badge(p)+'</span>':'')+'</div>'
+        +'<div class="p-stock-row">'+(packInfo(p)?'<span style="font-size:.65rem;color:var(--txt3);font-weight:600">'+packInfo(p)+'</span>':'<span></span>')+stockInfo(p)+'</div>'
+        +cardBtn(p)
+        +'</div></div>';
+    }
+    area.innerHTML=html+'</div>';
+  } else {
+    let html='<div class="prod-list">';
+    for(const p of page){
+      html+='<div class="p-list-card">'
+        +'<div class="p-list-img">'+imgTag(p)+'</div>'
+        +'<div class="p-list-body">'
+        +'<span class="p-code">#'+p.code+'</span>'
+        +'<div class="p-list-name">'+esc(p.name)+'</div>'
+        +'<div class="p-brand">'+esc(p.brand)+'</div>'
+        +'<div class="p-price-row">'+priceRow(p)+(badge(p)?'<span class="p-badge-inline">'+badge(p)+'</span>':'')+'</div>'
+        +'<div style="display:flex;gap:8px">'+stockInfo(p)+'</div>'
+        +'</div>'
+        +'<button class="add-btn" style="width:auto;padding:6px 10px" onclick="addCart(\''+p.code+'\')">+</button>'
+        +'</div>';
+    }
+    area.innerHTML=html+'</div>';
+  }
+}
+function renderPagination(){
+  const pg=document.getElementById('pagination');if(!pg)return;
+  const total=Math.ceil(filtered.length/PER_PAGE);
+  if(total<=1){pg.innerHTML='';return;}
+  let h='';
+  const s=Math.max(1,curPage-3),e=Math.min(total,curPage+3);
+  if(curPage>1)h+='<button class="pg-btn" onclick="goPage('+(curPage-1)+')">‹</button>';
+  if(s>1)h+='<button class="pg-btn" onclick="goPage(1)">1</button><span style="padding:4px">…</span>';
+  for(let i=s;i<=e;i++)h+='<button class="pg-btn'+(i===curPage?' active':'')+'" onclick="goPage('+i+')">'+i+'</button>';
+  if(e<total)h+='<span style="padding:4px">…</span><button class="pg-btn" onclick="goPage('+total+')">'+total+'</button>';
+  if(curPage<total)h+='<button class="pg-btn" onclick="goPage('+(curPage+1)+')">›</button>';
+  pg.innerHTML=h;
+}
+function goPage(n){curPage=n;renderProducts();renderPagination();document.getElementById('mainContent').scrollTop=0;}
+
+function addCartN(code){
+  const inp=document.getElementById('qin-'+code);
+  const n=Math.max(1,Math.min(999,parseInt(inp?inp.value:1)||1));
+  const p=allProducts.find(x=>x.code===code);if(!p)return;
+  const idx=cart.findIndex(c=>c.code===code);
+  if(idx>=0)cart[idx].qty+=n;
+  else cart.push({code:p.code,name:p.name,price:p.stdPrice,packQty:p.packQty,baseUnit:p.baseUnit,qty:n});
+  renderCart();updateCardBtn(code);
+}
+function addCartQty(code){
+  const inp=document.getElementById('qi-'+code);
+  const qty=inp?Math.max(1,parseInt(inp.value)||1):1;
+  const p=allProducts.find(x=>x.code===code);if(!p)return;
+  const idx=cart.findIndex(c=>c.code===code);
+  if(idx>=0)cart[idx].qty+=qty;
+  else cart.push({code:p.code,name:p.name,price:p.stdPrice,packQty:p.packQty,baseUnit:p.baseUnit,qty:qty});
+  renderCart();updateCardBtn(code);
+}
+function setCartQty(code,val){
+  const qty=Math.max(1,Math.min(999,parseInt(val)||1));
+  const idx=cart.findIndex(c=>c.code===code);
+  if(idx<0)return;
+  cart[idx].qty=qty;
+  // sync input value (ป้องกัน out-of-range)
+  const inp=document.getElementById('qi-'+code);
+  if(inp)inp.value=qty;
+  renderCart();updateCardBtn(code);
+}
+function addCart(code){
+  const p=allProducts.find(x=>x.code===code);if(!p)return;
+  const idx=cart.findIndex(c=>c.code===code);
+  if(idx>=0)cart[idx].qty++;
+  else cart.push({code:p.code,name:p.name,price:p.stdPrice,packQty:p.packQty,baseUnit:p.baseUnit,qty:1});
+  renderCart();updateCardBtn(code);
+}
+function removeCardItem(code){
+  const idx=cart.findIndex(c=>c.code===code);if(idx<0)return;
+  cart[idx].qty=Math.max(0,cart[idx].qty-1);
+  if(cart[idx].qty===0)cart.splice(idx,1);
+  renderCart();updateCardBtn(code);
+}
+function updateCardBtn(code){
+  const el=document.getElementById('cbtn-'+code);if(!el)return;
+  const p=allProducts.find(x=>x.code===code);
+  const item=cart.find(c=>c.code===code);
+  const isOOS=p&&(p.tag==='สินค้าหมดชั่วคราว'||p.stock===0);
+  if(item&&item.qty>0){
+    el.outerHTML='<div id="cbtn-'+code+'" class="qty-ctrl">'
+      +'<button onclick="removeCardItem(\''+code+'\')">−</button>'
+      +'<input id="qi-'+code+'" type="number" value="'+item.qty+'" min="1" max="999"'
+      +' onchange="setCartQty(\''+code+'\',this.value)"  onclick="event.stopPropagation()">'
+      +'<button onclick="addCart(\''+code+'\')">+</button>'
+      +'</div>';
+  } else if(isOOS){
+    el.outerHTML='<button id="cbtn-'+code+'" class="preorder-btn" style="width:100%;padding:5px 0" onclick="addCart(\''+code+'\')">'+'🛒 สั่งจอง</button>';
+  } else {
+    el.outerHTML='<button id="cbtn-'+code+'" class="add-btn" style="width:100%;padding:5px 0;margin-bottom:0" onclick="addCart(\''+code+'\')">'+'+ ใส่ตะกร้า</button>';
+  }
+}
+function removeCart(code){
+  cart=cart.filter(c=>c.code!==code);renderCart();
+  const el=document.getElementById('cbtn-'+code);
+  if(el){el.className='add-btn';el.innerHTML='+ เพิ่มลงตะกร้า';el.onclick=function(){addCart(code);};}
+}
+function changeQty(code,delta){
+  const idx=cart.findIndex(c=>c.code===code);if(idx<0)return;
+  cart[idx].qty=Math.max(1,cart[idx].qty+delta);renderCart();
+}
+function renderCart(){
+  const cnt=cart.reduce((s,c)=>s+c.qty,0);
+  document.getElementById('cartCnt').textContent=cnt;
+  const fab=document.getElementById('cartFabCnt');
+  const fabLabel=document.getElementById('cartFabLabel');
+  const fabBtn=document.getElementById('cartFab');
+  if(fab){
+    fab.textContent=cnt;
+    fab.style.display=cnt>0?'flex':'none';
+    if(fabLabel)fabLabel.style.display=cnt>0?'none':'inline';
+    if(fabBtn&&cnt>0){fabBtn.classList.remove('pop');void fabBtn.offsetWidth;fabBtn.classList.add('pop');}
+  }
+  const items=document.getElementById('cartItems');
+  if(!cart.length){items.innerHTML='<p style="text-align:center;color:#aaa;margin-top:24px">ยังไม่มีสินค้า</p>';}
+  else{
+    let h='';
+    for(const c of cart){
+      h+='<div class="cart-item">'
+        +'<div style="font-size:.8rem;font-weight:700;margin-bottom:4px">'+esc(c.name)+'</div>'
+        +'<div style="font-size:.75rem;color:var(--txt3)">#'+c.code+(c.baseUnit?' · '+c.baseUnit:'')+'</div>'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'
+        +'<button onclick="changeQty(\''+c.code+'\',-1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer">−</button>'
+        +'<span style="font-weight:700">'+c.qty+'</span>'
+        +'<button onclick="changeQty(\''+c.code+'\',1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer">+</button>'
+        +'<span style="flex:1;text-align:right;font-weight:700;color:var(--acc)">'+(c.price*c.qty).toLocaleString('th-TH')+' บาท</span>'
+        +'<button onclick="removeCart(\''+c.code+'\')" style="color:#dc2626;background:none;border:none;cursor:pointer">✕</button>'
+        +'</div></div>';
+    }
+    items.innerHTML=h;
+  }
+  const total=cart.reduce((s,c)=>s+(c.price*c.qty),0);
+  document.getElementById('cartTotal').textContent='รวม: '+total.toLocaleString('th-TH')+' บาท';
+}
+function toggleCart(){document.getElementById('cartPanel').classList.toggle('open');document.getElementById('overlay').classList.toggle('show');}
+function closeCart(){document.getElementById('cartPanel').classList.remove('open');document.getElementById('overlay').classList.remove('show');}
+
+// ============================================================
+// LIFF INTEGRATION — เปรียว VIP Catalog
+// ============================================================
+// 1. ใส่ LIFF ID ของคุณตรงนี้ (ได้จาก LINE Developers Console)
+const LIFF_ID = '2010211018-V4JAFUOl'; // Priao VIP Catalog
+const LINE_OA_URL = 'https://lin.ee/mDhRNMT'; // LINE OA ของเปรียว
+// ============================================================
+
+let liffProfile = null;
+let liffReady = false;
+let liffInClient = false;
+
+async function initLiff(){
+  // ถ้ายังไม่ตั้งค่า LIFF_ID ข้ามไป (โหมด standalone web)
+  if(!LIFF_ID || LIFF_ID === 'YOUR_LIFF_ID_HERE'){
+    console.warn('[LIFF] LIFF_ID ยังไม่ได้ตั้งค่า — ทำงานในโหมด standalone');
+    return;
+  }
+  // รอให้ LIFF SDK โหลด (retry สูงสุด 10 ครั้ง = 5 วินาที)
+  let retries = 0;
+  while(typeof liff === 'undefined' && retries < 10){
+    console.log('[LIFF] waiting for SDK to load... attempt', retries+1);
+    await new Promise(r => setTimeout(r, 500));
+    retries++;
+  }
+  if(typeof liff === 'undefined'){
+    console.error('[LIFF] SDK failed to load after 5 seconds');
+    return;
+  }
+  try{
+    await liff.init({liffId: LIFF_ID});
+    liffReady = true;
+    liffInClient = liff.isInClient();
+    if(liff.isLoggedIn()){
+      liffProfile = await liff.getProfile();
+      // แสดง user badge บน header
+      const badge = document.getElementById('pcUserBadge');
+      const avatar = document.getElementById('pcUserAvatar');
+      const name = document.getElementById('pcUserName');
+      if(badge && liffProfile){
+        badge.style.display = 'flex';
+        if(liffProfile.pictureUrl) avatar.src = liffProfile.pictureUrl;
+        name.textContent = liffProfile.displayName || 'VIP';
+        const memInput = document.getElementById('memberInput');
+        if(memInput && !memInput.value) memInput.value = liffProfile.displayName || '';
+      }
+    } else if(liffInClient){
+      liff.login();
+    }
+  } catch(err){
+    console.error('[LIFF] init failed:', err);
+    window.__lastErrors && window.__lastErrors.push({
+      type:'liff-init',
+      msg:'liff.init failed: '+(err && err.message ? err.message : String(err)),
+      time:new Date().toLocaleTimeString()
+    });
+  }
+}
+
+// สร้าง Order ID อัตโนมัติ: PR + YYMMDD + HHmm + random 2 หลัก
+function genOrderId(){
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const yy = String(d.getFullYear()).slice(-2);
+  const mm = pad(d.getMonth()+1);
+  const dd = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const mi = pad(d.getMinutes());
+  const rand = pad(Math.floor(Math.random()*100));
+  return 'PR'+yy+mm+dd+hh+mi+rand;
+}
+
+function getTimestampTH(){
+  const d = new Date();
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const yy = d.getFullYear() + 543; // พ.ศ.
+  const pad = n => String(n).padStart(2,'0');
+  return d.getDate()+' '+months[d.getMonth()]+' '+String(yy).slice(-2)+' · '+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+
+// Helper: ทำให้ image URL ปลอดภัย (HTTPS + fallback ถ้าไม่มี)
+function safeImageUrl(url){
+  if(!url) return 'https://placehold.co/100x100/2080be/ffffff?text=Priao';
+  // force HTTPS
+  let u = url.replace(/^http:\/\//i, 'https://');
+  // ถ้าไม่ใช่ valid HTTPS URL → ใช้ placeholder
+  if(!/^https:\/\//i.test(u)) return 'https://placehold.co/100x100/2080be/ffffff?text=Priao';
+  return u;
+}
+
+// ----- Helpers สำหรับสร้าง URL ของ copy.html -----
+// URL-safe base64 encode (รองรับ UTF-8 ไทย)
+function b64UrlEncode(str){
+  return btoa(unescape(encodeURIComponent(str)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+// เฉพาะ SKU (barcode ล้วน 1 บรรทัด/SKU ไม่มี # ไม่มีจำนวน)
+function buildSkuText(cartItems){
+  return cartItems.map(c => String(c.code || '')).join('\n');
+}
+
+// รายการ + Order ID (ไม่มีคำนวณยอด, SKU ไม่มี #)
+function buildListText(orderId, customerName, cartItems, nameMax){
+  const trim = (s) => {
+    s = String(s || '');
+    if(!nameMax || s.length <= nameMax) return s;
+    return s.substring(0, nameMax - 1) + '…';
+  };
+  const lines = ['Order ID:'+String(orderId || '')];
+  if(customerName) lines.push('ลูกค้า:'+String(customerName));
+  lines.push('');
+  cartItems.forEach(function(c, i){
+    lines.push((i+1)+'. '+trim(c.name));
+    lines.push('   '+String(c.code || '')+' × '+c.qty);
+  });
+  return lines.join('\n');
+}
+
+// สร้าง URL ของ copy.html — auto-truncate ถ้ายาวเกิน LINE uri-action limit (1000 chars)
+function buildCopyUrl(baseHref, fmt, orderId, customerName, cartItems){
+  const URL_BUDGET = 950;
+  const buildUrl = (t) => baseHref+'?fmt='+fmt+'&t='+b64UrlEncode(t);
+
+  if(fmt === 'sku'){
+    let text = buildSkuText(cartItems);
+    let url = buildUrl(text);
+    let n = cartItems.length;
+    while(url.length > URL_BUDGET && n > 1){
+      n--;
+      text = cartItems.slice(0, n).map(c => String(c.code || '')).join('\n')
+           + '\n[+ '+(cartItems.length - n)+' รายการ — ดูในการ์ด]';
+      url = buildUrl(text);
+    }
+    return url;
+  }
+
+  // LIST: ลอง name length 60 → 40 → 25 → 15 → ไม่มีชื่อ → ลดจำนวน
+  const candidates = [null, 60, 40, 25, 15];
+  for(let i = 0; i < candidates.length; i++){
+    const text = buildListText(orderId, customerName, cartItems, candidates[i]);
+    const url = buildUrl(text);
+    if(url.length <= URL_BUDGET) return url;
+  }
+
+  const buildBareList = (n) => {
+    const slice = cartItems.slice(0, n);
+    let t = 'Order ID:'+String(orderId||'')+'\nลูกค้า:'+String(customerName||'')+'\n\n'
+          + slice.map((c,i) => (i+1)+'. '+String(c.code||'')+' × '+c.qty).join('\n');
+    if(n < cartItems.length) t += '\n[+ '+(cartItems.length - n)+' รายการ — ดูในการ์ด]';
+    return t;
+  };
+  let n = cartItems.length;
+  let text = buildBareList(n);
+  let url = buildUrl(text);
+  while(url.length > URL_BUDGET && n > 1){
+    n--;
+    text = buildBareList(n);
+    url = buildUrl(text);
+  }
+  return url;
+}
+
+// สร้าง Flex Message bubble — มี 2 ปุ่ม copy ใน footer
+function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, copyBaseUrl){
+  const itemContents = [];
+
+  cartItems.forEach(function(c, idx){
+    const product = allProducts.find(p => p.code === c.code);
+    const imgUrl = safeImageUrl(product ? product.imageUrl : null);
+    const lineTotal = c.price * c.qty;
+
+    if(idx > 0){
+      itemContents.push({type:'separator', margin:'md', color:'#EEEEEE'});
+    }
+
+    // "(n). ชื่อ — ราคา×จำนวน = รวม" บรรทัดเดียว
+    const lineText = (idx+1)+'. '+String(c.name || '-')+
+                     ' — '+c.price.toLocaleString('th-TH')+'×'+c.qty+
+                     ' = '+lineTotal.toLocaleString('th-TH');
+
+    itemContents.push({
+      type:'box',
+      layout:'horizontal',
+      spacing:'md',
+      margin: idx === 0 ? 'none' : 'md',
+      contents:[
+        {
+          type:'image',
+          url: imgUrl,
+          size:'xs',
+          aspectRatio:'1:1',
+          aspectMode:'cover',
+          flex:0
+        },
+        {
+          type:'box',
+          layout:'vertical',
+          flex:1,
+          spacing:'xs',
+          contents:[
+            {type:'text', text: lineText, weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:3},
+            {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#999999'}
+          ]
+        }
+      ]
+    });
+  });
+
+  itemContents.push({type:'separator', margin:'lg', color:'#0A1628'});
+  const totalQty = cartItems.reduce((s, c) => s + (c.qty || 0), 0);
+  itemContents.push({
+    type:'box',
+    layout:'horizontal',
+    margin:'md',
+    contents:[
+      {type:'text', text:'ยอดรวม ('+cartItems.length+' รายการ · '+totalQty+' ชิ้น)', size:'xs', weight:'bold', color:'#0A1628', flex:3, wrap:true},
+      {type:'text', text: total.toLocaleString('th-TH')+' บาท', size:'lg', weight:'bold', color:'#0A1628', align:'end', flex:2}
+    ]
+  });
+
+  const headerContents = [
+    {type:'text', text:'เปรียว คอสเมติกส์', color:'#FFFFFF', size:'md', weight:'bold'},
+    {type:'text', text:'VIP Order #'+orderId, color:'#FFFFFF', size:'sm', margin:'sm'},
+    {type:'text', text: timestamp, color:'#B5D4F4', size:'xs'}
+  ];
+  if(customerName){
+    headerContents.push({type:'text', text:'ลูกค้า: '+String(customerName), color:'#FFFFFF', size:'sm', margin:'sm', wrap:true});
+  }
+
+  const skuUrl  = buildCopyUrl(copyBaseUrl, 'sku',  orderId, customerName, cartItems);
+  const listUrl = buildCopyUrl(copyBaseUrl, 'list', orderId, customerName, cartItems);
+
+  return {
+    type:'bubble',
+    size:'mega',
+    header:{
+      type:'box',
+      layout:'vertical',
+      backgroundColor:'#2080BE',
+      paddingAll:'md',
+      contents: headerContents
+    },
+    body:{
+      type:'box',
+      layout:'vertical',
+      paddingAll:'md',
+      contents: itemContents
+    },
+    footer:{
+      type:'box',
+      layout:'vertical',
+      paddingAll:'md',
+      spacing:'sm',
+      contents:[
+        {type:'text', text:'รอน้อง Salesman ติดต่อกลับสักครู่นะคะ',
+         size:'xs', color:'#888888', align:'center', wrap:true, margin:'none'},
+        {
+          type:'button',
+          style:'primary',
+          color:'#2080BE',
+          height:'sm',
+          margin:'md',
+          action:{ type:'uri', label:'คัดลอกเฉพาะ SKU', uri: skuUrl }
+        },
+        {
+          type:'button',
+          style:'secondary',
+          height:'sm',
+          action:{ type:'uri', label:'คัดลอกรายการ + Order ID', uri: listUrl }
+        }
+      ]
+    }
+  };
+}
+
+// Flex อย่างเดียว (ไม่มี text duplicate)
+function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
+  const copyBaseUrl = (location.origin + location.pathname).replace(/\/[^\/]*$/, '/') + 'copy.html';
+
+  const flex = {
+    type:'flex',
+    altText:'ออเดอร์ '+orderId+' · '+cartItems.length+' รายการ · '+total.toLocaleString('th-TH')+' ฿',
+    contents: buildFlexBubble(orderId, timestamp, customerName, cartItems, total, copyBaseUrl)
+  };
+
+  return [flex];
+}
+
+// แสดง success modal
+function showSuccessModal(orderId){
+  const mo = document.createElement('div');
+  mo.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  mo.innerHTML =
+    '<div style="background:#fff;border-radius:20px;padding:32px 24px;max-width:380px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3);animation:slideUp .4s ease">'
+    +'<div style="width:72px;height:72px;background:#e8f8ee;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:38px;color:#06c755">✓</div>'
+    +'<div style="font-size:1.2rem;font-weight:800;color:#0a1628;margin-bottom:8px">ส่งออเดอร์สำเร็จ!</div>'
+    +'<div style="font-size:.85rem;color:#666;margin-bottom:4px">เลขออเดอร์: <strong style="color:#2080be">#'+orderId+'</strong></div>'
+    +'<div style="font-size:.78rem;color:#888;line-height:1.6;margin-bottom:20px">ทีมงานเปรียวจะตรวจสอบและติดต่อกลับ<br>เพื่อยืนยันออเดอร์ภายใน 30 นาที</div>'
+    +'<button onclick="this.parentElement.parentElement.remove()" style="width:100%;padding:12px;background:#2080be;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.9rem;font-family:inherit">ปิดหน้านี้</button>'
+    +'</div>'
+    +'<style>@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}</style>';
+  document.body.appendChild(mo);
+}
+
+// แสดง fallback modal (สำหรับ browser ปกติ / desktop)
+function showFallbackModal(orderId, timestamp, text){
+  // auto copy
+  if(navigator.clipboard) navigator.clipboard.writeText(text).catch(function(){});
+
+  const mo = document.createElement('div');
+  mo.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  // ใช้ line.me/R/msg/text/ → เปิด LINE share dialog พร้อม text pre-fill
+  const lineShareUrl = 'https://line.me/R/msg/text/?'+encodeURIComponent(text);
+  const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(lineShareUrl);
+
+  mo.innerHTML =
+    '<div style="background:#fff;border-radius:16px;padding:24px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3)">'
+    +'<div style="font-weight:800;font-size:1.05rem;color:#2080be;margin-bottom:4px">สรุปออเดอร์ #'+orderId+'</div>'
+    +'<div style="font-size:.75rem;color:#888;margin-bottom:14px">'+timestamp+'</div>'
+    +'<div style="background:#e8f8ee;border:1px solid #06c755;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.82rem;color:#07a248;font-weight:700;text-align:center">✓ คัดลอกออเดอร์แล้ว</div>'
+    +'<pre style="white-space:pre-wrap;font-size:.72rem;background:#f5f7fa;border-radius:8px;padding:12px;margin:0 0 16px;font-family:inherit;line-height:1.6;max-height:200px;overflow-y:auto">'+text.replace(/</g,'&lt;')+'</pre>'
+    +(isMobile
+      ? '<div style="display:flex;flex-direction:column;gap:8px">'
+        +'<button id="fbLineBtn" style="width:100%;padding:12px;background:#06c755;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.9rem;font-family:inherit">📲 ส่งออเดอร์ไป LINE (pre-fill text)</button>'
+        +'<button id="fbCopyBtn" style="width:100%;padding:10px;background:#2080be;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.82rem;font-family:inherit">คัดลอกอีกครั้ง</button>'
+        +'<button id="fbCloseBtn" style="width:100%;padding:10px;background:#eee;color:#555;border:none;border-radius:10px;cursor:pointer;font-size:.82rem;font-family:inherit">ปิด</button>'
+        +'</div>'
+      : '<div style="display:flex;gap:14px;align-items:center;background:#f4f8fc;padding:14px;border-radius:10px;margin-bottom:10px">'
+        +'<img src="'+qrUrl+'" alt="QR" style="width:120px;height:120px;border-radius:8px;background:#fff">'
+        +'<div style="flex:1;font-size:.78rem;color:#0a1628;line-height:1.5"><strong style="color:#2080be">📲 สแกน QR ด้วยกล้อง LINE ในมือถือ</strong><br>1. LINE จะถามว่าส่งไปแชตไหน<br>2. <strong>เลือก เปรียว คอสเมติกส์</strong><br>3. ข้อความออเดอร์จะ pre-fill ให้แล้ว → กดส่งได้เลย</div>'
+        +'</div>'
+        +'<div style="display:flex;gap:8px">'
+        +'<button id="fbCopyBtn" style="flex:1;padding:10px;background:#2080be;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.82rem;font-family:inherit">คัดลอกอีกครั้ง</button>'
+        +'<button id="fbLineBtn" style="flex:1;padding:10px;background:#06c755;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.82rem;font-family:inherit">เปิด LINE OA</button>'
+        +'<button id="fbCloseBtn" style="padding:10px 16px;background:#eee;color:#555;border:none;border-radius:10px;cursor:pointer;font-size:.82rem;font-family:inherit">ปิด</button>'
+        +'</div>')
+    +'</div>';
+  document.body.appendChild(mo);
+
+  document.getElementById('fbLineBtn').onclick = function(){ window.open(lineShareUrl, '_blank'); };
+  document.getElementById('fbCopyBtn').onclick = function(){
+    navigator.clipboard.writeText(text).then(function(){
+      const b = document.getElementById('fbCopyBtn');
+      b.textContent = 'คัดลอกแล้ว!';
+      setTimeout(function(){ b.textContent = 'คัดลอกอีกครั้ง'; }, 1500);
+    }).catch(function(){ alert(text); });
+  };
+  document.getElementById('fbCloseBtn').onclick = function(){ document.body.removeChild(mo); };
+}
+
+async function sendOrder(){
+  if(!cart.length) return;
+
+  // Find send button to show loading state
+  const sendBtn = document.querySelector('.cart-send');
+  const origBtnText = sendBtn ? sendBtn.innerHTML : '';
+  if(sendBtn){
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '⏳ กำลังส่ง...';
+    sendBtn.style.opacity = '0.7';
+  }
+
+  // Generate order metadata
+  const orderId = genOrderId();
+  const timestamp = getTimestampTH();
+  const memberInput = document.getElementById('memberInput');
+  const memberFromInput = memberInput ? (memberInput.value || '').trim() : '';
+  const customerName = (liffProfile && liffProfile.displayName) || memberFromInput || '';
+  const total = cart.reduce((s,c) => s + (c.price * c.qty), 0);
+
+  // เตรียม text fallback
+  const textLines = [
+    '📋 ออเดอร์ #'+orderId,
+    '🕐 '+timestamp,
+    customerName ? '👤 '+customerName : '',
+    liffProfile && liffProfile.userId ? '🆔 '+liffProfile.userId : '',
+    ''
+  ];
+  cart.forEach(function(c, i){
+    const u = c.baseUnit || '';
+    const unitName = u.includes(' / ') ? u.split(' / ')[1].trim() : u;
+    const ustr = c.qty + (unitName ? ' '+unitName : '');
+    textLines.push((i+1)+'. '+c.name);
+    textLines.push('   #'+c.code+' | '+ustr+' × '+c.price.toLocaleString('th-TH')+' = '+(c.price*c.qty).toLocaleString('th-TH')+' ฿');
+  });
+  textLines.push('');
+  textLines.push('💰 รวมทั้งสิ้น: '+total.toLocaleString('th-TH')+' บาท');
+  const fullText = textLines.filter(l => l !== '').join('\n');
+
+  // Restore button
+  const restoreBtn = () => {
+    if(sendBtn){
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = origBtnText;
+      sendBtn.style.opacity = '';
+    }
+  };
+
+  // Debug info
+  const dbg = {
+    liffReady: liffReady,
+    liffInClient: liffInClient,
+    hasProfile: !!liffProfile,
+    sendMessagesFn: (typeof liff !== 'undefined' && typeof liff.sendMessages === 'function')
+  };
+  console.log('[sendOrder] context:', dbg);
+
+  // เช็คว่าอยู่ใน LIFF browser หรือไม่
+  if(liffReady && liffInClient && typeof liff !== 'undefined' && typeof liff.sendMessages === 'function'){
+
+    // ส่ง Flex card เดี่ยวๆ (buildOrderMessages คืน [flex] ไม่มี text duplicate)
+    try{
+      const messages = buildOrderMessages(orderId, timestamp, customerName, cart, total);
+      console.log('[LIFF] Sending Flex (size:', JSON.stringify(messages).length, 'bytes)');
+      const p = liff.sendMessages(messages);
+      const t = new Promise(function(_, reject){
+        setTimeout(function(){ reject(new Error('sendMessages timeout 15s')); }, 15000);
+      });
+      await Promise.race([p, t]);
+      console.log('[LIFF] Flex sent OK ✓');
+
+      cart = [];
+      renderCart();
+      closeCart();
+      restoreBtn();
+      showSuccessModal(orderId);
+      return;
+
+    } catch(sendErr){
+      // Flex ส่งไม่สำเร็จ → fallback ไปใช้ modal ให้ copy เอง
+      console.error('[LIFF] Send failed:', sendErr);
+      window.__lastErrors && window.__lastErrors.push({
+        type:'send-fail',
+        msg:'Send failed: '+(sendErr && sendErr.message ? sendErr.message : String(sendErr)),
+        time:new Date().toLocaleTimeString()
+      });
+      restoreBtn();
+      const errMsg = (sendErr && sendErr.message) ? sendErr.message : String(sendErr);
+      alert('❌ ส่งออเดอร์ผ่าน LIFF ไม่สำเร็จ\n\nError: '+errMsg+'\n\nจะใช้วิธี copy+paste แทน');
+      showFallbackModal(orderId, timestamp, fullText);
+      return;
+    }
+  }
+
+  // Fallback: เปิดผ่าน browser ปกติ / desktop
+  restoreBtn();
+  showFallbackModal(orderId, timestamp, fullText);
+}
+// ============================================================
+// SMART HEADER AUTO-RESIZE
+// ตรวจสอบความกว้าง header แบบ real-time แล้วปรับ element อัตโนมัติ
+// ทำงาน 3 step:
+//   1) ถ้าล้น → ย่อ user badge ก่อน
+//   2) ยังล้น → ซ่อน home-btn label
+//   3) ยังล้น → ซ่อน user badge ทั้งก้อน (ยังเห็น avatar)
+// ============================================================
+function initSmartHeader(){
+  const hdr = document.querySelector('.pc-hdr');
+  if(!hdr || typeof ResizeObserver === 'undefined') return;
+
+  let timer = null;
+  const checkOverflow = () => {
+    const badge = document.getElementById('pcUserBadge');
+    const badgeName = document.getElementById('pcUserName');
+    const homeLabel = hdr.querySelector('.home-btn-label');
+    if(!badge) return;
+
+    // reset ก่อนเช็ค
+    if(badgeName) badgeName.style.display = '';
+    if(homeLabel) homeLabel.style.display = '';
+    badge.style.display = liffProfile ? 'flex' : 'none';
+
+    // ถ้า scroll width > client width = ล้น
+    requestAnimationFrame(() => {
+      // Step 1: ซ่อนชื่อใน badge ก่อน (เหลือแต่ avatar)
+      if(hdr.scrollWidth > hdr.clientWidth + 2 && badgeName){
+        badgeName.style.display = 'none';
+      }
+      // Step 2: ซ่อน label home-btn
+      requestAnimationFrame(() => {
+        if(hdr.scrollWidth > hdr.clientWidth + 2 && homeLabel){
+          homeLabel.style.display = 'none';
+        }
+        // Step 3: ซ่อน badge ทั้งหมด
+        requestAnimationFrame(() => {
+          if(hdr.scrollWidth > hdr.clientWidth + 2 && badge){
+            badge.style.display = 'none';
+          }
+        });
+      });
+    });
+  };
+
+  const ro = new ResizeObserver(() => {
+    clearTimeout(timer);
+    timer = setTimeout(checkOverflow, 50);
+  });
+  ro.observe(hdr);
+  // เรียกครั้งแรกหลัง LIFF init เสร็จ
+  setTimeout(checkOverflow, 500);
+  setTimeout(checkOverflow, 1500);
+}
+
+// ============================================================
+// GLOBAL ERROR HANDLER + DEBUG TOOLS
+// ============================================================
+window.__lastErrors = [];
+window.addEventListener('error', function(e){
+  window.__lastErrors.push({
+    type:'error',
+    msg: e.message,
+    src: e.filename + ':' + e.lineno + ':' + e.colno,
+    time: new Date().toLocaleTimeString()
+  });
+});
+window.addEventListener('unhandledrejection', function(e){
+  window.__lastErrors.push({
+    type:'promise',
+    msg: (e.reason && e.reason.message) ? e.reason.message : String(e.reason),
+    time: new Date().toLocaleTimeString()
+  });
+});
+
+// Safe wrapper for sendOrder — catch ทุก error ที่อาจเกิด
+window.sendOrderSafe = async function(){
+  try {
+    if(typeof sendOrder !== 'function'){
+      alert('❌ ฟังก์ชัน sendOrder ยังไม่พร้อม\n\nกรุณารอสักครู่หรือ refresh หน้า');
+      return;
+    }
+    await sendOrder();
+  } catch(err){
+    const msg = (err && err.message) ? err.message : String(err);
+    const stack = (err && err.stack) ? err.stack.split('\n').slice(0,3).join('\n') : '';
+    alert('❌ เกิดข้อผิดพลาด:\n\n' + msg + '\n\n' + stack);
+    console.error('[sendOrderSafe]', err);
+  }
+};
+
+// Debug info — แสดงสถานะระบบทั้งหมด
+window.showDebugInfo = function(){
+  const info = [];
+  info.push('=== Priao LIFF Debug Info ===');
+  info.push('Time: ' + new Date().toLocaleString('th-TH'));
+  info.push('UA: ' + (navigator.userAgent || '').substring(0, 80));
+  info.push('');
+  info.push('--- LIFF Status ---');
+  info.push('LIFF SDK loaded: ' + (typeof liff !== 'undefined' ? '✅ YES' : '❌ NO'));
+  info.push('liffReady: ' + (typeof liffReady !== 'undefined' ? liffReady : 'undefined'));
+  info.push('liffInClient: ' + (typeof liffInClient !== 'undefined' ? liffInClient : 'undefined'));
+  info.push('LIFF_ID configured: ' + (typeof LIFF_ID !== 'undefined' ? LIFF_ID : 'undefined'));
+  info.push('liffProfile: ' + (typeof liffProfile !== 'undefined' && liffProfile ? liffProfile.displayName : 'null'));
+  if(typeof liff !== 'undefined' && liff.isLoggedIn){
+    try { info.push('isLoggedIn: ' + liff.isLoggedIn()); } catch(e){ info.push('isLoggedIn err: '+e.message); }
+    info.push('sendMessages available: ' + (typeof liff.sendMessages === 'function' ? '✅ YES' : '❌ NO'));
+    try { info.push('OS: ' + liff.getOS()); } catch(e){}
+    try { info.push('Version: ' + liff.getVersion()); } catch(e){}
+    try { info.push('LINE Version: ' + liff.getLineVersion()); } catch(e){}
+    try { info.push('Language: ' + liff.getLanguage()); } catch(e){}
+    // ⭐ ข้อมูลสำคัญที่จะบอกว่าเปิดจากไหน
+    try {
+      const ctx = liff.getContext();
+      if(ctx){
+        info.push('Context type: ' + (ctx.type || 'unknown'));
+        info.push('Context utouId: ' + (ctx.utouId || 'n/a'));
+        info.push('Context roomId: ' + (ctx.roomId || 'n/a'));
+        info.push('Context groupId: ' + (ctx.groupId || 'n/a'));
+        info.push('Context userId: ' + (ctx.userId || 'n/a'));
+        info.push('Context endpoint: ' + (ctx.endpointUrl || 'n/a'));
+      } else {
+        info.push('Context: NULL');
+      }
+    } catch(e){ info.push('Context err: '+e.message); }
+    // ⭐ permissions ที่ user grant จริง
+    try {
+      if(liff.permission && liff.permission.query){
+        liff.permission.query('chat_message.write').then(p => console.log('chat_message.write permission:', p));
+      }
+    } catch(e){}
+    try {
+      if(liff.getAccessToken){
+        const token = liff.getAccessToken();
+        info.push('Has access token: ' + (token ? '✅' : '❌'));
+      }
+    } catch(e){}
+  }
+  info.push('');
+  info.push('--- Functions ---');
+  info.push('sendOrder: ' + typeof sendOrder);
+  info.push('buildFlexBubble: ' + typeof buildFlexBubble);
+  info.push('cart items: ' + (typeof cart !== 'undefined' ? cart.length : 'undefined'));
+  info.push('');
+  info.push('--- Recent Errors ---');
+  if(window.__lastErrors.length === 0){
+    info.push('(no errors)');
+  } else {
+    window.__lastErrors.slice(-5).forEach(function(e){
+      info.push('['+e.time+'] '+e.type+': '+e.msg);
+      if(e.src) info.push('  at '+e.src);
+    });
+  }
+
+  const text = info.join('\n');
+  // แสดงใน modal ที่ copy ได้
+  const mo = document.createElement('div');
+  mo.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:12px';
+  mo.innerHTML = '<div style="background:#fff;border-radius:12px;padding:16px;max-width:400px;width:100%;max-height:85vh;overflow-y:auto;font-family:monospace">'
+    +'<pre style="font-size:.7rem;white-space:pre-wrap;margin:0 0 12px;color:#333;line-height:1.5">'+text.replace(/</g,'&lt;')+'</pre>'
+    +'<button onclick="navigator.clipboard.writeText(this.parentElement.querySelector(\'pre\').textContent);this.textContent=\'คัดลอกแล้ว ✓\'" style="width:100%;padding:10px;background:#2080be;color:#fff;border:none;border-radius:6px;font-weight:700;margin-bottom:6px;cursor:pointer;font-family:inherit">📋 คัดลอกข้อมูล</button>'
+    +'<button onclick="this.parentElement.parentElement.remove()" style="width:100%;padding:10px;background:#eee;border:none;border-radius:6px;cursor:pointer;font-family:inherit">ปิด</button>'
+    +'</div>';
+  document.body.appendChild(mo);
+};
+
+async function loadCatalogData() {
+  const idx = await fetch('data/index.json').then(r => r.json());
+  await Promise.all(idx.categories.map(async cat => {
+    RAW_DATA[cat] = await fetch('data/' + cat + '.json').then(r => r.json());
+  }));
+}
+window.addEventListener('DOMContentLoaded', async function () {
+  initLiff();          // LIFF init แบบ non-blocking
+  initSmartHeader();   // Auto-resize header
+  await loadCatalogData();
+  requestAnimationFrame(function(){requestAnimationFrame(function(){init();});});
+});
