@@ -99,32 +99,32 @@ function setIcon(type, mark, title, sub){
 
 // (showManualCloseInstruction ถูกแทนที่ด้วย showBigCloseHint)
 
-// ลองปิดเงียบๆ — ถ้าไม่ได้ใน 2 วินาที → แสดง banner ใหญ่ชี้ปุ่ม X
+// ปิดอัตโนมัติเร็ว — LIFF endpoint แล้ว closeWindow ทำงานแน่
 function startCountdown(){
-  // ลองปิดอัตโนมัติ (เงียบๆ ไม่ promise)
-  setTimeout(silentAutoClose, 800);
-  // ถ้ายังอยู่ 2 วินาที → แสดง banner ชี้ปุ่ม X (honest)
+  // ลองปิด 1 วินาทีหลัง copy success
+  setTimeout(silentAutoClose, 1000);
+  // ถ้าหลัง 3 วินาทียังอยู่ (kasanas edge case) → แสดง banner
   setTimeout(function(){
     if(!document.hidden){
       showBigCloseHint();
     }
-  }, 2000);
+  }, 3000);
 }
 
-// ลองปิดเงียบๆ — ไม่ wait, ไม่ promise, ทำได้ก็ดี ไม่ได้ก็ไม่เป็นไร
+// ปิดหน้าตัวเอง — copy.html เป็น LIFF endpoint แล้ว ใช้ liff.closeWindow ได้
 async function silentAutoClose(){
-  // 1. รอ liff.init() (สูงสุด 800ms)
+  // รอ liff.init ครบ (สูงสุด 2 วินาที — ปกติ ~200-500ms)
   if(typeof liff !== 'undefined'){
-    for(let i = 0; i < 8; i++){
+    for(let i = 0; i < 20; i++){
       if(window._liffReady) break;
       await new Promise(r => setTimeout(r, 100));
     }
   }
-  // 2. ลอง liff.closeWindow
-  if(typeof liff !== 'undefined' && liff.closeWindow){
-    try{ liff.closeWindow(); } catch(e){}
+  // เรียก liff.closeWindow (LIFF endpoint สมบูรณ์แล้ว ทำงานได้แน่)
+  if(typeof liff !== 'undefined' && liff.isInClient && liff.isInClient() && liff.closeWindow){
+    try{ liff.closeWindow(); return; } catch(e){ console.warn('closeWindow:', e); }
   }
-  // 3. ลอง window.close
+  // Fallback: ถ้าไม่ได้อยู่ใน LIFF (เปิดผ่าน browser ปกติ) — ลอง window.close
   try{ window.close(); } catch(e){}
 }
 
@@ -134,7 +134,7 @@ function showBigCloseHint(){
   const hint = document.createElement('div');
   hint.id = 'big-hint';
   hint.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#06c755;color:#fff;padding:14px 16px;z-index:200;font-size:.95rem;font-weight:800;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:slideDown .3s ease;display:flex;align-items:center;justify-content:center;gap:8px';
-  hint.innerHTML = '<span style="font-size:1.4rem">👆</span><span>แตะปุ่ม <strong style="background:rgba(255,255,255,0.25);padding:2px 8px;border-radius:4px">✕</strong> มุมขวาบนเพื่อกลับแชต LINE</span>';
+  hint.innerHTML = '<span>แตะปุ่ม <strong style="background:rgba(255,255,255,0.25);padding:2px 8px;border-radius:4px">✕</strong> ด้านบนเพื่อกลับแชต LINE</span><span style="font-size:1.4rem">👆</span>';
   document.body.appendChild(hint);
   const style = document.createElement('style');
   style.textContent = '@keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}';
@@ -186,7 +186,7 @@ async function doCopy(text){
 }
 
 function onCopySuccess(){
-  setIcon('success', '\u2713', 'คัดลอกเรียบร้อย', 'ข้อความอยู่ใน clipboard แล้ว — แตะ X มุมขวาบนเพื่อกลับ LINE');
+  setIcon('success', '\u2713', 'คัดลอกเรียบร้อย', 'กำลังกลับไปแชต LINE...');
   showToast('✓ คัดลอกแล้ว');
   const btn = document.getElementById('copy-btn');
   btn.className = 'btn success';
@@ -224,7 +224,7 @@ function onCopySuccess(){
   // Init LIFF SDK สำหรับ closeWindow — ตั้ง flag เมื่อพร้อม
   if(typeof liff !== 'undefined'){
     try{
-      liff.init({ liffId: '2010211018-V4JAFUOl' })
+      liff.init({ liffId: '2010211018-4Zqj1MmB' })
         .then(function(){ window._liffReady = true; })
         .catch(function(e){ console.warn('liff.init failed:', e); window._liffReady = true; });
     } catch(e){ window._liffReady = true; }
