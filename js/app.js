@@ -774,7 +774,9 @@ function showFallbackModal(orderId, timestamp, text){
   mo.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
 
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data='+encodeURIComponent(LINE_OA_URL);
+  // ใช้ line.me/R/msg/text/ → เปิด LINE share dialog พร้อม text pre-fill
+  const lineShareUrl = 'https://line.me/R/msg/text/?'+encodeURIComponent(text);
+  const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(lineShareUrl);
 
   mo.innerHTML =
     '<div style="background:#fff;border-radius:16px;padding:24px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3)">'
@@ -784,13 +786,13 @@ function showFallbackModal(orderId, timestamp, text){
     +'<pre style="white-space:pre-wrap;font-size:.72rem;background:#f5f7fa;border-radius:8px;padding:12px;margin:0 0 16px;font-family:inherit;line-height:1.6;max-height:200px;overflow-y:auto">'+text.replace(/</g,'&lt;')+'</pre>'
     +(isMobile
       ? '<div style="display:flex;flex-direction:column;gap:8px">'
-        +'<button id="fbLineBtn" style="width:100%;padding:12px;background:#06c755;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.9rem;font-family:inherit">📲 เปิด LINE OA เปรียว</button>'
+        +'<button id="fbLineBtn" style="width:100%;padding:12px;background:#06c755;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.9rem;font-family:inherit">📲 ส่งออเดอร์ไป LINE (pre-fill text)</button>'
         +'<button id="fbCopyBtn" style="width:100%;padding:10px;background:#2080be;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.82rem;font-family:inherit">คัดลอกอีกครั้ง</button>'
         +'<button id="fbCloseBtn" style="width:100%;padding:10px;background:#eee;color:#555;border:none;border-radius:10px;cursor:pointer;font-size:.82rem;font-family:inherit">ปิด</button>'
         +'</div>'
       : '<div style="display:flex;gap:14px;align-items:center;background:#f4f8fc;padding:14px;border-radius:10px;margin-bottom:10px">'
         +'<img src="'+qrUrl+'" alt="QR" style="width:120px;height:120px;border-radius:8px;background:#fff">'
-        +'<div style="flex:1;font-size:.78rem;color:#0a1628;line-height:1.5"><strong style="color:#2080be">สแกน QR เพื่อเปิด LINE OA</strong><br>ออเดอร์ถูกคัดลอกแล้ว เปิดแชต LINE แล้ววางข้อความได้เลย</div>'
+        +'<div style="flex:1;font-size:.78rem;color:#0a1628;line-height:1.5"><strong style="color:#2080be">📲 สแกน QR ด้วยกล้อง LINE ในมือถือ</strong><br>1. LINE จะถามว่าส่งไปแชตไหน<br>2. <strong>เลือก เปรียว คอสเมติกส์</strong><br>3. ข้อความออเดอร์จะ pre-fill ให้แล้ว → กดส่งได้เลย</div>'
         +'</div>'
         +'<div style="display:flex;gap:8px">'
         +'<button id="fbCopyBtn" style="flex:1;padding:10px;background:#2080be;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.82rem;font-family:inherit">คัดลอกอีกครั้ง</button>'
@@ -800,7 +802,7 @@ function showFallbackModal(orderId, timestamp, text){
     +'</div>';
   document.body.appendChild(mo);
 
-  document.getElementById('fbLineBtn').onclick = function(){ window.open(LINE_OA_URL, '_blank'); };
+  document.getElementById('fbLineBtn').onclick = function(){ window.open(lineShareUrl, '_blank'); };
   document.getElementById('fbCopyBtn').onclick = function(){
     navigator.clipboard.writeText(text).then(function(){
       const b = document.getElementById('fbCopyBtn');
