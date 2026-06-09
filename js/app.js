@@ -393,10 +393,57 @@ function setCartQty(code,val){
 }
 function addCart(code){
   const p=allProducts.find(x=>x.code===code);if(!p)return;
+  const isOOS = p.tag === 'สินค้าหมดชั่วคราว' || p.stock <= 0;
+  const inCart = cart.findIndex(c=>c.code===code) >= 0;
+
+  // ถ้าเป็นสินค้าหมด และยังไม่อยู่ในตะกร้า → แสดง confirm modal
+  if(isOOS && !inCart){
+    showPreorderConfirm(p, function(){ doAddCart(code); });
+    return;
+  }
+  doAddCart(code);
+}
+
+function doAddCart(code){
+  const p=allProducts.find(x=>x.code===code);if(!p)return;
   const idx=cart.findIndex(c=>c.code===code);
   if(idx>=0)cart[idx].qty++;
   else cart.push({code:p.code,name:p.name,price:p.stdPrice,packQty:p.packQty,baseUnit:p.baseUnit,qty:1});
   renderCart();updateCardBtn(code);
+}
+
+// Confirm modal สำหรับสินค้าหมด (VIP/care wording)
+function showPreorderConfirm(product, onConfirm){
+  const mo = document.createElement('div');
+  mo.style.cssText = 'position:fixed;inset:0;background:rgba(10,22,40,.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;animation:fadeIn .2s ease';
+
+  const imgUrl = product.imageUrl || '';
+  mo.innerHTML =
+    '<div style="background:#fff;border-radius:18px;padding:24px 22px;max-width:340px;width:100%;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,.4);animation:slideUp .3s ease">'
+    + '<div style="width:60px;height:60px;background:#F3F4F6;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:30px">📦</div>'
+    + '<div style="font-size:1.05rem;font-weight:800;color:#0a1628;margin-bottom:8px">หมดชั่วคราว</div>'
+    + '<div style="font-size:.85rem;color:#06c755;font-weight:700;margin-bottom:14px">ขอบคุณที่สนใจค่ะ ✨</div>'
+    + (imgUrl ? '<img src="'+imgUrl+'" style="width:90px;height:90px;border-radius:8px;object-fit:cover;background:#f4f8fc;margin-bottom:10px;border:1px solid #b8d9f0">' : '')
+    + '<div style="font-size:.78rem;font-weight:600;color:#0a1628;line-height:1.4;margin-bottom:6px">'+esc(product.name||'')+'</div>'
+    + '<div style="font-size:.7rem;color:#6B7280;margin-bottom:14px">#'+esc(product.code||'')+'</div>'
+    + '<div style="background:#f4f8fc;border-radius:10px;padding:12px;margin-bottom:18px;font-size:.78rem;color:#0a1628;line-height:1.6">น้อง Sales จะติดต่อกลับเร็วที่สุดเพื่อแจ้งเวลาสินค้าและยืนยันสั่งจองให้ค่ะ</div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button id="pc-cancel" style="flex:1;padding:11px;background:#fff;color:#6B7280;border:1.5px solid #D1D5DB;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem">ยกเลิกค่ะ</button>'
+    + '<button id="pc-confirm" style="flex:1;padding:11px;background:linear-gradient(135deg,#25a9e0,#0065a8);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;font-family:inherit;font-size:.85rem">ยืนยันสั่งจอง</button>'
+    + '</div>'
+    + '</div>'
+    + '<style>@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}</style>';
+
+  document.body.appendChild(mo);
+  document.getElementById('pc-cancel').onclick = () => document.body.removeChild(mo);
+  document.getElementById('pc-confirm').onclick = () => {
+    document.body.removeChild(mo);
+    if(typeof onConfirm === 'function') onConfirm();
+  };
+  // คลิกพื้นหลังก็ยกเลิก
+  mo.addEventListener('click', e => {
+    if(e.target === mo) document.body.removeChild(mo);
+  });
 }
 function removeCardItem(code){
   const idx=cart.findIndex(c=>c.code===code);if(idx<0)return;
@@ -706,7 +753,37 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
     preorder: { c1:'#6B7280', bg:'#F3F4F6', txt:'#374151', emoji:'📦' }
   };
 
-  cartItems.forEach(function(c, idx){
+  // แยก items เป็น 2 กลุ่ม: พร้อมส่ง vs สั่งจอง (สินค้าหมด)
+  const regularItems = [];
+  const preorderItems = [];
+  cartItems.forEach(function(c){
+    const p = allProducts.find(x => x.code === c.code);
+    const isOOS = p && (p.tag === 'สินค้าหมดชั่วคราว' || p.stock <= 0);
+    if(isOOS) preorderItems.push(c);
+    else regularItems.push(c);
+  });
+
+  // ฟังก์ชันช่วย render items array (เรียกซ้ำได้)
+  function renderItemsToContents(items, startIdx, sectionLabel){
+    if(items.length === 0) return;
+    // Section header — ไม่ใส่ในกลุ่มแรกถ้าไม่มีอีกกลุ่ม
+    if(sectionLabel){
+      itemContents.push({
+        type:'box', layout:'vertical', margin: itemContents.length > 0 ? 'lg' : 'none',
+        backgroundColor: sectionLabel.bg, paddingAll:'sm', cornerRadius:'md',
+        contents:[
+          {type:'text', text: sectionLabel.text, color: sectionLabel.color, size:'xs', weight:'bold'}
+        ]
+      });
+    }
+    items.forEach(function(c, i){
+      const idx = startIdx + i;
+      _renderSingleItem(c, idx, items.length > 1 && i > 0);
+    });
+  }
+
+  // ฟังก์ชันสำหรับ render 1 item (logic เดิม)
+  function _renderSingleItem(c, idx, addSeparator){
     const product = allProducts.find(p => p.code === c.code);
     const imgUrl = safeImageUrl(product ? product.imageUrl : null);
     const lineTotal = c.price * c.qty;
@@ -718,7 +795,7 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
     const hasStrike = origPrice > c.price && origPrice > 0;
     const discPct = hasStrike ? Math.round((origPrice - c.price) / origPrice * 100) : 0;
 
-    if(idx > 0){
+    if(addSeparator){
       itemContents.push({type:'separator', margin:'md', color:'#EEEEEE'});
     }
 
@@ -815,7 +892,34 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
         }
       ]
     });
-  });
+  } // end _renderSingleItem
+
+  // เรียก render ทั้ง 2 sections
+  const hasMulti = regularItems.length > 0 && preorderItems.length > 0;
+  if(regularItems.length > 0){
+    renderItemsToContents(regularItems, 0, hasMulti ? {
+      text: '🟦 พร้อมส่ง ('+regularItems.length+' รายการ)',
+      bg: '#E6F1FB', color: '#0C447C'
+    } : null);
+  }
+  if(preorderItems.length > 0){
+    renderItemsToContents(preorderItems, regularItems.length, {
+      text: '📦 สั่งจอง — รอสินค้า ('+preorderItems.length+' รายการ)',
+      bg: '#F3F4F6', color: '#374151'
+    });
+    // Notice box ใต้ section สั่งจอง — wording อบอุ่น ไม่ผูกเวลา
+    itemContents.push({
+      type:'box', layout:'vertical', margin:'md',
+      backgroundColor:'#FFF8E6', paddingAll:'md', cornerRadius:'md',
+      borderColor:'#FAC775', borderWidth:'1px',
+      contents:[
+        {type:'text', text:'💌 ขอบคุณที่สั่งจองนะคะ',
+         size:'xs', weight:'bold', color:'#7C5E00', wrap:true},
+        {type:'text', text:'น้อง Sales จะทักหาเร็วที่สุดเท่าที่ทำได้ เพื่อยืนยันสินค้าและเวลาให้ค่ะ ✨',
+         size:'xs', color:'#633806', wrap:true, margin:'xs'}
+      ]
+    });
+  }
 
   itemContents.push({type:'separator', margin:'lg', color:'#0A1628'});
   const totalQty = cartItems.reduce((s, c) => s + (c.qty || 0), 0);
