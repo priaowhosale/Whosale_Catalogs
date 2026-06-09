@@ -800,7 +800,30 @@ function showFallbackModal(orderId, timestamp, text){
     +'<div style="font-weight:800;font-size:1.05rem;color:#2080be;margin-bottom:4px">สรุปออเดอร์ #'+orderId+'</div>'
     +'<div style="font-size:.75rem;color:#888;margin-bottom:14px">'+timestamp+'</div>'
     +'<div style="background:#e8f8ee;border:1px solid #06c755;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.82rem;color:#07a248;font-weight:700;text-align:center">✓ คัดลอกออเดอร์แล้ว</div>'
-    +'<pre style="white-space:pre-wrap;font-size:.72rem;background:#f5f7fa;border-radius:8px;padding:12px;margin:0 0 16px;font-family:inherit;line-height:1.6;max-height:200px;overflow-y:auto">'+text.replace(/</g,'&lt;')+'</pre>'
+    +'<div style="border:1px solid #e0eaf3;border-radius:10px;margin:0 0 14px;max-height:280px;overflow-y:auto">'
+    + (function(){
+        var rows = '';
+        cart.forEach(function(c, i){
+          var prod = allProducts.find(function(p){ return p.code === c.code; });
+          var img = (prod && prod.imageUrl) ? prod.imageUrl : '';
+          rows += '<div style="display:flex;gap:10px;padding:10px 12px;border-bottom:1px solid #f0f4f8;align-items:flex-start">'
+            + (img
+                ? '<img src="'+img+'" alt="" loading="lazy" onerror="this.style.display=\'none\'" style="width:48px;height:48px;border-radius:6px;object-fit:cover;background:#f4f8fc;flex-shrink:0;border:1px solid #e6f1fb">'
+                : '<div style="width:48px;height:48px;border-radius:6px;background:linear-gradient(135deg,#dceeff,#b8d9f0);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#2080be;font-weight:800;font-size:1rem">'+(i+1)+'</div>')
+            + '<div style="flex:1;min-width:0">'
+            + '<div style="font-size:.78rem;font-weight:600;color:#0a1628;line-height:1.35;margin-bottom:2px">'+(i+1)+'. '+String(c.name||'').replace(/</g,'&lt;')+'</div>'
+            + '<div style="font-size:.68rem;color:#999;margin-bottom:2px">#'+String(c.code||'')+'</div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:.72rem"><span style="color:#888">'+c.price.toLocaleString('th-TH')+' × '+c.qty+'</span><span style="color:#2080be;font-weight:700">'+(c.price*c.qty).toLocaleString('th-TH')+' ฿</span></div>'
+            + '</div>'
+            + '</div>';
+        });
+        var totalQty = cart.reduce(function(s,c){ return s + (c.qty||0); }, 0);
+        var total = cart.reduce(function(s,c){ return s + (c.price*c.qty); }, 0);
+        return rows
+          + '<div style="display:flex;justify-content:space-between;padding:12px 14px;background:#f4f8fc;font-weight:800"><span style="color:#0a1628;font-size:.8rem">ยอดรวม ('+cart.length+' รายการ · '+totalQty+' ชิ้น)</span><span style="color:#0a1628;font-size:1rem">'+total.toLocaleString('th-TH')+' บาท</span></div>';
+      })()
+    +'</div>'
+    +'<details style="margin:0 0 14px"><summary style="cursor:pointer;font-size:.72rem;color:#4e9ecf;padding:4px 0">📋 ดูข้อความ raw (สำหรับ copy)</summary><pre style="white-space:pre-wrap;font-size:.7rem;background:#f5f7fa;border-radius:8px;padding:10px;margin:8px 0 0;font-family:inherit;line-height:1.6;max-height:160px;overflow-y:auto">'+text.replace(/</g,'&lt;')+'</pre></details>'
     +(isMobile
       ? '<div style="display:flex;flex-direction:column;gap:8px">'
         +'<button id="fbLineBtn" style="width:100%;padding:12px;background:#06c755;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.9rem;font-family:inherit">📲 ส่งออเดอร์ไป LINE (pre-fill text)</button>'
