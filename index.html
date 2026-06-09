@@ -159,7 +159,10 @@
 <div class="cart-panel" id="cartPanel">
   <div class="cart-hdr">
     <span style="font-weight:800">🛒 ตะกร้าสินค้า</span>
-    <button class="cart-close" onclick="closeCart()">✕</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button id="cartClearBtn" onclick="clearCart()" style="background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;display:none">🗑️ ล้างตะกร้า</button>
+      <button class="cart-close" onclick="closeCart()">✕</button>
+    </div>
   </div>
   <div class="cart-items" id="cartItems"><p style="text-align:center;color:#aaa;margin-top:24px">ยังไม่มีสินค้า</p></div>
   <div class="cart-footer">

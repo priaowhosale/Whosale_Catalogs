@@ -325,7 +325,7 @@ function renderProducts(){
         +'<div class="p-name">'+esc(p.name)+'</div>'
         +'<div class="p-brand">'+esc(p.brand)+'</div>'
         +'<div class="p-price-row">'+priceRow(p)+(badge(p)?'<span class="p-badge-inline">'+badge(p)+'</span>':'')+'</div>'
-        +'<div class="p-stock-row">'+(packInfo(p)?'<span style="font-size:.65rem;color:var(--txt3);font-weight:600">'+packInfo(p)+'</span>':'<span></span>')+stockInfo(p)+'</div>'
+        +'<div class="p-stock-row">'+(packInfo(p)?'<span style="font-size:.65rem;color:#4B5563;font-weight:600">'+packInfo(p)+'</span>':'<span></span>')+stockInfo(p)+'</div>'
         +cardBtn(p)
         +'</div></div>';
     }
@@ -457,6 +457,8 @@ function renderCart(){
       const pType = prod ? (prod.promoType || '') : '';
       const pLabel = prod ? (prod.promoLabel || '') : '';
       const origPrice = prod ? (prod.originalPrice || 0) : 0;
+      // out-of-stock = preorder (สำคัญสุด)
+      const isOutOfStock = prod && (prod.tag === 'สินค้าหมดชั่วคราว' || prod.stock <= 0);
       const hasStrike = !isOutOfStock && origPrice > c.price && origPrice > 0;
       const themeMap = {
         sale:     { c1:'#F59E0B', bg:'#FFFAEB', emoji:'🔥', txt:'SALE — ลดพิเศษ' },
@@ -464,8 +466,6 @@ function renderCart(){
         flash:    { c1:'#DC2626', bg:'#FEF2F2', emoji:'⚡', txt:'FLASH SALE' },
         preorder: { c1:'#6B7280', bg:'#F3F4F6', emoji:'📦', txt:'สั่งจอง — สินค้าหมดชั่วคราว (รอสั่ง)' }
       };
-      // out-of-stock = preorder (สำคัญสุด)
-      const isOutOfStock = prod && (prod.tag === 'สินค้าหมดชั่วคราว' || prod.stock <= 0);
       const effectiveType = isOutOfStock ? 'preorder' : pType;
       const theme = themeMap[effectiveType] || null;
       const ribbonText = effectiveType === 'preorder'
@@ -482,7 +482,7 @@ function renderCart(){
               : '<div style="width:52px;height:52px;border-radius:6px;background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:'+theme.c1+';font-weight:800;font-size:.85rem">?</div>')
           + '<div style="flex:1;min-width:0">'
           + '<div style="font-size:.8rem;font-weight:700;margin-bottom:4px;line-height:1.35">'+esc(c.name)+'</div>'
-          + '<div style="font-size:.7rem;color:var(--txt3)">#'+c.code+(c.baseUnit?' · '+c.baseUnit:'')+'</div>'
+          + '<div style="font-size:.7rem;color:#4B5563">#'+c.code+(c.baseUnit?' · '+c.baseUnit:'')+'</div>'
           + '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">'
           + '<button onclick="changeQty(\''+c.code+'\',-1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer;background:#fff">−</button>'
           + '<span style="font-weight:700;min-width:18px;text-align:center">'+c.qty+'</span>'
@@ -500,7 +500,7 @@ function renderCart(){
               : '<div style="width:52px;height:52px;border-radius:6px;background:linear-gradient(135deg,#dceeff,var(--border));flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--acc);font-weight:800;font-size:.85rem">?</div>')
           +'<div style="flex:1;min-width:0">'
           +'<div style="font-size:.8rem;font-weight:700;margin-bottom:4px;line-height:1.35">'+esc(c.name)+'</div>'
-          +'<div style="font-size:.7rem;color:var(--txt3)">#'+c.code+(c.baseUnit?' · '+c.baseUnit:'')+'</div>'
+          +'<div style="font-size:.7rem;color:#4B5563">#'+c.code+(c.baseUnit?' · '+c.baseUnit:'')+'</div>'
           +'<div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">'
           +'<button onclick="changeQty(\''+c.code+'\',-1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer">−</button>'
           +'<span style="font-weight:700;min-width:18px;text-align:center">'+c.qty+'</span>'
@@ -735,27 +735,25 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
       const bodyContents = [
         {type:'text', text:(idx+1)+'. '+String(c.name||'-'),
          weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:2},
-        {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#999999'}
+        {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#4B5563'}
       ];
 
+      // ราคา×จำนวน = รวม (แยก element ให้ qty เด่น)
+      const priceRowContents = [];
       if(hasStrike){
-        bodyContents.push({
-          type:'box', layout:'baseline', margin:'sm', spacing:'xs',
-          contents:[
-            {type:'text', text:origPrice.toLocaleString('th-TH'), size:'xs',
-             color:'#999999', decoration:'line-through', flex:0},
-            {type:'text', text:'→', size:'xs', color:'#999999', flex:0},
-            {type:'text', text:c.price.toLocaleString('th-TH')+'×'+c.qty+' = '+lineTotal.toLocaleString('th-TH'),
-             size:'sm', color:theme.c1, weight:'bold', flex:1}
-          ]
-        });
-      } else {
-        bodyContents.push({
-          type:'text', margin:'sm',
-          text:c.price.toLocaleString('th-TH')+'×'+c.qty+' = '+lineTotal.toLocaleString('th-TH'),
-          size:'sm', color:theme.c1, weight:'bold'
-        });
+        priceRowContents.push({type:'text', text:origPrice.toLocaleString('th-TH'),
+          size:'xs', color:'#6B7280', decoration:'line-through', flex:0});
+        priceRowContents.push({type:'text', text:'→', size:'xs', color:'#6B7280', flex:0});
       }
+      priceRowContents.push({type:'text', text:c.price.toLocaleString('th-TH'),
+        size:'sm', color:'#0A1628', weight:'bold', flex:0});
+      priceRowContents.push({type:'text', text:'×', size:'sm', color:'#6B7280', flex:0});
+      priceRowContents.push({type:'text', text:String(c.qty), size:'md',
+        color:theme.c1, weight:'bold', flex:0});
+      priceRowContents.push({type:'text', text:'= '+lineTotal.toLocaleString('th-TH'),
+        size:'md', color:theme.c1, weight:'bold', flex:1, align:'end'});
+
+      bodyContents.push({type:'box', layout:'baseline', margin:'sm', spacing:'xs', contents: priceRowContents});
 
       itemContents.push({
         type:'box', layout:'vertical', margin:'md',
@@ -791,10 +789,6 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
     }
 
     // ============= REGULAR ITEM =============
-    const lineText = (idx+1)+'. '+String(c.name || '-')+
-                     ' — '+c.price.toLocaleString('th-TH')+'×'+c.qty+
-                     ' = '+lineTotal.toLocaleString('th-TH');
-
     itemContents.push({
       type:'box', layout:'horizontal', spacing:'md',
       margin: idx === 0 ? 'none' : 'md',
@@ -802,8 +796,21 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
         {type:'image', url: imgUrl, size:'xs', aspectRatio:'1:1', aspectMode:'cover', flex:0},
         {type:'box', layout:'vertical', flex:1, spacing:'xs',
           contents:[
-            {type:'text', text: lineText, weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:3},
-            {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#999999'}
+            {type:'text', text:(idx+1)+'. '+String(c.name||'-'),
+             weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:2},
+            {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#4B5563'},
+            {
+              type:'box', layout:'baseline', spacing:'xs', margin:'sm',
+              contents:[
+                {type:'text', text:c.price.toLocaleString('th-TH'), size:'sm',
+                 color:'#0A1628', weight:'bold', flex:0},
+                {type:'text', text:'×', size:'sm', color:'#6B7280', flex:0},
+                {type:'text', text:String(c.qty), size:'md',
+                 color:'#2080BE', weight:'bold', flex:0},
+                {type:'text', text:'= '+lineTotal.toLocaleString('th-TH'),
+                 size:'md', color:'#2080BE', weight:'bold', flex:1, align:'end'}
+              ]
+            }
           ]
         }
       ]
