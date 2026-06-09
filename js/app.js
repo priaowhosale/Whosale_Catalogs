@@ -871,47 +871,17 @@ async function sendOrder(){
   // เช็คว่าอยู่ใน LIFF browser หรือไม่
   if(liffReady && liffInClient && typeof liff !== 'undefined' && typeof liff.sendMessages === 'function'){
 
-    // เตรียม text message
-    const textMessage = {type:'text', text: fullText};
-
-    // === Tier 1: ส่ง Text เดียวก่อน (ตรวจว่า sendMessages ทำงานไหม) ===
+    // ส่ง Flex card เดี่ยวๆ (buildOrderMessages คืน [flex] ไม่มี text duplicate)
     try{
-      console.log('[LIFF] Tier 1: Text only (size:', JSON.stringify([textMessage]).length, 'bytes)');
-      const p1 = liff.sendMessages([textMessage]);
-      const t1 = new Promise(function(_, reject){
-        setTimeout(function(){ reject(new Error('Text timeout 10s')); }, 10000);
+      const messages = buildOrderMessages(orderId, timestamp, customerName, cart, total);
+      console.log('[LIFF] Sending Flex (size:', JSON.stringify(messages).length, 'bytes)');
+      const p = liff.sendMessages(messages);
+      const t = new Promise(function(_, reject){
+        setTimeout(function(){ reject(new Error('sendMessages timeout 15s')); }, 15000);
       });
-      await Promise.race([p1, t1]);
+      await Promise.race([p, t]);
+      console.log('[LIFF] Flex sent OK ✓');
 
-      console.log('[LIFF] Text sent OK ✓');
-
-      // === Tier 2: ลองส่ง Flex แยก (เพื่อ test Flex อย่างเดียว) ===
-      try{
-        const flex = {
-          type:'flex',
-          altText:'ออเดอร์ '+orderId+' · รวม '+total.toLocaleString('th-TH')+' บาท',
-          contents: buildFlexBubble(orderId, timestamp, customerName, cart.slice(0, 10), total)
-        };
-        console.log('[LIFF] Tier 2: Flex (size:', JSON.stringify([flex]).length, 'bytes)');
-
-        const p2 = liff.sendMessages([flex]);
-        const t2 = new Promise(function(_, reject){
-          setTimeout(function(){ reject(new Error('Flex timeout 10s')); }, 10000);
-        });
-        await Promise.race([p2, t2]);
-
-        console.log('[LIFF] Flex sent OK ✓');
-      } catch(flexErr){
-        // Flex fail แต่ text ส่งได้แล้ว — ไม่เป็นไร log ไว้
-        console.warn('[LIFF] Flex failed (but text OK):', flexErr);
-        window.__lastErrors && window.__lastErrors.push({
-          type:'flex-fail',
-          msg:'Flex failed: '+(flexErr && flexErr.message ? flexErr.message : String(flexErr)),
-          time:new Date().toLocaleTimeString()
-        });
-      }
-
-      // ถึงตรงนี้ = text ส่งสำเร็จแน่นอน
       cart = [];
       renderCart();
       closeCart();
@@ -919,17 +889,17 @@ async function sendOrder(){
       showSuccessModal(orderId);
       return;
 
-    } catch(textErr){
-      // Text ส่งไม่ได้ = ปัญหาใหญ่
-      console.error('[LIFF] Text send failed:', textErr);
+    } catch(sendErr){
+      // Flex ส่งไม่สำเร็จ → fallback ไปใช้ modal ให้ copy เอง
+      console.error('[LIFF] Send failed:', sendErr);
       window.__lastErrors && window.__lastErrors.push({
-        type:'text-fail',
-        msg:'Text failed: '+(textErr && textErr.message ? textErr.message : String(textErr)),
+        type:'send-fail',
+        msg:'Send failed: '+(sendErr && sendErr.message ? sendErr.message : String(sendErr)),
         time:new Date().toLocaleTimeString()
       });
       restoreBtn();
-      const errMsg = (textErr && textErr.message) ? textErr.message : String(textErr);
-      alert('❌ ส่งข้อความผ่าน LIFF ไม่สำเร็จ\n\nError: '+errMsg+'\n\nจะใช้วิธี copy+paste แทน');
+      const errMsg = (sendErr && sendErr.message) ? sendErr.message : String(sendErr);
+      alert('❌ ส่งออเดอร์ผ่าน LIFF ไม่สำเร็จ\n\nError: '+errMsg+'\n\nจะใช้วิธี copy+paste แทน');
       showFallbackModal(orderId, timestamp, fullText);
       return;
     }
