@@ -64,6 +64,10 @@ COL = {
     "price":       10,  # price_wholesale
     "stock":       11,  # OnStockFG
     "image":       12,  # ลิงก์รูปภาพ (hyperlink)
+    # promo columns (optional — empty if no promo)
+    "promo_type":  13,  # sale / bundle / flash / (empty)
+    "promo_label": 14,  # ข้อความบน ribbon (ไม่ใส่ = auto-generate)
+    "orig_price":  15,  # ราคาก่อนลด (ตัวเลข)
 }
 
 DATA_START_ROW = 4   # หัวตาราง row 3, data เริ่ม row 4
@@ -160,6 +164,12 @@ def convert(xlsx_path: Path, out_dir: Path, brands_dir: Path = None):
             # บางครั้งทีมอาจ paste URL ตรงๆ
             image_url = s(img_cell.value)
 
+        # Promo fields (optional)
+        promo_type_raw = s(ws.cell(row_idx, COL["promo_type"]).value).lower().strip()
+        promo_type = promo_type_raw if promo_type_raw in ("sale", "bundle", "flash") else ""
+        promo_label = s(ws.cell(row_idx, COL["promo_label"]).value)
+        orig_price = to_float(ws.cell(row_idx, COL["orig_price"]).value, 0)
+
         # Validation
         if not barcode:
             warnings.append(f"Row {row_idx}: ไม่มีรหัสสินค้า ข้าม")
@@ -194,7 +204,7 @@ def convert(xlsx_path: Path, out_dir: Path, brands_dir: Path = None):
         # Build pack_label "1 / แท่ง"
         pack_label = f"{pack_qty} / {unit}"
 
-        # Build product row (11 elements, ตรงกับ JSON format ปัจจุบัน)
+        # Build product row (11 base + 3 promo = 14 elements ถ้ามีโปร, 11 ถ้าไม่มี)
         product = [
             barcode,
             name,
@@ -208,6 +218,9 @@ def convert(xlsx_path: Path, out_dir: Path, brands_dir: Path = None):
             pack_label,
             flag,
         ]
+        # ใส่ promo เฉพาะรายการที่มี (รักษา backward-compat สำหรับสินค้าปกติ)
+        if promo_type or promo_label or orig_price:
+            product += [promo_type, promo_label, orig_price]
 
         by_category[cat_code].append(product)
 

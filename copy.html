@@ -6,6 +6,7 @@
 <title>คัดลอกออเดอร์ — เปรียว คอสเมติกส์</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Thai",sans-serif}
 body{background:#f4f8fc;color:#0a1628;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px}
@@ -19,16 +20,19 @@ h1{font-size:1.1rem;font-weight:800;color:#0a1628;margin-bottom:6px}
 .sub{font-size:.82rem;color:#4e9ecf;margin-bottom:14px;line-height:1.5}
 .meta{display:flex;justify-content:space-between;font-size:.7rem;color:#7badd0;margin-bottom:8px;padding:0 2px}
 .meta strong{color:#0065a8;font-weight:700}
-.preview{background:#f4f8fc;border:1px solid #b8d9f0;border-radius:10px;padding:12px;text-align:left;font-family:"Noto Sans Thai",monospace,sans-serif;font-size:.78rem;color:#0a1628;line-height:1.7;max-height:240px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;margin-bottom:14px}
+.preview{background:#f4f8fc;border:1px solid #b8d9f0;border-radius:10px;padding:12px;text-align:left;font-family:"Noto Sans Thai",monospace,sans-serif;font-size:.78rem;color:#0a1628;line-height:1.7;max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;margin-bottom:14px}
 .btn{display:block;width:100%;background:linear-gradient(135deg,#25a9e0,#0065a8);color:#fff;border:none;border-radius:10px;padding:14px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;margin-top:8px;transition:all .15s;box-shadow:0 4px 12px rgba(32,128,190,.3)}
 .btn:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(32,128,190,.45)}
 .btn:active{transform:translateY(0)}
-.btn.alt{background:#fff;color:#2080BE;border:1.5px solid #2080BE;box-shadow:none;font-weight:600;padding:11px;font-size:.9rem}
 .btn.big{padding:18px;font-size:1.05rem;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{box-shadow:0 4px 12px rgba(32,128,190,.3)}50%{box-shadow:0 8px 24px rgba(32,128,190,.55)}}
+.btn.success{background:#06c755 !important;box-shadow:0 4px 12px rgba(6,199,85,.35) !important;animation:none}
+.progress-wrap{height:6px;background:#e8f8ee;border-radius:6px;overflow:hidden;margin-top:14px;display:none}
+.progress-wrap.show{display:block}
+.progress-bar{height:100%;background:linear-gradient(90deg,#06c755,#0fa54a);width:100%;border-radius:6px;animation:countdown 1.6s linear forwards}
+@keyframes countdown{from{width:100%}to{width:0%}}
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-120px);background:#0a1628;color:#fff;padding:10px 20px;border-radius:24px;font-size:.85rem;font-weight:700;z-index:100;transition:transform .3s;box-shadow:0 6px 24px rgba(0,0,0,.25)}
 .toast.show{transform:translateX(-50%) translateY(0)}
-.tip{font-size:.72rem;color:#4e9ecf;margin-top:10px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -38,7 +42,7 @@ h1{font-size:1.1rem;font-weight:800;color:#0a1628;margin-bottom:6px}
 <div class="card" id="card">
   <div class="icon ready" id="icon">📋</div>
   <h1 id="title">พร้อมคัดลอก</h1>
-  <div class="sub" id="sub">แตะปุ่มสีฟ้าด้านล่างเพื่อคัดลอกลง clipboard</div>
+  <div class="sub" id="sub">แตะปุ่มสีฟ้าด้านล่าง — คัดลอกเสร็จจะปิดอัตโนมัติ</div>
 
   <div class="meta">
     <span>รูปแบบ: <strong id="fmt-label">-</strong></span>
@@ -48,9 +52,10 @@ h1{font-size:1.1rem;font-weight:800;color:#0a1628;margin-bottom:6px}
   <div class="preview" id="preview">กำลังประมวลผล...</div>
 
   <button class="btn big" id="copy-btn">📋 แตะเพื่อคัดลอก</button>
-  <button class="btn alt" id="back-btn">← กลับไปแชต LINE</button>
 
-  <div class="tip" id="tip">หากปุ่ม "กลับไปแชต" ไม่ทำงาน แตะปุ่ม X มุมขวาบนได้ค่ะ</div>
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-bar"></div>
+  </div>
 </div>
 
 <script>
@@ -92,30 +97,48 @@ function setIcon(type, mark, title, sub){
   document.getElementById('sub').textContent = sub;
 }
 
+// ปิดหน้าตัวเอง (ใช้ LIFF closeWindow → fallback อื่นๆ)
+function autoClose(){
+  // 1. LIFF SDK closeWindow (ดีที่สุด ใน LINE in-app browser)
+  if(typeof liff !== 'undefined' && liff.closeWindow){
+    try{ liff.closeWindow(); return; } catch(e){}
+  }
+  // 2. window.close() — popup ที่ JS เปิด
+  try{ window.close(); } catch(e){}
+  // 3. history.back()
+  if(window.history.length > 1){
+    try{ window.history.back(); return; } catch(e){}
+  }
+  // 4. redirect ไป LINE app
+  window.location.href = 'https://line.me/R/';
+}
+
+// แสดง countdown ก่อน auto-close
+function startCountdown(){
+  document.getElementById('progress-wrap').classList.add('show');
+  setTimeout(autoClose, 1600);
+}
+
 async function doCopy(text){
   if(!text){
     setIcon('error', '!', 'ไม่มีข้อมูล', 'URL ไม่ถูกต้องหรือว่างเปล่า');
     return false;
   }
 
-  // วิธี 1: modern clipboard API (HTTPS + user gesture)
+  const btn = document.getElementById('copy-btn');
+
+  // วิธี 1: modern clipboard API
   if(navigator.clipboard && navigator.clipboard.writeText){
     try{
       await navigator.clipboard.writeText(text);
-      setIcon('success', '\u2713', 'คัดลอกเรียบร้อย', 'เนื้อหาอยู่ใน clipboard แล้ว — กลับไป paste ในแชตได้เลย');
-      showToast('✓ คัดลอกแล้ว');
-      // ทำให้ปุ่มเปลี่ยนสีแสดงว่าทำสำเร็จ
-      const btn = document.getElementById('copy-btn');
-      btn.style.background = '#06c755';
-      btn.textContent = '✓ คัดลอกแล้ว — แตะอีกครั้งได้';
-      btn.classList.remove('big');
+      onCopySuccess();
       return true;
     } catch(err){
       console.warn('clipboard.writeText failed:', err);
     }
   }
 
-  // วิธี 2: fallback execCommand (เบราว์เซอร์เก่า)
+  // วิธี 2: fallback execCommand
   try{
     const ta = document.createElement('textarea');
     ta.value = text;
@@ -129,33 +152,25 @@ async function doCopy(text){
     const ok = document.execCommand('copy');
     document.body.removeChild(ta);
     if(ok){
-      setIcon('success', '\u2713', 'คัดลอกเรียบร้อย', 'ใช้วิธีสำรอง — paste ได้ตามปกติ');
-      showToast('✓ คัดลอกแล้ว');
-      const btn = document.getElementById('copy-btn');
-      btn.style.background = '#06c755';
-      btn.textContent = '✓ คัดลอกแล้ว';
+      onCopySuccess();
       return true;
     }
   } catch(e){ console.warn('execCommand failed:', e); }
 
   // ทั้ง 2 วิธีไม่ได้
-  setIcon('warn', '!', 'คัดลอกไม่สำเร็จ', 'กรุณาเลือกข้อความในกล่องด้านล่าง แล้วก๊อปด้วยตัวเอง');
-  showToast('แตะค้างที่ข้อความเพื่อ select', true);
+  setIcon('warn', '!', 'คัดลอกไม่สำเร็จ', 'ลองแตะปุ่มใหม่อีกครั้ง');
+  showToast('แตะปุ่มอีกครั้ง', true);
   return false;
 }
 
-function goBack(){
-  // วิธี 1: history.back()
-  if(window.history.length > 1){
-    window.history.back();
-    return;
-  }
-  // วิธี 2: window.close()
-  try{ window.close(); } catch(e){}
-  // ถ้ายังไม่ปิด แสดง tip
-  document.getElementById('tip').textContent = 'แตะปุ่ม X มุมขวาบนของหน้าเพื่อปิด';
-  document.getElementById('tip').style.color = '#dc2626';
-  document.getElementById('tip').style.fontWeight = '700';
+function onCopySuccess(){
+  setIcon('success', '\u2713', 'คัดลอกเรียบร้อย', 'กำลังกลับไปแชต LINE...');
+  showToast('✓ คัดลอกแล้ว — กำลังปิดหน้า');
+  const btn = document.getElementById('copy-btn');
+  btn.className = 'btn success';
+  btn.textContent = '✓ คัดลอกแล้ว — กลับแชตใน 1.5 วินาที';
+  btn.disabled = true;
+  startCountdown();
 }
 
 (function init(){
@@ -173,28 +188,23 @@ function goBack(){
 
   document.getElementById('preview').textContent = decoded;
   document.getElementById('byte-count').textContent = decoded.length;
-
-  // เก็บ text ไว้
   window._copyText = decoded;
 
-  // ปุ่ม copy
+  // ผูก click handler
   document.getElementById('copy-btn').addEventListener('click', () => doCopy(window._copyText));
 
-  // ปุ่มกลับ
-  document.getElementById('back-btn').addEventListener('click', goBack);
-
-  // ลอง auto-copy แต่ไม่บังคับ — ถ้า fail ก็ไม่แสดง warning
+  // ลอง auto-copy ตอนโหลด — ถ้าได้จะ auto-close เลย
   if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(decoded).then(() => {
-      setIcon('success', '\u2713', 'คัดลอกอัตโนมัติเรียบร้อย', 'เนื้อหาอยู่ใน clipboard แล้ว — กลับไป paste ได้เลย');
-      showToast('✓ คัดลอกแล้ว');
-      const btn = document.getElementById('copy-btn');
-      btn.style.background = '#06c755';
-      btn.textContent = '✓ คัดลอกแล้ว — แตะอีกครั้งได้';
-      btn.classList.remove('big');
-    }).catch(() => {
-      // ไม่ได้ก็ไม่เป็นไร ผู้ใช้แตะปุ่มเอง
+    navigator.clipboard.writeText(decoded).then(onCopySuccess).catch(() => {
+      // ไม่ได้ก็ไม่เป็นไร รอ user แตะปุ่ม
     });
+  }
+
+  // Init LIFF SDK สำหรับ closeWindow
+  if(typeof liff !== 'undefined'){
+    try{
+      liff.init({ liffId: '2010211018-V4JAFUOl' }).catch(function(){});
+    } catch(e){}
   }
 })();
 </script>

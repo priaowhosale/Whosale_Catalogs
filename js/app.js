@@ -82,6 +82,9 @@ function init(){
     for(const raw of arr){
       if(!raw[0])continue;
       if(!raw[4]||raw[4]<=0)continue;
+      // promo fields (index 11-13 — optional, default empty)
+      const promoTypeRaw = String(raw[11] || '').toLowerCase().trim();
+      const promoType = ['sale','bundle','flash'].indexOf(promoTypeRaw) >= 0 ? promoTypeRaw : '';
       const p={
         code:String(raw[0]),name:raw[1]||'',
         cat:cat+' '+(CAT_NAMES[cat]||''),catId:cat,
@@ -90,6 +93,10 @@ function init(){
         packQty:Number(raw[8])||1,baseUnit:raw[9]||'',
         stock:Number(raw[5])||0,imageUrl:raw[6]||'',
         brand:raw[7]||'',excelOrder:Number(raw[10])||0,
+        // promo (optional fields 11-13)
+        promoType: promoType,
+        promoLabel: String(raw[12] || ''),
+        originalPrice: Number(raw[13]) || 0,
       };
       products.push(p);
       if(p.subCat)smap[cat].add(p.subCat);
@@ -443,20 +450,55 @@ function renderCart(){
     for(const c of cart){
       const prod = allProducts.find(p => p.code === c.code);
       const imgUrl = (prod && prod.imageUrl) ? prod.imageUrl : '';
-      h+='<div class="cart-item" style="display:flex;gap:10px;align-items:flex-start">'
-        +(imgUrl
-            ? '<img src="'+imgUrl+'" alt="" loading="lazy" onerror="this.style.display=\'none\'" style="width:52px;height:52px;border-radius:6px;object-fit:cover;background:#f4f8fc;flex-shrink:0;border:1px solid var(--border)">'
-            : '<div style="width:52px;height:52px;border-radius:6px;background:linear-gradient(135deg,#dceeff,var(--border));flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--acc);font-weight:800;font-size:.85rem">?</div>')
-        +'<div style="flex:1;min-width:0">'
-        +'<div style="font-size:.8rem;font-weight:700;margin-bottom:4px;line-height:1.35">'+esc(c.name)+'</div>'
-        +'<div style="font-size:.7rem;color:var(--txt3)">#'+c.code+(c.baseUnit?' · '+c.baseUnit:'')+'</div>'
-        +'<div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">'
-        +'<button onclick="changeQty(\''+c.code+'\',-1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer">−</button>'
-        +'<span style="font-weight:700;min-width:18px;text-align:center">'+c.qty+'</span>'
-        +'<button onclick="changeQty(\''+c.code+'\',1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer">+</button>'
-        +'<span style="flex:1;text-align:right;font-weight:700;color:var(--acc);font-size:.85rem">'+(c.price*c.qty).toLocaleString('th-TH')+' บาท</span>'
-        +'<button onclick="removeCart(\''+c.code+'\')" style="color:#dc2626;background:none;border:none;cursor:pointer;font-size:.95rem">✕</button>'
-        +'</div></div></div>';
+      const pType = prod ? (prod.promoType || '') : '';
+      const pLabel = prod ? (prod.promoLabel || '') : '';
+      const origPrice = prod ? (prod.originalPrice || 0) : 0;
+      const hasStrike = origPrice > c.price && origPrice > 0;
+      const themeMap = {
+        sale:   { c1:'#F59E0B', bg:'#FFFAEB', emoji:'🔥', txt:'SALE — ลดพิเศษ' },
+        bundle: { c1:'#2080BE', bg:'#F0F7FF', emoji:'🎁', txt:'โปรโมชั่น' },
+        flash:  { c1:'#DC2626', bg:'#FEF2F2', emoji:'⚡', txt:'FLASH SALE' }
+      };
+      const theme = themeMap[pType] || null;
+      const ribbonText = pLabel || (theme ? theme.emoji+' '+theme.txt : '');
+
+      if(theme){
+        // PROMO CART ITEM
+        h += '<div class="cart-item" style="padding:0 !important;border:1.5px solid '+theme.c1+';background:'+theme.bg+';border-radius:8px;overflow:hidden">'
+          + '<div style="background:'+theme.c1+';color:#fff;font-size:.7rem;font-weight:800;padding:3px 10px">'+esc(ribbonText)+'</div>'
+          + '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px">'
+          + (imgUrl
+              ? '<img src="'+imgUrl+'" alt="" loading="lazy" onerror="this.style.display=\'none\'" style="width:52px;height:52px;border-radius:6px;object-fit:cover;background:#fff;flex-shrink:0;border:1px solid var(--border)">'
+              : '<div style="width:52px;height:52px;border-radius:6px;background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:'+theme.c1+';font-weight:800;font-size:.85rem">?</div>')
+          + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:.8rem;font-weight:700;margin-bottom:4px;line-height:1.35">'+esc(c.name)+'</div>'
+          + '<div style="font-size:.7rem;color:var(--txt3)">#'+c.code+(c.baseUnit?' · '+c.baseUnit:'')+'</div>'
+          + '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">'
+          + '<button onclick="changeQty(\''+c.code+'\',-1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer;background:#fff">−</button>'
+          + '<span style="font-weight:700;min-width:18px;text-align:center">'+c.qty+'</span>'
+          + '<button onclick="changeQty(\''+c.code+'\',1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer;background:#fff">+</button>'
+          + '<span style="flex:1;text-align:right;font-weight:700;color:'+theme.c1+';font-size:.85rem">'
+          + (hasStrike ? '<span style="text-decoration:line-through;color:#999;font-weight:400;font-size:.72rem">'+origPrice.toLocaleString('th-TH')+'</span> ' : '')
+          + (c.price*c.qty).toLocaleString('th-TH')+' บาท</span>'
+          + '<button onclick="removeCart(\''+c.code+'\')" style="color:#dc2626;background:none;border:none;cursor:pointer;font-size:.95rem">✕</button>'
+          + '</div></div></div></div>';
+      } else {
+        // REGULAR CART ITEM (เดิม)
+        h+='<div class="cart-item" style="display:flex;gap:10px;align-items:flex-start">'
+          +(imgUrl
+              ? '<img src="'+imgUrl+'" alt="" loading="lazy" onerror="this.style.display=\'none\'" style="width:52px;height:52px;border-radius:6px;object-fit:cover;background:#f4f8fc;flex-shrink:0;border:1px solid var(--border)">'
+              : '<div style="width:52px;height:52px;border-radius:6px;background:linear-gradient(135deg,#dceeff,var(--border));flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--acc);font-weight:800;font-size:.85rem">?</div>')
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:.8rem;font-weight:700;margin-bottom:4px;line-height:1.35">'+esc(c.name)+'</div>'
+          +'<div style="font-size:.7rem;color:var(--txt3)">#'+c.code+(c.baseUnit?' · '+c.baseUnit:'')+'</div>'
+          +'<div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">'
+          +'<button onclick="changeQty(\''+c.code+'\',-1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer">−</button>'
+          +'<span style="font-weight:700;min-width:18px;text-align:center">'+c.qty+'</span>'
+          +'<button onclick="changeQty(\''+c.code+'\',1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer">+</button>'
+          +'<span style="flex:1;text-align:right;font-weight:700;color:var(--acc);font-size:.85rem">'+(c.price*c.qty).toLocaleString('th-TH')+' บาท</span>'
+          +'<button onclick="removeCart(\''+c.code+'\')" style="color:#dc2626;background:none;border:none;cursor:pointer;font-size:.95rem">✕</button>'
+          +'</div></div></div>';
+      }
     }
     items.innerHTML=h;
   }
@@ -633,39 +675,104 @@ function buildCopyUrl(baseHref, fmt, orderId, customerName, cartItems){
 function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, copyBaseUrl){
   const itemContents = [];
 
+  // สีตามประเภทโปร: sale=ส้ม, bundle=ฟ้า, flash=แดง
+  const PROMO_THEME = {
+    sale:   { c1:'#F59E0B', bg:'#FFFAEB', txt:'#7C5E00', emoji:'🔥' },
+    bundle: { c1:'#2080BE', bg:'#F0F7FF', txt:'#0C447C', emoji:'🎁' },
+    flash:  { c1:'#DC2626', bg:'#FEF2F2', txt:'#7F1D1D', emoji:'⚡' }
+  };
+
   cartItems.forEach(function(c, idx){
     const product = allProducts.find(p => p.code === c.code);
     const imgUrl = safeImageUrl(product ? product.imageUrl : null);
     const lineTotal = c.price * c.qty;
+    const promoType = product ? (product.promoType || '') : '';
+    const theme = PROMO_THEME[promoType] || null;
+    const origPrice = product ? (product.originalPrice || 0) : 0;
+    const hasStrike = origPrice > c.price && origPrice > 0;
+    const discPct = hasStrike ? Math.round((origPrice - c.price) / origPrice * 100) : 0;
 
     if(idx > 0){
       itemContents.push({type:'separator', margin:'md', color:'#EEEEEE'});
     }
 
-    // "(n). ชื่อ — ราคา×จำนวน = รวม" บรรทัดเดียว
+    // ============= PROMO ITEM =============
+    if(theme){
+      const ribbonText = (product.promoLabel || '').trim()
+        || (promoType==='sale'  ? theme.emoji+' SALE — ลดพิเศษ'
+          : promoType==='bundle'? theme.emoji+' โปรโมชั่น'
+          : theme.emoji+' FLASH SALE');
+
+      // body contents inside promo card
+      const bodyContents = [
+        {type:'text', text:(idx+1)+'. '+String(c.name||'-'),
+         weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:2},
+        {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#999999'}
+      ];
+
+      if(hasStrike){
+        bodyContents.push({
+          type:'box', layout:'baseline', margin:'sm', spacing:'xs',
+          contents:[
+            {type:'text', text:origPrice.toLocaleString('th-TH'), size:'xs',
+             color:'#999999', decoration:'line-through', flex:0},
+            {type:'text', text:'→', size:'xs', color:'#999999', flex:0},
+            {type:'text', text:c.price.toLocaleString('th-TH')+'×'+c.qty+' = '+lineTotal.toLocaleString('th-TH'),
+             size:'sm', color:theme.c1, weight:'bold', flex:1}
+          ]
+        });
+      } else {
+        bodyContents.push({
+          type:'text', margin:'sm',
+          text:c.price.toLocaleString('th-TH')+'×'+c.qty+' = '+lineTotal.toLocaleString('th-TH'),
+          size:'sm', color:theme.c1, weight:'bold'
+        });
+      }
+
+      itemContents.push({
+        type:'box', layout:'vertical', margin:'md',
+        borderColor: theme.c1, borderWidth: '1.5px', cornerRadius:'md',
+        contents:[
+          // Ribbon
+          {
+            type:'box', layout:'vertical',
+            backgroundColor: theme.c1, paddingAll:'6px', paddingStart:'12px', paddingEnd:'12px',
+            contents:[
+              {type:'text', text: ribbonText, color:'#FFFFFF', size:'xs', weight:'bold'}
+            ]
+          },
+          // Content
+          {
+            type:'box', layout:'horizontal', spacing:'md',
+            backgroundColor: theme.bg, paddingAll:'md',
+            contents:[
+              {type:'image', url: imgUrl, size:'xs', aspectRatio:'1:1', aspectMode:'cover', flex:0},
+              {type:'box', layout:'vertical', flex:1, spacing:'xs', contents: bodyContents}
+            ]
+          }
+        ]
+      });
+
+      // Add discount badge below image area? — LINE Flex doesn't support absolute positioning.
+      // Use prefix on ribbon if % calculable
+      if(discPct > 0){
+        // append "-XX%" to ribbon text — done above? Let me update ribbon to include it
+        // Actually, simpler: append directly via altText
+      }
+      return;
+    }
+
+    // ============= REGULAR ITEM =============
     const lineText = (idx+1)+'. '+String(c.name || '-')+
                      ' — '+c.price.toLocaleString('th-TH')+'×'+c.qty+
                      ' = '+lineTotal.toLocaleString('th-TH');
 
     itemContents.push({
-      type:'box',
-      layout:'horizontal',
-      spacing:'md',
+      type:'box', layout:'horizontal', spacing:'md',
       margin: idx === 0 ? 'none' : 'md',
       contents:[
-        {
-          type:'image',
-          url: imgUrl,
-          size:'xs',
-          aspectRatio:'1:1',
-          aspectMode:'cover',
-          flex:0
-        },
-        {
-          type:'box',
-          layout:'vertical',
-          flex:1,
-          spacing:'xs',
+        {type:'image', url: imgUrl, size:'xs', aspectRatio:'1:1', aspectMode:'cover', flex:0},
+        {type:'box', layout:'vertical', flex:1, spacing:'xs',
           contents:[
             {type:'text', text: lineText, weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:3},
             {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#999999'}
@@ -677,15 +784,28 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
 
   itemContents.push({type:'separator', margin:'lg', color:'#0A1628'});
   const totalQty = cartItems.reduce((s, c) => s + (c.qty || 0), 0);
-  itemContents.push({
-    type:'box',
-    layout:'horizontal',
-    margin:'md',
-    contents:[
-      {type:'text', text:'ยอดรวม ('+cartItems.length+' รายการ · '+totalQty+' ชิ้น)', size:'xs', weight:'bold', color:'#0A1628', flex:3, wrap:true},
-      {type:'text', text: total.toLocaleString('th-TH')+' บาท', size:'lg', weight:'bold', color:'#0A1628', align:'end', flex:2}
-    ]
-  });
+  // คำนวณยอดประหยัด
+  const totalSavings = cartItems.reduce(function(s, c){
+    const prod = allProducts.find(function(p){ return p.code === c.code; });
+    if(prod && prod.originalPrice && prod.originalPrice > c.price){
+      return s + (prod.originalPrice - c.price) * c.qty;
+    }
+    return s;
+  }, 0);
+
+  const totalRowContents = [
+    {type:'text', text:'ยอดรวม ('+cartItems.length+' รายการ · '+totalQty+' ชิ้น)', size:'xs', weight:'bold', color:'#0A1628', flex:3, wrap:true},
+    {type:'text', text: total.toLocaleString('th-TH')+' บาท', size:'lg', weight:'bold', color:'#0A1628', align:'end', flex:2}
+  ];
+  itemContents.push({type:'box', layout:'horizontal', margin:'md', contents: totalRowContents});
+
+  if(totalSavings > 0){
+    itemContents.push({
+      type:'text', margin:'xs', align:'end',
+      text:'✓ ประหยัด '+totalSavings.toLocaleString('th-TH')+' บาท',
+      size:'xs', color:'#06c755', weight:'bold'
+    });
+  }
 
   const headerContents = [
     {type:'text', text:'เปรียว คอสเมติกส์', color:'#FFFFFF', size:'md', weight:'bold'},

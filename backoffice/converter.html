@@ -46,6 +46,16 @@ h1{color:#25a9e0;margin-bottom:4px}
 <h1>🔄 Excel → JSON Converter</h1>
 <p class="sub">แปลงไฟล์ <code>ไฟล์อัพโหลดสินค้าเข้า Catalog Wholesale.xlsx</code> เป็น JSON พร้อมอัปเข้า GitHub</p>
 
+<div style="background:#fff;border:1.5px solid #b8d9f0;border-radius:14px;padding:16px;margin-bottom:18px">
+  <div style="font-size:.95rem;font-weight:800;color:#0a1628;margin-bottom:4px">📥 ก่อนใช้งาน — ดาวน์โหลด Template</div>
+  <div style="font-size:.78rem;color:#4e9ecf;margin-bottom:12px">เลือก Template เปล่า (สำหรับเริ่มใหม่) หรือ ข้อมูลปัจจุบัน (สำหรับแก้ไขข้อมูลล่าสุด)</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <button class="btn" onclick="downloadEmptyTemplate()" style="margin-top:0">⬇ Template เปล่า</button>
+    <button class="btn alt" onclick="downloadCurrentData()" style="margin-top:0">⬇ ข้อมูลปัจจุบัน (จาก GitHub)</button>
+  </div>
+  <div id="dl-status" style="font-size:.72rem;color:#4e9ecf;margin-top:8px;min-height:1em"></div>
+</div>
+
 <div class="drop" id="drop">
   <div class="drop-icon">📁</div>
   <div class="drop-title">ลาก Excel มาวางที่นี่</div>
@@ -75,7 +85,8 @@ const STATUS_FLAG_MAP = {"A": 1, "New": 2, "B": 3};
 const COL = {
   category: 0, subcategory: 1, barcode: 2, name: 3,
   pack_qty: 4, unit: 5, brand: 6, psale: 7, tag: 8,
-  price: 9, stock: 10, image: 11
+  price: 9, stock: 10, image: 11,
+  promo_type: 12, promo_label: 13, orig_price: 14
 };
 const DATA_START_ROW = 4; // 1-based; row 3 = header
 
@@ -90,6 +101,101 @@ function setStatus(html) {
 }
 function showError(msg) {
   setStatus(`<div class="error"><strong>❌ Error:</strong> ${msg}</div>`);
+}
+
+// ====== Download Template / Current Data ======
+const TEMPLATE_HEADERS = ['หมวดสินค้า','หมวดย่อยสินค้า','รหัสสินค้า','ชื่อสินค้า','จำนวน/หน่วย','หน่วย','แบรนด์','PSaleStatus','Tag','price_wholesale','OnStockFG','ลิงก์รูปภาพ','promo_type','promo_label','original_price'];
+const CAT_REVERSE = {};
+for (const [name, code] of Object.entries(CATEGORY_MAP)) CAT_REVERSE[code] = name;
+const FLAG_REVERSE = {1:'A', 2:'New', 3:'B'};
+
+function dlStatus(msg, isError) {
+  const el = document.getElementById('dl-status');
+  el.textContent = msg || '';
+  el.style.color = isError ? '#dc2626' : '#1D9E75';
+}
+
+function makeTemplateSheet(rows) {
+  const data = [
+    ['ไฟล์อัพโหลดสินค้าเข้า Catalog Wholesale  |  PSaleStatus: New, A, B  |  ' + (rows.length ? 'ข้อมูลล่าสุด' : 'Template เปล่า')],
+    ['เติมข้อมูลจากแถวที่ 4 ลงมา  |  ลิงก์รูป: คลิกขวาที่เซลล์ → Link → ใส่ URL  |  วันที่: ' + new Date().toLocaleDateString('th-TH')],
+    TEMPLATE_HEADERS,
+    ...rows
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:20},{wch:32},{wch:18},{wch:52},{wch:10},{wch:8},{wch:26},{wch:12},{wch:18},{wch:12},{wch:10},{wch:18},{wch:14},{wch:30},{wch:14}];
+  ws['!merges'] = [
+    {s:{r:0,c:0},e:{r:0,c:14}},
+    {s:{r:1,c:0},e:{r:1,c:14}}
+  ];
+  return ws;
+}
+
+function downloadEmptyTemplate() {
+  dlStatus('กำลังสร้าง Template เปล่า...');
+  try {
+    const examples = [
+      ['เครื่องสำอาง','ลิป','8850080754278','ตัวอย่างสินค้าปกติ — ลบทิ้งได้',1,'แท่ง','BRAND-EN ชื่อแบรนด์ไทย','A','สินค้าขายดี',43,28,'','','',''],
+      ['ผลิตภัณฑ์ดูแลผิวหน้า','ครีม','8857127482897','ตัวอย่างสินค้า SALE — ลบทิ้งได้',1,'หลอด','BRAND2-EN ชื่อแบรนด์ไทย2','A','สินค้าขายดี',100,10,'','sale','🔥 SALE — ลด 30%',150],
+      ['น้ำหอม','น้ำหอม','8859214800874','ตัวอย่างสินค้า BUNDLE — ลบทิ้งได้',6,'กล่อง','BRAND3-EN ชื่อแบรนด์ไทย3','A','',675,3,'','bundle','🎁 ซื้อ 1 แถม 1',0],
+      ['คอนซูเมอร์','แชมพู','8859214800999','ตัวอย่างสินค้า FLASH — ลบทิ้งได้',1,'ขวด','BRAND4-EN ชื่อแบรนด์ไทย4','New','สินค้าใหม่',125,5,'','flash','⚡ FLASH SALE — เหลือ 24 ชม.',250]
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, makeTemplateSheet(examples), 'สินค้าทั้งหมด');
+    const today = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, 'Catalog_Template_เปล่า_' + today + '.xlsx');
+    dlStatus('✓ ดาวน์โหลด Template เปล่าเรียบร้อย');
+  } catch (e) {
+    console.error(e);
+    dlStatus('สร้างไฟล์ไม่สำเร็จ: ' + e.message, true);
+  }
+}
+
+async function downloadCurrentData() {
+  dlStatus('กำลังโหลดข้อมูลล่าสุดจาก GitHub Pages...');
+  const baseUrl = 'https://priaowhosale.github.io/Whosale_Catalogs';
+  try {
+    const idx = await fetch(baseUrl + '/data/index.json').then(r => {
+      if (!r.ok) throw new Error('โหลด index.json ไม่สำเร็จ');
+      return r.json();
+    });
+    const rows = [];
+    for (const catCode of idx.categories) {
+      const items = await fetch(baseUrl + '/data/' + catCode + '.json').then(r => r.json());
+      const catName = CAT_REVERSE[catCode] || catCode;
+      items.forEach(item => {
+        // item = [barcode, name, subcat, tag, price, stock, image_url, brand, pack_qty, pack_label, flag]
+        const packLabel = String(item[9] || '');
+        const unit = packLabel.includes(' / ') ? packLabel.split(' / ')[1].trim() : '';
+        rows.push([
+          catName,            // หมวดสินค้า
+          item[2] || '',      // หมวดย่อย
+          item[0] || '',      // รหัสสินค้า
+          item[1] || '',      // ชื่อ
+          item[8] || 1,       // จำนวน/หน่วย
+          unit || 'ชิ้น',     // หน่วย
+          item[7] || '',      // แบรนด์
+          FLAG_REVERSE[item[10]] || 'B',  // PSaleStatus
+          item[3] || '',      // Tag
+          item[4] || 0,       // price
+          item[5] || 0,       // stock
+          item[6] || '',      // image URL
+          item[11] || '',     // promo_type
+          item[12] || '',     // promo_label
+          item[13] || ''      // original_price
+        ]);
+      });
+      dlStatus('โหลด ' + catCode + ' (' + items.length + ' รายการ)... ');
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, makeTemplateSheet(rows), 'สินค้าทั้งหมด');
+    const today = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, 'Catalog_ข้อมูลล่าสุด_' + today + '.xlsx');
+    dlStatus('✓ ดาวน์โหลดเรียบร้อย — ' + rows.length.toLocaleString() + ' รายการ');
+  } catch (e) {
+    console.error(e);
+    dlStatus('โหลดไม่สำเร็จ: ' + e.message + ' (ตรวจ network / GitHub Pages พร้อมไหม)', true);
+  }
 }
 
 // ====== Drag & drop ======
@@ -204,9 +310,19 @@ function convertRows(rows, ws) {
       newBrands.add(`${brand} → ${slug}`);
     }
 
-    byCategory[catCode].push([
+    // Promo fields (optional)
+    const promoTypeRaw = String(row[COL.promo_type] || '').toLowerCase().trim();
+    const promoType = ['sale','bundle','flash'].indexOf(promoTypeRaw) >= 0 ? promoTypeRaw : '';
+    const promoLabel = String(row[COL.promo_label] || '').trim();
+    const origPrice = toNum(row[COL.orig_price], 0);
+
+    const baseRow = [
       barcode, name, subcat, tag, price, stock, imageUrl, brand, packQty, `${packQty} / ${unit}`, flag
-    ]);
+    ];
+    if (promoType || promoLabel || origPrice) {
+      baseRow.push(promoType, promoLabel, origPrice);
+    }
+    byCategory[catCode].push(baseRow);
   }
 
   return { byCategory, warnings, newBrands: Array.from(newBrands).sort(),
