@@ -99,16 +99,18 @@ function setIcon(type, mark, title, sub){
 
 // (showManualCloseInstruction ถูกแทนที่ด้วย showBigCloseHint)
 
-// ปิดอัตโนมัติเร็ว — LIFF endpoint แล้ว closeWindow ทำงานแน่
+// ปิดอัตโนมัติ — ลอง 2 วินาที (เผื่อมือถือช้า) + banner หลัง 5 วินาที
 function startCountdown(){
-  // ลองปิด 1 วินาทีหลัง copy success
-  setTimeout(silentAutoClose, 1000);
-  // ถ้าหลัง 3 วินาทียังอยู่ (kasanas edge case) → แสดง banner
+  // ลองปิด 2 วินาทีหลัง copy success — เผื่อ LIFF context พร้อมช้า
+  setTimeout(silentAutoClose, 2000);
+  // ลองรอบสอง ที่ 3.5 วิ (ถ้ารอบแรกพลาด)
+  setTimeout(silentAutoClose, 3500);
+  // ถ้าหลัง 5 วินาทียังอยู่ → แสดง banner ใหญ่ (edge case)
   setTimeout(function(){
     if(!document.hidden){
       showBigCloseHint();
     }
-  }, 3000);
+  }, 5000);
 }
 
 // ปิดหน้าตัวเอง — copy.html เป็น LIFF endpoint แล้ว ใช้ liff.closeWindow ได้
@@ -194,7 +196,7 @@ function onCopySuccess(){
   startCountdown();
 }
 
-(function init(){
+(async function init(){
   const fmt = getParam('fmt') || 'sku';
   const t   = getParam('t')   || '';
   const decoded = b64UrlDecode(t);
@@ -211,25 +213,35 @@ function onCopySuccess(){
   document.getElementById('byte-count').textContent = decoded.length;
   window._copyText = decoded;
 
-  // ผูก click handler
+  // ผูก click handler ทันที (ทำงานก่อน LIFF init ก็ได้)
   document.getElementById('copy-btn').addEventListener('click', () => doCopy(window._copyText));
 
-  // ลอง auto-copy ตอนโหลด — ถ้าได้จะ auto-close เลย
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(decoded).then(onCopySuccess).catch(() => {
-      // ไม่ได้ก็ไม่เป็นไร รอ user แตะปุ่ม
-    });
-  }
-
-  // Init LIFF SDK สำหรับ closeWindow — ตั้ง flag เมื่อพร้อม
+  // ===== Init LIFF SDK ก่อน เพื่อให้ closeWindow พร้อม =====
+  let liffOk = false;
   if(typeof liff !== 'undefined'){
     try{
-      liff.init({ liffId: '2010211018-4Zqj1MmB' })
-        .then(function(){ window._liffReady = true; })
-        .catch(function(e){ console.warn('liff.init failed:', e); window._liffReady = true; });
-    } catch(e){ window._liffReady = true; }
+      await liff.init({ liffId: '2010211018-4Zqj1MmB' });
+      window._liffReady = true;
+      liffOk = liff.isInClient && liff.isInClient();
+      console.log('LIFF ready, inClient:', liffOk);
+    } catch(e){
+      console.error('liff.init failed:', e);
+      window._liffReady = true;
+      window._liffError = e && e.message ? e.message : String(e);
+    }
   } else {
     window._liffReady = true;
+  }
+
+  // ===== หลัง LIFF พร้อม ลอง auto-copy =====
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    try{
+      await navigator.clipboard.writeText(decoded);
+      onCopySuccess();
+    } catch(e){
+      // ถ้า auto-copy ไม่ได้ → รอ user แตะปุ่ม
+      console.warn('auto-copy failed:', e);
+    }
   }
 })();
 </script>
