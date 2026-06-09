@@ -97,26 +97,61 @@ function setIcon(type, mark, title, sub){
   document.getElementById('sub').textContent = sub;
 }
 
-// ปิดหน้าตัวเอง (ใช้ LIFF closeWindow → fallback อื่นๆ)
-function autoClose(){
-  // 1. LIFF SDK closeWindow (ดีที่สุด ใน LINE in-app browser)
-  if(typeof liff !== 'undefined' && liff.closeWindow){
-    try{ liff.closeWindow(); return; } catch(e){}
+// ปิดหน้าตัวเอง — ลองหลายวิธีตามลำดับ
+async function autoClose(){
+  // 1. รอ liff.init() เสร็จก่อน (สูงสุด 1.5 วินาที)
+  if(typeof liff !== 'undefined'){
+    for(let i = 0; i < 15; i++){
+      if(window._liffReady) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
   }
-  // 2. window.close() — popup ที่ JS เปิด
+
+  // 2. LIFF closeWindow (ดีที่สุด ถ้าอยู่ใน LINE in-app browser)
+  if(typeof liff !== 'undefined' && liff.closeWindow){
+    try{
+      liff.closeWindow();
+      // กันเหนียว — ถ้า closeWindow ไม่ทำงานจริง รอ 500ms แล้ว fallback
+      await new Promise(r => setTimeout(r, 500));
+    } catch(e){ console.warn('liff.closeWindow failed:', e); }
+  }
+
+  // 3. ถ้ายังไม่ปิด ลอง LINE deep link (เด้งกลับ LINE app)
+  try{
+    window.location.href = 'line://nv/chats';
+    return;
+  } catch(e){}
+
+  // 4. window.close()
   try{ window.close(); } catch(e){}
-  // 3. history.back()
+
+  // 5. history.back()
   if(window.history.length > 1){
     try{ window.history.back(); return; } catch(e){}
   }
-  // 4. redirect ไป LINE app
+
+  // 6. สุดท้าย — เปิด LINE หน้าหลัก
   window.location.href = 'https://line.me/R/';
 }
 
-// แสดง countdown ก่อน auto-close
+// แสดง manual instruction ถ้าผ่านไปเกิน 3 วินาทียังไม่ปิด
+function showManualCloseInstruction(){
+  const tip = document.createElement('div');
+  tip.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#dc2626;color:#fff;padding:12px 18px;border-radius:24px;font-size:.85rem;font-weight:700;z-index:200;box-shadow:0 6px 20px rgba(220,38,38,.4);text-align:center;max-width:90vw';
+  tip.innerHTML = '👆 แตะปุ่ม X มุมขวาบนเพื่อกลับ LINE ได้เลยค่ะ';
+  document.body.appendChild(tip);
+}
+
+// แสดง countdown ก่อน auto-close + เตือนถ้าค้างเกิน 3 วินาที
 function startCountdown(){
   document.getElementById('progress-wrap').classList.add('show');
   setTimeout(autoClose, 1600);
+  // ถ้าผ่าน 3 วินาที (1.6 countdown + ~1.5 closeWindow attempt) แล้วยังอยู่ → แสดงคำแนะนำ manual
+  setTimeout(function(){
+    if(!document.hidden){
+      showManualCloseInstruction();
+    }
+  }, 3500);
 }
 
 async function doCopy(text){
@@ -200,11 +235,15 @@ function onCopySuccess(){
     });
   }
 
-  // Init LIFF SDK สำหรับ closeWindow
+  // Init LIFF SDK สำหรับ closeWindow — ตั้ง flag เมื่อพร้อม
   if(typeof liff !== 'undefined'){
     try{
-      liff.init({ liffId: '2010211018-V4JAFUOl' }).catch(function(){});
-    } catch(e){}
+      liff.init({ liffId: '2010211018-V4JAFUOl' })
+        .then(function(){ window._liffReady = true; })
+        .catch(function(e){ console.warn('liff.init failed:', e); window._liffReady = true; });
+    } catch(e){ window._liffReady = true; }
+  } else {
+    window._liffReady = true;
   }
 })();
 </script>
