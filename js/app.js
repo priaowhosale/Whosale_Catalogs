@@ -443,6 +443,10 @@ function renderCart(){
     if(fabLabel)fabLabel.style.display=cnt>0?'none':'inline';
     if(fabBtn&&cnt>0){fabBtn.classList.remove('pop');void fabBtn.offsetWidth;fabBtn.classList.add('pop');}
   }
+  // Show/hide ปุ่มล้างตะกร้า
+  const clearBtn = document.getElementById('cartClearBtn');
+  if(clearBtn) clearBtn.style.display = cart.length > 0 ? 'inline-block' : 'none';
+
   const items=document.getElementById('cartItems');
   if(!cart.length){items.innerHTML='<p style="text-align:center;color:#aaa;margin-top:24px">ยังไม่มีสินค้า</p>';}
   else{
@@ -453,14 +457,20 @@ function renderCart(){
       const pType = prod ? (prod.promoType || '') : '';
       const pLabel = prod ? (prod.promoLabel || '') : '';
       const origPrice = prod ? (prod.originalPrice || 0) : 0;
-      const hasStrike = origPrice > c.price && origPrice > 0;
+      const hasStrike = !isOutOfStock && origPrice > c.price && origPrice > 0;
       const themeMap = {
-        sale:   { c1:'#F59E0B', bg:'#FFFAEB', emoji:'🔥', txt:'SALE — ลดพิเศษ' },
-        bundle: { c1:'#2080BE', bg:'#F0F7FF', emoji:'🎁', txt:'โปรโมชั่น' },
-        flash:  { c1:'#DC2626', bg:'#FEF2F2', emoji:'⚡', txt:'FLASH SALE' }
+        sale:     { c1:'#F59E0B', bg:'#FFFAEB', emoji:'🔥', txt:'SALE — ลดพิเศษ' },
+        bundle:   { c1:'#2080BE', bg:'#F0F7FF', emoji:'🎁', txt:'โปรโมชั่น' },
+        flash:    { c1:'#DC2626', bg:'#FEF2F2', emoji:'⚡', txt:'FLASH SALE' },
+        preorder: { c1:'#6B7280', bg:'#F3F4F6', emoji:'📦', txt:'สั่งจอง — สินค้าหมดชั่วคราว (รอสั่ง)' }
       };
-      const theme = themeMap[pType] || null;
-      const ribbonText = pLabel || (theme ? theme.emoji+' '+theme.txt : '');
+      // out-of-stock = preorder (สำคัญสุด)
+      const isOutOfStock = prod && (prod.tag === 'สินค้าหมดชั่วคราว' || prod.stock <= 0);
+      const effectiveType = isOutOfStock ? 'preorder' : pType;
+      const theme = themeMap[effectiveType] || null;
+      const ribbonText = effectiveType === 'preorder'
+        ? '📦 สั่งจอง — สินค้าหมดชั่วคราว (รอสั่ง)'
+        : (pLabel || (theme ? theme.emoji+' '+theme.txt : ''));
 
       if(theme){
         // PROMO CART ITEM
@@ -505,6 +515,19 @@ function renderCart(){
   const total=cart.reduce((s,c)=>s+(c.price*c.qty),0);
   document.getElementById('cartTotal').textContent='รวม: '+total.toLocaleString('th-TH')+' บาท';
 }
+function clearCart(){
+  if(!cart.length) return;
+  const cnt = cart.reduce((s,c) => s + c.qty, 0);
+  if(!confirm('ล้างสินค้าทั้งหมดในตะกร้า ('+cart.length+' รายการ · '+cnt+' ชิ้น)?\nสินค้าจะถูกลบทั้งหมด ไม่สามารถย้อนกลับได้')) return;
+  cart = [];
+  // Reset ปุ่ม "ใส่ตะกร้า" ของสินค้าทุกตัวบนหน้า catalog
+  document.querySelectorAll('[id^="cbtn-"]').forEach(function(btn){
+    const code = btn.id.replace('cbtn-', '');
+    btn.outerHTML = '<button id="cbtn-'+code+'" class="preorder-btn" style="width:100%;padding:5px 0" onclick="addCart(\''+code+'\')">🛒 สั่งจอง</button>';
+  });
+  renderCart();
+}
+
 function toggleCart(){document.getElementById('cartPanel').classList.toggle('open');document.getElementById('overlay').classList.toggle('show');}
 function closeCart(){document.getElementById('cartPanel').classList.remove('open');document.getElementById('overlay').classList.remove('show');}
 
@@ -675,20 +698,23 @@ function buildCopyUrl(baseHref, fmt, orderId, customerName, cartItems){
 function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, copyBaseUrl){
   const itemContents = [];
 
-  // สีตามประเภทโปร: sale=ส้ม, bundle=ฟ้า, flash=แดง
+  // สีตามประเภทโปร: sale=ส้ม, bundle=ฟ้า, flash=แดง, preorder=เทา
   const PROMO_THEME = {
-    sale:   { c1:'#F59E0B', bg:'#FFFAEB', txt:'#7C5E00', emoji:'🔥' },
-    bundle: { c1:'#2080BE', bg:'#F0F7FF', txt:'#0C447C', emoji:'🎁' },
-    flash:  { c1:'#DC2626', bg:'#FEF2F2', txt:'#7F1D1D', emoji:'⚡' }
+    sale:     { c1:'#F59E0B', bg:'#FFFAEB', txt:'#7C5E00', emoji:'🔥' },
+    bundle:   { c1:'#2080BE', bg:'#F0F7FF', txt:'#0C447C', emoji:'🎁' },
+    flash:    { c1:'#DC2626', bg:'#FEF2F2', txt:'#7F1D1D', emoji:'⚡' },
+    preorder: { c1:'#6B7280', bg:'#F3F4F6', txt:'#374151', emoji:'📦' }
   };
 
   cartItems.forEach(function(c, idx){
     const product = allProducts.find(p => p.code === c.code);
     const imgUrl = safeImageUrl(product ? product.imageUrl : null);
     const lineTotal = c.price * c.qty;
-    const promoType = product ? (product.promoType || '') : '';
+    // out-of-stock = preorder (สำคัญสุด ตัดสินใจซื้อ ลูกค้าต้องรู้)
+    const isOutOfStock = product && (product.tag === 'สินค้าหมดชั่วคราว' || product.stock <= 0);
+    const promoType = isOutOfStock ? 'preorder' : (product ? (product.promoType || '') : '');
     const theme = PROMO_THEME[promoType] || null;
-    const origPrice = product ? (product.originalPrice || 0) : 0;
+    const origPrice = (!isOutOfStock && product) ? (product.originalPrice || 0) : 0;
     const hasStrike = origPrice > c.price && origPrice > 0;
     const discPct = hasStrike ? Math.round((origPrice - c.price) / origPrice * 100) : 0;
 
@@ -698,10 +724,12 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
 
     // ============= PROMO ITEM =============
     if(theme){
-      const ribbonText = (product.promoLabel || '').trim()
-        || (promoType==='sale'  ? theme.emoji+' SALE — ลดพิเศษ'
-          : promoType==='bundle'? theme.emoji+' โปรโมชั่น'
-          : theme.emoji+' FLASH SALE');
+      const ribbonText = promoType === 'preorder'
+        ? '📦 สั่งจอง — สินค้าหมดชั่วคราว (รอสั่ง)'
+        : ((product.promoLabel || '').trim()
+          || (promoType==='sale'  ? theme.emoji+' SALE — ลดพิเศษ'
+            : promoType==='bundle'? theme.emoji+' โปรโมชั่น'
+            : theme.emoji+' FLASH SALE'));
 
       // body contents inside promo card
       const bodyContents = [
