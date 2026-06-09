@@ -1003,7 +1003,9 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
 
 // Flex อย่างเดียว (ไม่มี text duplicate)
 function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
-  const copyBaseUrl = (location.origin + location.pathname).replace(/\/[^\/]*$/, '/') + 'copy.html';
+  // ใช้ LIFF URL เพื่อให้ liff.closeWindow ทำงานได้ (LINE inject LIFF context)
+  const COPY_LIFF_ID = '2010211018-4Zqj1MmB';
+  const copyBaseUrl = 'https://liff.line.me/' + COPY_LIFF_ID;
 
   const flex = {
     type:'flex',
