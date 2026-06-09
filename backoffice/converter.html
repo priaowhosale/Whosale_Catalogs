@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Priao Catalog — Excel → JSON Converter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Thai",sans-serif}
+body{background:#f4f8fc;color:#0a1628;padding:20px;max-width:900px;margin:0 auto}
+h1{color:#25a9e0;margin-bottom:4px}
+.sub{color:#4e9ecf;font-size:.85rem;margin-bottom:20px}
+.drop{border:3px dashed #b8d9f0;border-radius:14px;padding:50px 20px;text-align:center;background:#fff;cursor:pointer;transition:all .15s;margin-bottom:20px}
+.drop.over{border-color:#25a9e0;background:#e6f1fb;transform:scale(1.01)}
+.drop-icon{font-size:3rem;color:#b8d9f0;margin-bottom:10px}
+.drop-title{font-size:1.1rem;font-weight:700;color:#231f20;margin-bottom:6px}
+.drop-hint{font-size:.85rem;color:#4e9ecf}
+.drop input{display:none}
+.btn{background:linear-gradient(135deg,#25a9e0,#0065a8);color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:.95rem;font-weight:700;cursor:pointer;font-family:inherit;margin-top:14px;transition:all .15s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(32,128,190,.35)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.btn.alt{background:#fff;color:#25a9e0;border:2px solid #25a9e0}
+.status{background:#fff;border:1.5px solid #b8d9f0;border-radius:10px;padding:16px;margin-bottom:16px;display:none}
+.status.show{display:block}
+.status h3{color:#25a9e0;font-size:1rem;margin-bottom:10px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.stat{background:#f4f8fc;padding:10px;border-radius:8px;text-align:center}
+.stat-num{font-size:1.4rem;font-weight:800;color:#25a9e0}
+.stat-lbl{font-size:.72rem;color:#4e9ecf;margin-top:2px}
+.cat-table{width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:14px}
+.cat-table th,.cat-table td{padding:6px 10px;text-align:left;border-bottom:1px solid #ecf3f8}
+.cat-table th{background:#f4f8fc;color:#0065a8;font-weight:700}
+.cat-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.warns{max-height:280px;overflow-y:auto;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px;font-size:.78rem;line-height:1.5}
+.warns .item{padding:4px 0;border-bottom:1px dashed #ffe082;color:#7c5e00}
+.warns .item:last-child{border:none}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.muted{color:#4e9ecf;font-size:.8rem;margin-top:8px}
+.error{background:#ffebee;color:#c62828;padding:10px;border-radius:8px;margin-bottom:14px}
+</style>
+</head>
+<body>
+
+<h1>🔄 Excel → JSON Converter</h1>
+<p class="sub">แปลงไฟล์ <code>ไฟล์อัพโหลดสินค้าเข้า Catalog Wholesale.xlsx</code> เป็น JSON พร้อมอัปเข้า GitHub</p>
+
+<div class="drop" id="drop">
+  <div class="drop-icon">📁</div>
+  <div class="drop-title">ลาก Excel มาวางที่นี่</div>
+  <div class="drop-hint">หรือคลิกเพื่อเลือกไฟล์ (.xlsx)</div>
+  <input type="file" id="fileInput" accept=".xlsx,.xls">
+  <button class="btn" onclick="document.getElementById('fileInput').click()">เลือกไฟล์</button>
+</div>
+
+<div class="status" id="status"></div>
+
+<script>
+'use strict';
+
+// ====== Configuration (sync กับ convert.py) ======
+const CATEGORY_MAP = {
+  "เครื่องสำอาง":         "C01",
+  "ผลิตภัณฑ์ดูแลผิวหน้า": "C02",
+  "ผลิตภัณฑ์ดูแลผิวกาย":  "C03",
+  "ผลิตภัณฑ์ดูแลเส้นผม":  "C04",
+  "น้ำหอม":              "C05",
+  "อุปกรณ์เพื่อความงาม":  "C06",
+  "อาหารเสริม":          "C07",
+  "คอนซูเมอร์":          "C08",
+  "แฟชั่น&ไลฟ์สไตล์":    "C09"
+};
+const STATUS_FLAG_MAP = {"A": 1, "New": 2, "B": 3};
+const COL = {
+  category: 0, subcategory: 1, barcode: 2, name: 3,
+  pack_qty: 4, unit: 5, brand: 6, psale: 7, tag: 8,
+  price: 9, stock: 10, image: 11
+};
+const DATA_START_ROW = 4; // 1-based; row 3 = header
+
+// ====== UI helpers ======
+const $status = document.getElementById("status");
+const $drop   = document.getElementById("drop");
+const $input  = document.getElementById("fileInput");
+
+function setStatus(html) {
+  $status.innerHTML = html;
+  $status.classList.add("show");
+}
+function showError(msg) {
+  setStatus(`<div class="error"><strong>❌ Error:</strong> ${msg}</div>`);
+}
+
+// ====== Drag & drop ======
+["dragover","dragenter"].forEach(e => $drop.addEventListener(e, ev => {
+  ev.preventDefault(); $drop.classList.add("over");
+}));
+["dragleave","drop"].forEach(e => $drop.addEventListener(e, ev => {
+  ev.preventDefault(); $drop.classList.remove("over");
+}));
+$drop.addEventListener("drop", ev => {
+  if (ev.dataTransfer.files.length) handleFile(ev.dataTransfer.files[0]);
+});
+$input.addEventListener("change", ev => {
+  if (ev.target.files.length) handleFile(ev.target.files[0]);
+});
+
+// ====== Main ======
+async function handleFile(file) {
+  if (!file.name.match(/\.xlsx?$/i)) {
+    return showError("กรุณาเลือกไฟล์ .xlsx หรือ .xls");
+  }
+  setStatus("<p>⏳ กำลังอ่านไฟล์ …</p>");
+
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { cellHTML: false });
+    const wsName = wb.SheetNames[0];
+    const ws = wb.Sheets[wsName];
+
+    // อ่านเป็น array of array (header: 1) + เก็บ hyperlink แยก
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
+
+    // ดึง hyperlinks จาก !ws  (XLSX จะใส่ใน .l.Target ของแต่ละ cell ที่มี link)
+    const result = convertRows(rows, ws);
+    renderResult(result, file.name);
+  } catch (err) {
+    console.error(err);
+    showError(err.message || String(err));
+  }
+}
+
+function convertRows(rows, ws) {
+  const byCategory = {};
+  Object.values(CATEGORY_MAP).forEach(c => byCategory[c] = []);
+
+  const warnings = [];
+  const newBrands = new Set();
+  const seenBarcodes = new Set();
+  let skipped = 0, autoFixedStock = 0;
+
+  for (let rIdx = DATA_START_ROW - 1; rIdx < rows.length; rIdx++) {
+    const row = rows[rIdx];
+    if (!row || !row[COL.category]) { skipped++; continue; }
+
+    const catName = String(row[COL.category]).trim();
+    if (!(catName in CATEGORY_MAP)) {
+      if (catName && !catName.includes("รวมทั้งหมด")) {
+        warnings.push(`Row ${rIdx+1}: ข้ามแถวที่หมวดสินค้า='${catName}' (ไม่อยู่ใน mapping)`);
+      }
+      skipped++; continue;
+    }
+    const catCode = CATEGORY_MAP[catName];
+
+    const barcode = String(row[COL.barcode] || "").trim();
+    if (!barcode) {
+      warnings.push(`Row ${rIdx+1}: ไม่มีรหัสสินค้า ข้าม`);
+      skipped++; continue;
+    }
+    if (seenBarcodes.has(barcode)) {
+      warnings.push(`Row ${rIdx+1}: barcode '${barcode}' ซ้ำ (เก็บอันแรก)`);
+      continue;
+    }
+    seenBarcodes.add(barcode);
+
+    const name      = String(row[COL.name] || "").trim();
+    const subcat    = String(row[COL.subcategory] || "").trim();
+    const packQty   = toInt(row[COL.pack_qty], 1);
+    const unit      = String(row[COL.unit] || "").trim() || "ชิ้น";
+    const brand     = String(row[COL.brand] || "").trim();
+    const psale     = String(row[COL.psale] || "").trim();
+    let   tag       = String(row[COL.tag] || "").trim();
+    const price     = toNum(row[COL.price], 0);
+    const stock     = toInt(row[COL.stock], 0);
+
+    // Image: ดึงจาก hyperlink ของ cell ใน worksheet ดิบ
+    const cellRef = XLSX.utils.encode_cell({ r: rIdx, c: COL.image });
+    const cell = ws[cellRef];
+    let imageUrl = "";
+    if (cell) {
+      if (cell.l && cell.l.Target) imageUrl = cell.l.Target;
+      else if (typeof cell.v === "string" && cell.v.startsWith("http")) imageUrl = cell.v;
+    }
+
+    // Auto-override tag เมื่อ stock=0
+    if (stock <= 0 && tag !== "สินค้าหมดชั่วคราว") {
+      if (tag) warnings.push(`Row ${rIdx+1}: barcode=${barcode} stock=0 แต่ Tag='${tag}' → auto-override`);
+      tag = "สินค้าหมดชั่วคราว";
+      autoFixedStock++;
+    }
+
+    // PSaleStatus → flag
+    let flag = STATUS_FLAG_MAP[psale];
+    if (flag === undefined) {
+      warnings.push(`Row ${rIdx+1}: PSaleStatus='${psale}' ไม่รู้จัก (ใช้ flag=3 default)`);
+      flag = 3;
+    }
+
+    // brand new check
+    if (brand) {
+      const slug = brand.split(/\s+/)[0].replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      // เก็บไว้ทุก brand — ส่วน UI ค่อยช่วยกรอง vs known list
+      newBrands.add(`${brand} → ${slug}`);
+    }
+
+    byCategory[catCode].push([
+      barcode, name, subcat, tag, price, stock, imageUrl, brand, packQty, `${packQty} / ${unit}`, flag
+    ]);
+  }
+
+  return { byCategory, warnings, newBrands: Array.from(newBrands).sort(),
+           skipped, autoFixedStock,
+           total: Object.values(byCategory).reduce((s,a) => s + a.length, 0) };
+}
+
+function toInt(v, def) {
+  if (v === "" || v === null || v === undefined) return def;
+  const n = parseFloat(v);
+  return isFinite(n) ? Math.trunc(n) : def;
+}
+function toNum(v, def) {
+  if (v === "" || v === null || v === undefined) return def;
+  const n = parseFloat(v);
+  if (!isFinite(n)) return def;
+  return Number.isInteger(n) ? n : n;
+}
+
+// ====== Render result + download buttons ======
+function renderResult(res, srcName) {
+  const { byCategory, warnings, newBrands, skipped, autoFixedStock, total } = res;
+  const catList = Object.keys(CATEGORY_MAP);
+
+  let html = `
+    <h3>✅ แปลงสำเร็จ — จากไฟล์ <code>${escapeHtml(srcName)}</code></h3>
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-num">${total.toLocaleString()}</div><div class="stat-lbl">รายการรวม</div></div>
+      <div class="stat"><div class="stat-num">${catList.length}</div><div class="stat-lbl">หมวดสินค้า</div></div>
+      <div class="stat"><div class="stat-num">${autoFixedStock.toLocaleString()}</div><div class="stat-lbl">Auto-fix stock=0</div></div>
+      <div class="stat"><div class="stat-num">${warnings.length.toLocaleString()}</div><div class="stat-lbl">คำเตือน</div></div>
+    </div>
+    <table class="cat-table">
+      <tr><th>หมวดสินค้า</th><th>ไฟล์</th><th class="num">จำนวน</th><th class="num">ดาวน์โหลด</th></tr>`;
+  for (const catName of catList) {
+    const catCode = CATEGORY_MAP[catName];
+    const cnt = byCategory[catCode].length;
+    html += `<tr>
+      <td>${escapeHtml(catName)}</td>
+      <td><code>${catCode}.json</code></td>
+      <td class="num">${cnt.toLocaleString()}</td>
+      <td class="num"><a href="#" onclick="downloadCat('${catCode}');return false">⬇ JSON</a></td>
+    </tr>`;
+  }
+  html += `</table>
+    <div class="actions">
+      <button class="btn" onclick="downloadAllZip()">⬇ ดาวน์โหลดทั้งหมด (ZIP)</button>
+      <button class="btn alt" onclick="downloadReport()">📄 ดาวน์โหลด report.md</button>
+    </div>`;
+
+  if (warnings.length) {
+    html += `<h3 style="margin-top:18px">⚠ คำเตือน (${warnings.length})</h3>
+      <div class="warns">${warnings.slice(0, 200).map(w => `<div class="item">${escapeHtml(w)}</div>`).join("")}
+      ${warnings.length > 200 ? `<div class="item">... และอีก ${warnings.length-200} รายการ</div>` : ""}</div>`;
+  }
+  if (newBrands.length) {
+    html += `<h3 style="margin-top:18px">🏷️ Brand ที่เจอใน Excel (${newBrands.length})</h3>
+      <p class="muted">เช็คดูว่ามีไฟล์รูปใน <code>assets/brands/{SLUG}.png/.jpg</code> ครบหรือยัง — ถ้าขาดให้อัปเพิ่ม</p>
+      <div class="warns">${newBrands.slice(0,200).map(b => `<div class="item">${escapeHtml(b)}</div>`).join("")}
+      ${newBrands.length > 200 ? `<div class="item">... และอีก ${newBrands.length-200}</div>` : ""}</div>`;
+  }
+
+  setStatus(html);
+  window._result = res;  // เก็บไว้ให้ download buttons เรียกใช้
+}
+
+// ====== Download helpers ======
+function jsonStr(items) {
+  // indent แบบ array-per-line (git diff สวย)
+  const lines = items.map(item => JSON.stringify(item));
+  return "[\n" + lines.join(",\n") + "\n]\n";
+}
+
+function downloadCat(catCode) {
+  const items = window._result.byCategory[catCode];
+  download(`${catCode}.json`, jsonStr(items), "application/json");
+}
+
+async function downloadAllZip() {
+  const zip = new JSZip();
+  const dataFolder = zip.folder("data");
+  for (const catCode of Object.values(CATEGORY_MAP)) {
+    dataFolder.file(`${catCode}.json`, jsonStr(window._result.byCategory[catCode]));
+  }
+  dataFolder.file("index.json", JSON.stringify({categories: Object.values(CATEGORY_MAP)}, null, 2));
+  dataFolder.file("conversion_report.md", buildReport(window._result));
+  const blob = await zip.generateAsync({ type: "blob" });
+  download(`catalog-data-${todayStr()}.zip`, blob, "application/zip", true);
+}
+
+function downloadReport() {
+  download(`conversion_report_${todayStr()}.md`, buildReport(window._result), "text/markdown");
+}
+
+function buildReport(res) {
+  const lines = [
+    "# Conversion Report",
+    "",
+    `**Date:** ${new Date().toISOString().slice(0,16).replace("T"," ")}`,
+    `**Total:** ${res.total.toLocaleString()} รายการ`,
+    `**Auto-fix stock=0:** ${res.autoFixedStock}`,
+    `**Warnings:** ${res.warnings.length}`,
+    "",
+    "## By category",
+  ];
+  for (const [name, code] of Object.entries(CATEGORY_MAP)) {
+    lines.push(`- **${name}** (${code}): ${res.byCategory[code].length.toLocaleString()}`);
+  }
+  if (res.warnings.length) {
+    lines.push("", `## Warnings (${res.warnings.length})`);
+    res.warnings.forEach(w => lines.push(`- ${w}`));
+  }
+  if (res.newBrands.length) {
+    lines.push("", `## Brands found (${res.newBrands.length})`);
+    res.newBrands.forEach(b => lines.push(`- ${b}`));
+  }
+  return lines.join("\n");
+}
+
+function download(name, content, mime, isBlob) {
+  const blob = isBlob ? content : new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0,10);
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+</script>
+
+</body>
+</html>

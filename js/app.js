@@ -550,22 +550,96 @@ function safeImageUrl(url){
   return u;
 }
 
-// สร้าง Flex Message bubble สำหรับ 1 cart (minimal & safe)
-function buildFlexBubble(orderId, timestamp, customerName, cartItems, total){
+// ----- Helpers สำหรับสร้าง URL ของ copy.html -----
+// URL-safe base64 encode (รองรับ UTF-8 ไทย)
+function b64UrlEncode(str){
+  return btoa(unescape(encodeURIComponent(str)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+// เฉพาะ SKU (barcode ล้วน 1 บรรทัด/SKU ไม่มี # ไม่มีจำนวน)
+function buildSkuText(cartItems){
+  return cartItems.map(c => String(c.code || '')).join('\n');
+}
+
+// รายการ + Order ID (ไม่มีคำนวณยอด, SKU ไม่มี #)
+function buildListText(orderId, customerName, cartItems, nameMax){
+  const trim = (s) => {
+    s = String(s || '');
+    if(!nameMax || s.length <= nameMax) return s;
+    return s.substring(0, nameMax - 1) + '…';
+  };
+  const lines = ['Order ID:'+String(orderId || '')];
+  if(customerName) lines.push('ลูกค้า:'+String(customerName));
+  lines.push('');
+  cartItems.forEach(function(c, i){
+    lines.push((i+1)+'. '+trim(c.name));
+    lines.push('   '+String(c.code || '')+' × '+c.qty);
+  });
+  return lines.join('\n');
+}
+
+// สร้าง URL ของ copy.html — auto-truncate ถ้ายาวเกิน LINE uri-action limit (1000 chars)
+function buildCopyUrl(baseHref, fmt, orderId, customerName, cartItems){
+  const URL_BUDGET = 950;
+  const buildUrl = (t) => baseHref+'?fmt='+fmt+'&t='+b64UrlEncode(t);
+
+  if(fmt === 'sku'){
+    let text = buildSkuText(cartItems);
+    let url = buildUrl(text);
+    let n = cartItems.length;
+    while(url.length > URL_BUDGET && n > 1){
+      n--;
+      text = cartItems.slice(0, n).map(c => String(c.code || '')).join('\n')
+           + '\n[+ '+(cartItems.length - n)+' รายการ — ดูในการ์ด]';
+      url = buildUrl(text);
+    }
+    return url;
+  }
+
+  // LIST: ลอง name length 60 → 40 → 25 → 15 → ไม่มีชื่อ → ลดจำนวน
+  const candidates = [null, 60, 40, 25, 15];
+  for(let i = 0; i < candidates.length; i++){
+    const text = buildListText(orderId, customerName, cartItems, candidates[i]);
+    const url = buildUrl(text);
+    if(url.length <= URL_BUDGET) return url;
+  }
+
+  const buildBareList = (n) => {
+    const slice = cartItems.slice(0, n);
+    let t = 'Order ID:'+String(orderId||'')+'\nลูกค้า:'+String(customerName||'')+'\n\n'
+          + slice.map((c,i) => (i+1)+'. '+String(c.code||'')+' × '+c.qty).join('\n');
+    if(n < cartItems.length) t += '\n[+ '+(cartItems.length - n)+' รายการ — ดูในการ์ด]';
+    return t;
+  };
+  let n = cartItems.length;
+  let text = buildBareList(n);
+  let url = buildUrl(text);
+  while(url.length > URL_BUDGET && n > 1){
+    n--;
+    text = buildBareList(n);
+    url = buildUrl(text);
+  }
+  return url;
+}
+
+// สร้าง Flex Message bubble — มี 2 ปุ่ม copy ใน footer
+function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, copyBaseUrl){
   const itemContents = [];
 
-  // แต่ละ item เป็น row (รูป + ข้อมูล)
   cartItems.forEach(function(c, idx){
     const product = allProducts.find(p => p.code === c.code);
     const imgUrl = safeImageUrl(product ? product.imageUrl : null);
     const lineTotal = c.price * c.qty;
 
-    // separator (เส้นแบ่งระหว่าง item)
     if(idx > 0){
-      itemContents.push({
-        type:'separator', margin:'md', color:'#EEEEEE'
-      });
+      itemContents.push({type:'separator', margin:'md', color:'#EEEEEE'});
     }
+
+    // "(n). ชื่อ — ราคา×จำนวน = รวม" บรรทัดเดียว
+    const lineText = (idx+1)+'. '+String(c.name || '-')+
+                     ' — '+c.price.toLocaleString('th-TH')+'×'+c.qty+
+                     ' = '+lineTotal.toLocaleString('th-TH');
 
     itemContents.push({
       type:'box',
@@ -587,37 +661,26 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total){
           flex:1,
           spacing:'xs',
           contents:[
-            {type:'text', text: (idx+1)+'. '+String(c.name || '-'), weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:2},
-            {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#999999'},
-            {
-              type:'box',
-              layout:'horizontal',
-              spacing:'sm',
-              margin:'xs',
-              contents:[
-                {type:'text', text: c.price.toLocaleString('th-TH')+' x '+c.qty, size:'xs', color:'#888888', flex:3},
-                {type:'text', text: lineTotal.toLocaleString('th-TH'), size:'sm', weight:'bold', color:'#2080BE', flex:2, align:'end'}
-              ]
-            }
+            {type:'text', text: lineText, weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:3},
+            {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#999999'}
           ]
         }
       ]
     });
   });
 
-  // total row (separator + total)
   itemContents.push({type:'separator', margin:'lg', color:'#0A1628'});
+  const totalQty = cartItems.reduce((s, c) => s + (c.qty || 0), 0);
   itemContents.push({
     type:'box',
     layout:'horizontal',
     margin:'md',
     contents:[
-      {type:'text', text:'ยอดรวมทั้งสิ้น', size:'sm', weight:'bold', color:'#0A1628', flex:2},
-      {type:'text', text: total.toLocaleString('th-TH')+' บาท', size:'lg', weight:'bold', color:'#0A1628', align:'end', flex:3}
+      {type:'text', text:'ยอดรวม ('+cartItems.length+' รายการ · '+totalQty+' ชิ้น)', size:'xs', weight:'bold', color:'#0A1628', flex:3, wrap:true},
+      {type:'text', text: total.toLocaleString('th-TH')+' บาท', size:'lg', weight:'bold', color:'#0A1628', align:'end', flex:2}
     ]
   });
 
-  // header contents — กรอง element ที่ว่างออก
   const headerContents = [
     {type:'text', text:'เปรียว คอสเมติกส์', color:'#FFFFFF', size:'md', weight:'bold'},
     {type:'text', text:'VIP Order #'+orderId, color:'#FFFFFF', size:'sm', margin:'sm'},
@@ -626,6 +689,9 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total){
   if(customerName){
     headerContents.push({type:'text', text:'ลูกค้า: '+String(customerName), color:'#FFFFFF', size:'sm', margin:'sm', wrap:true});
   }
+
+  const skuUrl  = buildCopyUrl(copyBaseUrl, 'sku',  orderId, customerName, cartItems);
+  const listUrl = buildCopyUrl(copyBaseUrl, 'list', orderId, customerName, cartItems);
 
   return {
     type:'bubble',
@@ -647,50 +713,40 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total){
       type:'box',
       layout:'vertical',
       paddingAll:'md',
+      spacing:'sm',
       contents:[
         {type:'text', text:'รอน้อง Salesman ติดต่อกลับสักครู่นะคะ',
-         size:'xs', color:'#888888', align:'center', wrap:true}
+         size:'xs', color:'#888888', align:'center', wrap:true, margin:'none'},
+        {
+          type:'button',
+          style:'primary',
+          color:'#2080BE',
+          height:'sm',
+          margin:'md',
+          action:{ type:'uri', label:'คัดลอกเฉพาะ SKU', uri: skuUrl }
+        },
+        {
+          type:'button',
+          style:'secondary',
+          height:'sm',
+          action:{ type:'uri', label:'คัดลอกรายการ + Order ID', uri: listUrl }
+        }
       ]
     }
   };
 }
 
-// สร้าง messages array สำหรับ liff.sendMessages (Flex + Text fallback)
+// Flex อย่างเดียว (ไม่มี text duplicate)
 function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
-  // Flex แสดงได้สูงสุด 10 รายการต่อ bubble (กัน 50KB limit) — ถ้าเยอะให้ตัด
-  const MAX_ITEMS_IN_FLEX = 10;
-  const displayItems = cartItems.slice(0, MAX_ITEMS_IN_FLEX);
-  const remainingCount = cartItems.length - displayItems.length;
+  const copyBaseUrl = (location.origin + location.pathname).replace(/\/[^\/]*$/, '/') + 'copy.html';
 
   const flex = {
     type:'flex',
-    altText:'ออเดอร์ '+orderId+' · รวม '+total.toLocaleString('th-TH')+' ฿',
-    contents: buildFlexBubble(orderId, timestamp, customerName, displayItems, total)
+    altText:'ออเดอร์ '+orderId+' · '+cartItems.length+' รายการ · '+total.toLocaleString('th-TH')+' ฿',
+    contents: buildFlexBubble(orderId, timestamp, customerName, cartItems, total, copyBaseUrl)
   };
 
-  // text fallback แบบเต็ม (สำหรับ search / copy / รายการที่เกิน 10)
-  const textLines = [
-    '📋 ออเดอร์ #'+orderId,
-    '🕐 '+timestamp,
-    customerName ? '👤 '+customerName : '',
-    ''
-  ];
-  cartItems.forEach(function(c, i){
-    const u = c.baseUnit || '';
-    const unitName = u.includes(' / ') ? u.split(' / ')[1].trim() : u;
-    const ustr = c.qty + (unitName ? ' '+unitName : '');
-    textLines.push((i+1)+'. '+c.name);
-    textLines.push('   #'+c.code+' | '+ustr+' × '+c.price.toLocaleString('th-TH')+' = '+(c.price*c.qty).toLocaleString('th-TH')+' ฿');
-  });
-  textLines.push('');
-  textLines.push('💰 รวมทั้งสิ้น: '+total.toLocaleString('th-TH')+' บาท');
-  if(remainingCount > 0){
-    textLines.push('');
-    textLines.push('(การ์ดด้านบนแสดงเฉพาะ '+MAX_ITEMS_IN_FLEX+' รายการแรก ดูครบในข้อความนี้)');
-  }
-  const text = {type:'text', text: textLines.filter(l => l !== '').join('\n')};
-
-  return [flex, text];
+  return [flex];
 }
 
 // แสดง success modal
