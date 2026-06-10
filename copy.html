@@ -235,5 +235,47 @@ function onCopySuccess(){
   document.getElementById('fmt-label').textContent = FMT_LABELS[fmt] || fmt;
 
   if(decoded === null){
-    setIcon('error', '!', 'ข้อมูลผิดพลาด', 'ถอดรหัส URL ไม่
+    setIcon('error', '!', 'ข้อมูลผิดพลาด', 'ถอดรหัส URL ไม่สำเร็จ');
+    document.getElementById('preview').textContent = '(ไม่มีข้อมูล)';
+    return;
+  }
+
+  document.getElementById('preview').textContent = decoded;
+  document.getElementById('byte-count').textContent = decoded.length;
+  window._copyText = decoded;
+
+  // ผูก click handler ทันที (ทำงานก่อน LIFF init ก็ได้)
+  document.getElementById('copy-btn').addEventListener('click', () => doCopy(window._copyText));
+
+  // ===== Init LIFF SDK ก่อน เพื่อให้ closeWindow พร้อม =====
+  let liffOk = false;
+  if(typeof liff !== 'undefined'){
+    try{
+      await liff.init({ liffId: '2010211018-4Zqj1MmB' });
+      window._liffReady = true;
+      liffOk = liff.isInClient && liff.isInClient();
+      console.log('LIFF ready, inClient:', liffOk);
+    } catch(e){
+      console.error('liff.init failed:', e);
+      window._liffReady = true;
+      window._liffError = e && e.message ? e.message : String(e);
+    }
+  } else {
+    window._liffReady = true;
+  }
+
+  // ===== หลัง LIFF พร้อม ลอง auto-copy =====
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    try{
+      await navigator.clipboard.writeText(decoded);
+      onCopySuccess();
+    } catch(e){
+      console.warn('auto-copy failed:', e);
+    }
+  }
+})();
+</script>
+
+</body>
 </html>
+
