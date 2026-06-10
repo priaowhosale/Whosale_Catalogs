@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.line-scdn.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://api.line.me https://*.line.me; base-uri 'self'; object-src 'none'; form-action 'self';">
+<!-- CSP ปิดชั่วคราว — เปิด LIFF in LINE app แล้ว block flex sendMessages
+     จะกลับมาใส่หลังจาก map CSP violations แบบละเอียดผ่าน Report-Only mode
+<meta http-equiv="Content-Security-Policy" content="...">
+-->
 <meta name="robots" content="noai, noimageai, noindex, nofollow">
 <meta name="googlebot" content="noai, noimageai">
 <meta name="ChatGPT-User" content="noai">
