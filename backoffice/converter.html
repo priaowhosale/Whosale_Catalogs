@@ -39,6 +39,25 @@ h1{color:#25a9e0;margin-bottom:4px}
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
 .muted{color:#4e9ecf;font-size:.8rem;margin-top:8px}
 .error{background:#ffebee;color:#c62828;padding:10px;border-radius:8px;margin-bottom:14px}
+.file-preview{padding:14px;background:#e6f1fb;border:1.5px solid #b8d9f0;border-radius:10px;display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.file-preview-icon{font-size:2.2rem}
+.file-preview-name{font-weight:700;color:#0a1628;margin-bottom:2px;word-break:break-all}
+.file-preview-meta{font-size:.78rem;color:#4e9ecf}
+#progress-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,22,40,.55);display:flex;align-items:center;justify-content:center;z-index:9999;animation:fadeIn .2s}
+.progress-modal{background:#fff;border-radius:14px;padding:24px;width:90%;max-width:460px;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.progress-title{font-size:1.1rem;font-weight:800;color:#0a1628;margin-bottom:16px}
+.progress-bar-wrap{height:12px;background:#e6f1fb;border-radius:6px;overflow:hidden;margin-bottom:6px}
+.progress-bar-fill{height:100%;background:linear-gradient(135deg,#25a9e0,#0065a8);transition:width .35s;border-radius:6px}
+.progress-percent{font-size:.78rem;color:#0065a8;font-weight:700;text-align:right;margin-bottom:14px}
+.progress-steps{max-height:200px;overflow-y:auto;font-size:.85rem;color:#0a1628;line-height:1.9}
+.progress-steps .step{padding:2px 0;display:flex;align-items:center;gap:8px}
+.progress-steps .step.done{color:#1D9E75}
+.progress-steps .step.active{color:#0065a8;font-weight:700}
+.progress-steps .step .icon{display:inline-block;width:18px;text-align:center}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #b8d9f0;border-top-color:#25a9e0;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.text-url-warn{background:#fff3cd;border:1px solid #ffc107;color:#856404;padding:8px 12px;border-radius:8px;font-size:.78rem;margin-bottom:10px}
 </style>
 </head>
 <body>
@@ -164,25 +183,14 @@ async function downloadCurrentData() {
       const items = await fetch(baseUrl + '/data/' + catCode + '.json').then(r => r.json());
       const catName = CAT_REVERSE[catCode] || catCode;
       items.forEach(item => {
-        // item = [barcode, name, subcat, tag, price, stock, image_url, brand, pack_qty, pack_label, flag]
         const packLabel = String(item[9] || '');
         const unit = packLabel.includes(' / ') ? packLabel.split(' / ')[1].trim() : '';
         rows.push([
-          catName,            // หมวดสินค้า
-          item[2] || '',      // หมวดย่อย
-          item[0] || '',      // รหัสสินค้า
-          item[1] || '',      // ชื่อ
-          item[8] || 1,       // จำนวน/หน่วย
-          unit || 'ชิ้น',     // หน่วย
-          item[7] || '',      // แบรนด์
-          FLAG_REVERSE[item[10]] || 'B',  // PSaleStatus
-          item[3] || '',      // Tag
-          item[4] || 0,       // price
-          item[5] || 0,       // stock
-          item[6] || '',      // image URL
-          item[11] || '',     // promo_type
-          item[12] || '',     // promo_label
-          item[13] || ''      // original_price
+          catName, item[2] || '', item[0] || '', item[1] || '',
+          item[8] || 1, unit || 'ชิ้น', item[7] || '',
+          FLAG_REVERSE[item[10]] || 'B', item[3] || '',
+          item[4] || 0, item[5] || 0, item[6] || '',
+          item[11] || '', item[12] || '', item[13] || ''
         ]);
       });
       dlStatus('โหลด ' + catCode + ' (' + items.length + ' รายการ)... ');
@@ -198,7 +206,9 @@ async function downloadCurrentData() {
   }
 }
 
-// ====== Drag & drop ======
+// ====== Drag & drop — show preview, wait for Convert button ======
+let pendingFile = null;
+
 ["dragover","dragenter"].forEach(e => $drop.addEventListener(e, ev => {
   ev.preventDefault(); $drop.classList.add("over");
 }));
@@ -206,37 +216,130 @@ async function downloadCurrentData() {
   ev.preventDefault(); $drop.classList.remove("over");
 }));
 $drop.addEventListener("drop", ev => {
-  if (ev.dataTransfer.files.length) handleFile(ev.dataTransfer.files[0]);
+  if (ev.dataTransfer.files.length) prepareFile(ev.dataTransfer.files[0]);
 });
 $input.addEventListener("change", ev => {
-  if (ev.target.files.length) handleFile(ev.target.files[0]);
+  if (ev.target.files.length) prepareFile(ev.target.files[0]);
 });
 
-// ====== Main ======
-async function handleFile(file) {
+function prepareFile(file) {
   if (!file.name.match(/\.xlsx?$/i)) {
     return showError("กรุณาเลือกไฟล์ .xlsx หรือ .xls");
   }
-  setStatus("<p>⏳ กำลังอ่านไฟล์ …</p>");
+  pendingFile = file;
+  const sizeKB = (file.size / 1024).toFixed(1);
+  setStatus(`
+    <div class="file-preview">
+      <div class="file-preview-icon">📄</div>
+      <div style="flex:1;min-width:0">
+        <div class="file-preview-name">${escapeHtml(file.name)}</div>
+        <div class="file-preview-meta">ขนาด: ${sizeKB} KB · พร้อมแปลง</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" onclick="startConvert()" style="margin-top:0">🔄 Convert</button>
+      <button class="btn alt" onclick="cancelFile()" style="margin-top:0">ยกเลิก</button>
+    </div>
+  `);
+}
+
+function cancelFile() {
+  pendingFile = null;
+  $status.classList.remove("show");
+  $status.innerHTML = "";
+  $input.value = "";
+}
+
+// ====== Convert with progress modal ======
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function startConvert() {
+  if (!pendingFile) return;
+  const file = pendingFile;
+  const startTime = Date.now();
+
+  openProgressModal();
 
   try {
+    updateProgress(1, 5, "อ่านไฟล์ Excel", "loading");
+    await sleep(120);
     const buf = await file.arrayBuffer();
+    completeStep(1);
+
+    updateProgress(2, 5, "ตรวจ structure + parsing", "loading");
+    await sleep(180);
     const wb = XLSX.read(buf, { cellHTML: false });
     const wsName = wb.SheetNames[0];
     const ws = wb.Sheets[wsName];
-
-    // อ่านเป็น array of array (header: 1) + เก็บ hyperlink แยก
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
+    completeStep(2);
 
-    // ดึง hyperlinks จาก !ws  (XLSX จะใส่ใน .l.Target ของแต่ละ cell ที่มี link)
+    updateProgress(3, 5, `แปลง ${rows.length.toLocaleString()} แถว`, "loading");
+    await sleep(200);
     const result = convertRows(rows, ws);
-    renderResult(result, file.name);
+    completeStep(3);
+
+    updateProgress(4, 5, `ตรวจ hyperlinks (${result.textUrlCount} text URL fallback)`, "loading");
+    await sleep(150);
+    completeStep(4);
+
+    updateProgress(5, 5, `สร้างผลลัพธ์ — ${result.total.toLocaleString()} รายการ`, "loading");
+    await sleep(200);
+    completeStep(5);
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    await sleep(300);
+    closeProgressModal();
+    renderResult(result, file.name, elapsed);
+    pendingFile = null;
   } catch (err) {
+    closeProgressModal();
     console.error(err);
     showError(err.message || String(err));
   }
 }
 
+function openProgressModal() {
+  const overlay = document.createElement('div');
+  overlay.id = 'progress-overlay';
+  overlay.innerHTML = `
+    <div class="progress-modal">
+      <div class="progress-title">🔄 กำลังแปลงไฟล์ — กรุณารอ</div>
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+      <div class="progress-percent" id="progress-percent">0%</div>
+      <div class="progress-steps" id="progress-steps"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function updateProgress(cur, total, msg, state) {
+  const pct = Math.round((cur / total) * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-percent').textContent = pct + '% · ขั้นที่ ' + cur + '/' + total;
+  const steps = document.getElementById('progress-steps');
+  const icon = state === 'loading' ? '<span class="spinner"></span>' : '✓';
+  const cls = state === 'loading' ? 'active' : 'done';
+  const html = `<div class="step ${cls}" data-step="${cur}"><span class="icon">${icon}</span><span>[${cur}/${total}] ${escapeHtml(msg)}</span></div>`;
+  steps.insertAdjacentHTML('beforeend', html);
+}
+
+function completeStep(stepNum) {
+  const el = document.querySelector(`.progress-steps .step[data-step="${stepNum}"]`);
+  if (el) {
+    el.classList.remove('active');
+    el.classList.add('done');
+    const icon = el.querySelector('.icon');
+    if (icon) icon.textContent = '✓';
+  }
+}
+
+function closeProgressModal() {
+  const overlay = document.getElementById('progress-overlay');
+  if (overlay) overlay.remove();
+}
+
+// ====== Core conversion logic ======
 function convertRows(rows, ws) {
   const byCategory = {};
   Object.values(CATEGORY_MAP).forEach(c => byCategory[c] = []);
@@ -244,7 +347,7 @@ function convertRows(rows, ws) {
   const warnings = [];
   const newBrands = new Set();
   const seenBarcodes = new Set();
-  let skipped = 0, autoFixedStock = 0;
+  let skipped = 0, autoFixedStock = 0, textUrlCount = 0;
 
   for (let rIdx = DATA_START_ROW - 1; rIdx < rows.length; rIdx++) {
     const row = rows[rIdx];
@@ -280,13 +383,28 @@ function convertRows(rows, ws) {
     const price     = toNum(row[COL.price], 0);
     const stock     = toInt(row[COL.stock], 0);
 
-    // Image: ดึงจาก hyperlink ของ cell ใน worksheet ดิบ
+    // Image URL — รองรับ 3 รูปแบบ:
+    //   1. Hyperlink object (Ctrl+K)        → cell.l.Target   ← preferred
+    //   2. Text URL "https://example.com"   → cell.v          ← fallback
+    //   3. Text URL "www.example.com"       → +https:// auto  ← fallback
     const cellRef = XLSX.utils.encode_cell({ r: rIdx, c: COL.image });
     const cell = ws[cellRef];
     let imageUrl = "";
     if (cell) {
-      if (cell.l && cell.l.Target) imageUrl = cell.l.Target;
-      else if (typeof cell.v === "string" && cell.v.startsWith("http")) imageUrl = cell.v;
+      if (cell.l && cell.l.Target) {
+        imageUrl = String(cell.l.Target).trim();
+      } else if (cell.v != null) {
+        const v = String(cell.v).trim();
+        if (/^https?:\/\//i.test(v)) {
+          imageUrl = v;
+          textUrlCount++;
+          warnings.push(`Row ${rIdx+1}: ลิงก์รูปเป็น text (ไม่ใช่ hyperlink) → ใช้ได้แต่แนะนำให้ Ctrl+K`);
+        } else if (/^www\./i.test(v)) {
+          imageUrl = 'https://' + v;
+          textUrlCount++;
+          warnings.push(`Row ${rIdx+1}: ลิงก์รูปไม่มี protocol "${v}" → เติม https:// ให้`);
+        }
+      }
     }
 
     // Auto-override tag เมื่อ stock=0
@@ -303,10 +421,9 @@ function convertRows(rows, ws) {
       flag = 3;
     }
 
-    // brand new check
+    // brand check
     if (brand) {
       const slug = brand.split(/\s+/)[0].replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-      // เก็บไว้ทุก brand — ส่วน UI ค่อยช่วยกรอง vs known list
       newBrands.add(`${brand} → ${slug}`);
     }
 
@@ -326,7 +443,7 @@ function convertRows(rows, ws) {
   }
 
   return { byCategory, warnings, newBrands: Array.from(newBrands).sort(),
-           skipped, autoFixedStock,
+           skipped, autoFixedStock, textUrlCount,
            total: Object.values(byCategory).reduce((s,a) => s + a.length, 0) };
 }
 
@@ -343,12 +460,17 @@ function toNum(v, def) {
 }
 
 // ====== Render result + download buttons ======
-function renderResult(res, srcName) {
-  const { byCategory, warnings, newBrands, skipped, autoFixedStock, total } = res;
+function renderResult(res, srcName, elapsedSec) {
+  const { byCategory, warnings, newBrands, skipped, autoFixedStock, textUrlCount, total } = res;
   const catList = Object.keys(CATEGORY_MAP);
 
-  let html = `
-    <h3>✅ แปลงสำเร็จ — จากไฟล์ <code>${escapeHtml(srcName)}</code></h3>
+  let html = `<h3>✅ แปลงสำเร็จ — จากไฟล์ <code>${escapeHtml(srcName)}</code>${elapsedSec ? ` <span style="font-size:.78rem;color:#4e9ecf;font-weight:600">· ${elapsedSec} วินาที</span>` : ''}</h3>`;
+
+  if (textUrlCount > 0) {
+    html += `<div class="text-url-warn">⚠ พบลิงก์รูปแบบ text URL ${textUrlCount} รายการ → ใช้ได้แต่แนะนำให้ใส่เป็น hyperlink (Ctrl+K) เพื่อให้ Excel เปิดดูได้สะดวกกว่า</div>`;
+  }
+
+  html += `
     <div class="stat-grid">
       <div class="stat"><div class="stat-num">${total.toLocaleString()}</div><div class="stat-lbl">รายการรวม</div></div>
       <div class="stat"><div class="stat-num">${catList.length}</div><div class="stat-lbl">หมวดสินค้า</div></div>
@@ -386,12 +508,11 @@ function renderResult(res, srcName) {
   }
 
   setStatus(html);
-  window._result = res;  // เก็บไว้ให้ download buttons เรียกใช้
+  window._result = res;
 }
 
 // ====== Download helpers ======
 function jsonStr(items) {
-  // indent แบบ array-per-line (git diff สวย)
   const lines = items.map(item => JSON.stringify(item));
   return "[\n" + lines.join(",\n") + "\n]\n";
 }
@@ -424,6 +545,7 @@ function buildReport(res) {
     `**Date:** ${new Date().toISOString().slice(0,16).replace("T"," ")}`,
     `**Total:** ${res.total.toLocaleString()} รายการ`,
     `**Auto-fix stock=0:** ${res.autoFixedStock}`,
+    `**Text URL fallback:** ${res.textUrlCount}`,
     `**Warnings:** ${res.warnings.length}`,
     "",
     "## By category",

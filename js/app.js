@@ -22,7 +22,43 @@ const CAT_NAMES={C01:'เครื่องสำอาง',C02:'ผลิตภ
   C07:'อาหารเสริม',C08:'คอนซูเมอร์',C09:'แฟชั่น&ไลฟ์สไตล์'};
 const CAT_EMOJI={C01:'💄',C02:'🧴',C03:'🛁',C04:'💆',C05:'🌸',C06:'🛍️',C07:'💊',C08:'🛒',C09:'👜'};
 const PER_PAGE=40;
+const CART_LS_KEY='priao_cart_v1';
+const CART_LS_TTL_MS=24*60*60*1000; // 24 ชม. — ตะกร้าเก่ากว่านี้จะถือว่าหมดอายุ
 let allProducts=[],filtered=[],cart=[];
+
+// ============================================================
+// Cart Persistence (localStorage)
+// แก้ปัญหา: ลูกค้าสลับ LINE chat กลับมา cart หายเป็น 0
+// ============================================================
+function saveCart(){
+  try{
+    const payload={ts:Date.now(),items:cart};
+    localStorage.setItem(CART_LS_KEY,JSON.stringify(payload));
+  }catch(e){
+    // localStorage full หรือ disabled → silent fail (ไม่ break workflow)
+    console.warn('[saveCart] failed:',e);
+  }
+}
+function loadCart(){
+  try{
+    const raw=localStorage.getItem(CART_LS_KEY);
+    if(!raw)return [];
+    const payload=JSON.parse(raw);
+    // ตรวจ format + อายุ
+    if(!payload||!Array.isArray(payload.items))return [];
+    if(Date.now()-(payload.ts||0)>CART_LS_TTL_MS){
+      localStorage.removeItem(CART_LS_KEY); // expire เก่าแล้ว
+      return [];
+    }
+    return payload.items;
+  }catch(e){
+    console.warn('[loadCart] failed:',e);
+    return [];
+  }
+}
+function clearCartStorage(){
+  try{ localStorage.removeItem(CART_LS_KEY); }catch(e){}
+}
 let curCat='all',curSub='all',curTag='all';
 let curSearch='',curPage=1,viewMode='grid';
 let subcatMap={},navHistory=[];
@@ -105,7 +141,20 @@ function init(){
   allProducts=products;
   for(const k of Object.keys(smap))
     subcatMap[k]=[...smap[k]].sort((a,b)=>a.localeCompare(b,'th'));
+
+  // Restore cart จาก localStorage — กรอง item ที่ไม่อยู่ใน catalog แล้ว
+  const savedCart=loadCart();
+  if(savedCart.length>0){
+    const validCodes=new Set(allProducts.map(p=>p.code));
+    cart=savedCart.filter(c=>c&&c.code&&validCodes.has(c.code));
+    const dropped=savedCart.length-cart.length;
+    if(dropped>0)console.log('[cart restore] drop '+dropped+' item(s) ที่ไม่มีใน catalog แล้ว');
+    if(cart.length>0)console.log('[cart restore] โหลด '+cart.length+' รายการกลับมา');
+    // resync ปุ่ม "ใส่ตะกร้า" ของรายการที่อยู่ใน cart — เรียก renderCart() จะ update
+  }
+
   buildSidebar();buildMobCats();applyFilter();
+  if(cart.length>0)renderCart(); // re-render cart sidebar ให้แสดงของที่ restore
   document.getElementById('loading').classList.add('hidden');
   document.getElementById('home').style.display='';
 }
@@ -304,7 +353,7 @@ function priceRow(p){
 }
 function packInfo(p){return p.baseUnit||'';}
 function stockInfo(p){
-  if(p.stock>0)return '<span class="stock-in">✓ มีของ</span>';
+  if(p.stock>0)return '<span class="stock-in">✓ '+p.stock+'</span>';
   return '<span class="stock-empty">สินค้าหมดชั่วคราว</span>';
 }
 function cardBtn(p){
@@ -492,6 +541,7 @@ function changeQty(code,delta){
   cart[idx].qty=Math.max(1,cart[idx].qty+delta);renderCart();
 }
 function renderCart(){
+  saveCart(); // persist cart ทุกครั้งที่มี render — ป้องกัน cart หายตอนสลับแอป
   const cnt=cart.reduce((s,c)=>s+c.qty,0);
   document.getElementById('cartCnt').textContent=cnt;
   const fab=document.getElementById('cartFabCnt');
@@ -580,6 +630,7 @@ function clearCart(){
   const cnt = cart.reduce((s,c) => s + c.qty, 0);
   if(!confirm('ล้างสินค้าทั้งหมดในตะกร้า ('+cart.length+' รายการ · '+cnt+' ชิ้น)?\nสินค้าจะถูกลบทั้งหมด ไม่สามารถย้อนกลับได้')) return;
   cart = [];
+  clearCartStorage();
   // Reset ปุ่ม "ใส่ตะกร้า" ของสินค้าทุกตัวบนหน้า catalog
   document.querySelectorAll('[id^="cbtn-"]').forEach(function(btn){
     const code = btn.id.replace('cbtn-', '');
@@ -1212,6 +1263,7 @@ async function sendOrder(){
       console.log('[LIFF] Flex sent OK ✓');
 
       cart = [];
+      clearCartStorage(); // ลบ cart ที่บันทึกไว้หลังส่งสำเร็จ
       renderCart();
       closeCart();
       restoreBtn();
@@ -1382,36 +1434,14 @@ window.showDebugInfo = function(){
   info.push('buildFlexBubble: ' + typeof buildFlexBubble);
   info.push('cart items: ' + (typeof cart !== 'undefined' ? cart.length : 'undefined'));
   info.push('');
-  info.push('--- Recent Errors ---');
-  if(window.__lastErrors.length === 0){
-    info.push('(no errors)');
-  } else {
+  if(window.__lastErrors && window.__lastErrors.length){
+    info.push('--- Recent errors ---');
     window.__lastErrors.slice(-5).forEach(function(e){
-      info.push('['+e.time+'] '+e.type+': '+e.msg);
-      if(e.src) info.push('  at '+e.src);
+      info.push('[' + e.time + '] ' + e.type + ': ' + e.msg);
     });
   }
-
-  const text = info.join('\n');
-  // แสดงใน modal ที่ copy ได้
-  const mo = document.createElement('div');
-  mo.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:12px';
-  mo.innerHTML = '<div style="background:#fff;border-radius:12px;padding:16px;max-width:400px;width:100%;max-height:85vh;overflow-y:auto;font-family:monospace">'
-    +'<pre style="font-size:.7rem;white-space:pre-wrap;margin:0 0 12px;color:#333;line-height:1.5">'+text.replace(/</g,'&lt;')+'</pre>'
-    +'<button onclick="navigator.clipboard.writeText(this.parentElement.querySelector(\'pre\').textContent);this.textContent=\'คัดลอกแล้ว ✓\'" style="width:100%;padding:10px;background:#2080be;color:#fff;border:none;border-radius:6px;font-weight:700;margin-bottom:6px;cursor:pointer;font-family:inherit">📋 คัดลอกข้อมูล</button>'
-    +'<button onclick="this.parentElement.parentElement.remove()" style="width:100%;padding:10px;background:#eee;border:none;border-radius:6px;cursor:pointer;font-family:inherit">ปิด</button>'
-    +'</div>';
-  document.body.appendChild(mo);
+  alert(info.join('\n'));
 };
-
-
-// Preload search tokens เมื่อ user focus search input
-document.addEventListener('DOMContentLoaded', function(){
-  ['homeSearch','pcSearchInput'].forEach(function(id){
-    const el = document.getElementById(id);
-    if(el) el.addEventListener('focus', ensureSearchTokens, {once:true});
-  });
-});
 
 async function loadCatalogData() {
   const idx = await fetch('data/index.json').then(r => r.json());
