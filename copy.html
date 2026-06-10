@@ -201,6 +201,33 @@ function onCopySuccess(){
 }
 
 (async function init(){
+  // ====== โหมดใหม่: ?sku=XXX → copy เลข SKU เดี่ยว (สำหรับ Flex tap-to-copy) ======
+  const skuParam = getParam('sku');
+  if(skuParam){
+    const sku = String(skuParam).replace(/\s+/g, '').trim();
+    document.getElementById('fmt-label').textContent = 'SKU';
+    document.getElementById('preview').textContent = sku;
+    document.getElementById('byte-count').textContent = sku.length;
+    window._copyText = sku;
+    document.getElementById('copy-btn').addEventListener('click', () => doCopy(window._copyText));
+
+    // Init LIFF เพื่อให้ closeWindow พร้อม
+    if(typeof liff !== 'undefined'){
+      try{
+        await liff.init({ liffId: '2010211018-4Zqj1MmB' });
+        window._liffReady = true;
+      } catch(e){ window._liffReady = true; }
+    } else { window._liffReady = true; }
+
+    // Auto-copy ทันที
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      try{ await navigator.clipboard.writeText(sku); onCopySuccess(); }
+      catch(e){ console.warn('auto-copy sku failed:', e); }
+    }
+    return;
+  }
+
+  // ====== โหมดเดิม: ?t=base64 → copy ออเดอร์ทั้งบิล ======
   const fmt = getParam('fmt') || 'sku';
   const t   = getParam('t')   || '';
   const decoded = b64UrlDecode(t);
@@ -208,47 +235,5 @@ function onCopySuccess(){
   document.getElementById('fmt-label').textContent = FMT_LABELS[fmt] || fmt;
 
   if(decoded === null){
-    setIcon('error', '!', 'ข้อมูลผิดพลาด', 'ถอดรหัส URL ไม่สำเร็จ');
-    document.getElementById('preview').textContent = '(ไม่มีข้อมูล)';
-    return;
-  }
-
-  document.getElementById('preview').textContent = decoded;
-  document.getElementById('byte-count').textContent = decoded.length;
-  window._copyText = decoded;
-
-  // ผูก click handler ทันที (ทำงานก่อน LIFF init ก็ได้)
-  document.getElementById('copy-btn').addEventListener('click', () => doCopy(window._copyText));
-
-  // ===== Init LIFF SDK ก่อน เพื่อให้ closeWindow พร้อม =====
-  let liffOk = false;
-  if(typeof liff !== 'undefined'){
-    try{
-      await liff.init({ liffId: '2010211018-4Zqj1MmB' });
-      window._liffReady = true;
-      liffOk = liff.isInClient && liff.isInClient();
-      console.log('LIFF ready, inClient:', liffOk);
-    } catch(e){
-      console.error('liff.init failed:', e);
-      window._liffReady = true;
-      window._liffError = e && e.message ? e.message : String(e);
-    }
-  } else {
-    window._liffReady = true;
-  }
-
-  // ===== หลัง LIFF พร้อม ลอง auto-copy =====
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    try{
-      await navigator.clipboard.writeText(decoded);
-      onCopySuccess();
-    } catch(e){
-      // ถ้า auto-copy ไม่ได้ → รอ user แตะปุ่ม
-      console.warn('auto-copy failed:', e);
-    }
-  }
-})();
-</script>
-
-</body>
+    setIcon('error', '!', 'ข้อมูลผิดพลาด', 'ถอดรหัส URL ไม่
 </html>

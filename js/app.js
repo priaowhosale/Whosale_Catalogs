@@ -592,7 +592,7 @@ function renderCart(){
               : '<div style="width:52px;height:52px;border-radius:6px;background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:'+theme.c1+';font-weight:800;font-size:.85rem">?</div>')
           + '<div style="flex:1;min-width:0">'
           + '<div style="font-size:.8rem;font-weight:700;margin-bottom:4px;line-height:1.35">'+esc(c.name)+'</div>'
-          + '<div style="font-size:.7rem;color:#4B5563">#'+c.code+(c.baseUnit?' · '+c.baseUnit:'')+'</div>'
+          + '<div style="font-size:.7rem;color:#4B5563"><span class="sku-copy" onclick="copySkuFromCart(event,\''+c.code+'\')" title="แตะเพื่อคัดลอก SKU">#'+c.code+'</span>'+(c.baseUnit?' · '+c.baseUnit:'')+'</div>'
           + '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">'
           + '<button onclick="changeQty(\''+c.code+'\',-1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer;background:#fff">−</button>'
           + '<span style="font-weight:700;min-width:18px;text-align:center">'+c.qty+'</span>'
@@ -638,6 +638,37 @@ function clearCart(){
   });
   renderCart();
 }
+
+
+// SKU click-to-copy (web cart sidebar)
+window.copySkuFromCart = function(ev, code){
+  ev.stopPropagation();
+  const clean = String(code || '').replace(/\s+/g, '').trim();
+  if(!clean) return;
+  // try modern clipboard API first
+  const fallback = function(){
+    const ta = document.createElement('textarea');
+    ta.value = clean; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(e){}
+    document.body.removeChild(ta);
+  };
+  const showOk = function(){
+    const target = ev.target;
+    const origText = target.textContent;
+    target.style.color = '#06c755';
+    target.textContent = '✓ คัดลอกแล้ว';
+    setTimeout(function(){
+      target.style.color = '';
+      target.textContent = origText;
+    }, 1200);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(clean).then(showOk).catch(function(){ fallback(); showOk(); });
+  } else {
+    fallback(); showOk();
+  }
+};
 
 function toggleCart(){document.getElementById('cartPanel').classList.toggle('open');document.getElementById('overlay').classList.toggle('show');}
 function closeCart(){document.getElementById('cartPanel').classList.remove('open');document.getElementById('overlay').classList.remove('show');}
@@ -948,7 +979,7 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
       const bodyContents = [
         {type:'text', text:(idx+1)+'. '+String(c.name||'-'),
          weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:2},
-        {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#4B5563'}
+        {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#2080BE', decoration:'underline', action:{type:'uri', label:'Copy SKU', uri: copyBaseUrl + '?sku=' + encodeURIComponent(String(c.code||'').replace(/\s+/g,''))}}
       ];
 
       // ราคา×จำนวน = รวม (แยก element ให้ qty เด่น)
@@ -1011,7 +1042,7 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
           contents:[
             {type:'text', text:(idx+1)+'. '+String(c.name||'-'),
              weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:2},
-            {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#4B5563'},
+            {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#2080BE', decoration:'underline', action:{type:'uri', label:'Copy SKU', uri: copyBaseUrl + '?sku=' + encodeURIComponent(String(c.code||'').replace(/\s+/g,''))}},
             {
               type:'box', layout:'baseline', spacing:'xs', margin:'sm',
               contents:[
@@ -1123,8 +1154,8 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
     });
   }
 
-  const skuUrl  = buildCopyUrl(copyBaseUrl, 'sku',  orderId, customerName, cartItems);
-  const listUrl = buildCopyUrl(copyBaseUrl, 'list', orderId, customerName, cartItems);
+  // ไม่ใช้ copy buttons แล้ว — แต่ละ #SKU ใน item เป็น tappable แทน
+  // (copyBaseUrl ยังคง pass มาเผื่อใช้กรณีอื่น)
 
   return {
     type:'bubble',
@@ -1148,22 +1179,10 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
       paddingAll:'md',
       spacing:'sm',
       contents:[
-        {type:'text', text:'รอน้อง Salesman ติดต่อกลับสักครู่นะคะ',
+        {type:'text', text:'รอน้อง Salesman แจ้งยอดชำระสักครู่ค่ะ',
          size:'xs', color:'#888888', align:'center', wrap:true, margin:'none'},
-        {
-          type:'button',
-          style:'primary',
-          color:'#2080BE',
-          height:'sm',
-          margin:'md',
-          action:{ type:'uri', label:'คัดลอกเฉพาะ SKU', uri: skuUrl }
-        },
-        {
-          type:'button',
-          style:'secondary',
-          height:'sm',
-          action:{ type:'uri', label:'คัดลอกรายการ + Order ID', uri: listUrl }
-        }
+        {type:'text', text:'แตะที่ #SKU ของรายการเพื่อคัดลอกเลขสินค้า',
+         size:'xxs', color:'#aaaaaa', align:'center', wrap:true, margin:'xs'}
       ]
     }
   };
@@ -1176,13 +1195,13 @@ const HYBRID_A_COUNT = 30;          // ใน Hybrid mode: 30 รายการ
 
 function decideFlexStrategy(totalItems){
   // Returns {mode, perCard}
-  //   mode 'A':      Visual + ribbon (~700B/item) → 50/card
-  //   mode 'HYBRID': 30 visual + rest compact (~100/card)
+  //   ค่าระวัง 30% margin จาก 50KB cap ของ LINE Flex JSON
+  //   mode 'A':      Visual + ribbon (~700B/item) → 40/card
+  //   mode 'HYBRID': 30 visual + rest compact → 70/card
   //   mode 'B':      Compact + small img (~250B/item) → 100/card
-  if(totalItems <= 100)  return { mode: 'A',      perCard: 50  };
-  if(totalItems <= 200)  return { mode: 'HYBRID', perCard: 100 };
+  if(totalItems <= 40)   return { mode: 'A',      perCard: 40  };
+  if(totalItems <= 150)  return { mode: 'HYBRID', perCard: 70  };
   if(totalItems <= 500)  return { mode: 'B',      perCard: 100 };
-  // > 500: ใช้ B + จำกัด — ป้องกัน LIFF ค้าง
   return { mode: 'B', perCard: 100, warn: true };
 }
 
@@ -1239,7 +1258,7 @@ function showSuccessModal(orderId){
     +'<div style="width:72px;height:72px;background:#e8f8ee;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:38px;color:#06c755">✓</div>'
     +'<div style="font-size:1.2rem;font-weight:800;color:#0a1628;margin-bottom:8px">ส่งออเดอร์สำเร็จ!</div>'
     +'<div style="font-size:.85rem;color:#666;margin-bottom:4px">เลขออเดอร์: <strong style="color:#2080be">#'+orderId+'</strong></div>'
-    +'<div style="font-size:.78rem;color:#888;line-height:1.6;margin-bottom:20px">ทีมงานเปรียวจะตรวจสอบและติดต่อกลับ<br>เพื่อยืนยันออเดอร์ภายใน 30 นาที</div>'
+    +'<div style="font-size:.78rem;color:#888;line-height:1.6;margin-bottom:20px">รอน้อง Salesman แจ้งยอดชำระสักครู่ค่ะ</div>'
     +'<button onclick="this.parentElement.parentElement.remove()" style="width:100%;padding:12px;background:#2080be;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.9rem;font-family:inherit">ปิดหน้านี้</button>'
     +'</div>'
     +'<style>@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}</style>';
