@@ -304,7 +304,7 @@ function priceRow(p){
 }
 function packInfo(p){return p.baseUnit||'';}
 function stockInfo(p){
-  if(p.stock>0)return '<span class="stock-in">✓ '+p.stock+'</span>';
+  if(p.stock>0)return '<span class="stock-in">✓ มีของ</span>';
   return '<span class="stock-empty">สินค้าหมดชั่วคราว</span>';
 }
 function cardBtn(p){
