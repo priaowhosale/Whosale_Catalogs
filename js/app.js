@@ -813,7 +813,10 @@ function buildCopyUrl(baseHref, fmt, orderId, customerName, cartItems){
 }
 
 // สร้าง Flex Message bubble — มี 2 ปุ่ม copy ใน footer
-function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, copyBaseUrl){
+// opts (optional): {chunkIdx, totalChunks, isLast, grandTotal, totalItems}
+function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, copyBaseUrl, opts){
+  opts = opts || {};
+  const isMultiChunk = (opts.totalChunks || 1) > 1;
   const itemContents = [];
 
   // สีตามประเภทโปร: sale=ส้ม, bundle=ฟ้า, flash=แดง, preorder=เทา
@@ -847,9 +850,71 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
         ]
       });
     }
+    const renderMode = opts.mode || 'A';
     items.forEach(function(c, i){
       const idx = startIdx + i;
-      _renderSingleItem(c, idx, items.length > 1 && i > 0);
+      // HYBRID: first HYBRID_A_COUNT items in this chunk = visual A, rest = compact B
+      const useCompact = (renderMode === 'B') ||
+                         (renderMode === 'HYBRID' && i >= HYBRID_A_COUNT);
+      if(useCompact){
+        _renderItemCompact(c, idx, items.length > 1 && i > 0);
+      } else {
+        _renderSingleItem(c, idx, items.length > 1 && i > 0);
+      }
+    });
+  }
+
+  // ฟังก์ชันสำหรับ render 1 item แบบ compact (Format B — รูปเล็ก + ribbon)
+  function _renderItemCompact(c, idx, addSeparator){
+    const product = allProducts.find(p => p.code === c.code);
+    const imgUrl = safeImageUrl(product ? product.imageUrl : null);
+    const lineTotal = c.price * c.qty;
+    const isOutOfStock = product && (product.tag === 'สินค้าหมดชั่วคราว' || product.stock <= 0);
+    const promoType = isOutOfStock ? 'preorder' : (product ? (product.promoType || '') : '');
+    const theme = PROMO_THEME[promoType] || null;
+
+    if(addSeparator){
+      itemContents.push({type:'separator', margin:'xs', color:'#F5F5F5'});
+    }
+
+    const rowContents = [];
+    // mini image 24x24
+    if(imgUrl){
+      rowContents.push({
+        type:'image', url: imgUrl,
+        size:'xxs', flex:1, aspectRatio:'1:1', aspectMode:'cover'
+      });
+    } else {
+      rowContents.push({type:'filler', flex:1});
+    }
+    // text part — name + qty×price
+    const textBox = {
+      type:'box', layout:'vertical', flex:8, spacing:'none',
+      contents:[
+        {type:'text', text: (idx+1)+'. '+(c.name || ''),
+         size:'xxs', color:'#0a1628', weight:'regular', wrap:true, maxLines:1},
+        {type:'box', layout:'baseline', spacing:'sm', contents:[
+          {type:'text', text:'฿'+c.price+' × '+c.qty,
+           size:'xxs', color:'#888888', flex:3},
+          {type:'text', text: lineTotal.toLocaleString('th-TH')+'฿',
+           size:'xxs', color:'#0065a8', weight:'bold', flex:2, align:'end'}
+        ]}
+      ]
+    };
+    rowContents.push(textBox);
+    // mini ribbon
+    if(theme){
+      rowContents.push({
+        type:'text', text: theme.emoji,
+        size:'xxs', flex:1, align:'center', color: theme.txt
+      });
+    } else {
+      rowContents.push({type:'filler', flex:1});
+    }
+
+    itemContents.push({
+      type:'box', layout:'horizontal', spacing:'sm', paddingAll:'xs',
+      contents: rowContents
     });
   }
 
@@ -1003,8 +1068,12 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
     return s;
   }, 0);
 
+  // Subtotal row — แสดง "ยอดส่วนนี้" สำหรับ chunk ที่ไม่ใช่อันสุดท้าย
+  const subtotalLabel = isMultiChunk
+    ? 'ยอดส่วนนี้ ('+cartItems.length+' รายการ · '+totalQty+' ชิ้น)'
+    : 'ยอดรวม ('+cartItems.length+' รายการ · '+totalQty+' ชิ้น)';
   const totalRowContents = [
-    {type:'text', text:'ยอดรวม ('+cartItems.length+' รายการ · '+totalQty+' ชิ้น)', size:'xs', weight:'bold', color:'#0A1628', flex:3, wrap:true},
+    {type:'text', text: subtotalLabel, size:'xs', weight:'bold', color:'#0A1628', flex:3, wrap:true},
     {type:'text', text: total.toLocaleString('th-TH')+' บาท', size:'lg', weight:'bold', color:'#0A1628', align:'end', flex:2}
   ];
   itemContents.push({type:'box', layout:'horizontal', margin:'md', contents: totalRowContents});
@@ -1017,6 +1086,21 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
     });
   }
 
+  // Grand total — เฉพาะ card สุดท้าย (isLast) เมื่อมีหลาย chunk
+  if(isMultiChunk && opts.isLast && opts.grandTotal){
+    itemContents.push({type:'separator', margin:'md', color:'#2080BE'});
+    itemContents.push({
+      type:'box', layout:'horizontal', margin:'sm',
+      backgroundColor:'#E6F1FB', paddingAll:'sm', cornerRadius:'md',
+      contents:[
+        {type:'text', text:'🎯 ยอดรวมทั้งบิล ('+(opts.totalItems||cartItems.length)+' รายการ)',
+         size:'xs', weight:'bold', color:'#0065a8', flex:3, wrap:true},
+        {type:'text', text: opts.grandTotal.toLocaleString('th-TH')+' บาท',
+         size:'lg', weight:'bold', color:'#0065a8', align:'end', flex:2}
+      ]
+    });
+  }
+
   const headerContents = [
     {type:'text', text:'เปรียว คอสเมติกส์', color:'#FFFFFF', size:'md', weight:'bold'},
     {type:'text', text:'VIP Order #'+orderId, color:'#FFFFFF', size:'sm', margin:'sm'},
@@ -1024,6 +1108,19 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
   ];
   if(customerName){
     headerContents.push({type:'text', text:'ลูกค้า: '+String(customerName), color:'#FFFFFF', size:'sm', margin:'sm', wrap:true});
+  }
+  // Multi-chunk header: แสดง "ตะกร้า X/Y · N รายการ"
+  if(isMultiChunk){
+    headerContents.push({
+      type:'box', layout:'horizontal', margin:'sm', spacing:'sm',
+      backgroundColor:'#FFFFFF26', cornerRadius:'md', paddingAll:'xs',
+      contents:[
+        {type:'text', text:'🛒 ตะกร้า '+opts.chunkIdx+'/'+opts.totalChunks,
+         color:'#FFFFFF', size:'xs', weight:'bold', flex:3},
+        {type:'text', text: cartItems.length+' รายการ',
+         color:'#E6F1FB', size:'xs', align:'end', flex:2}
+      ]
+    });
   }
 
   const skuUrl  = buildCopyUrl(copyBaseUrl, 'sku',  orderId, customerName, cartItems);
@@ -1072,19 +1169,65 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
   };
 }
 
-// Flex อย่างเดียว (ไม่มี text duplicate)
+// Smart Adaptive Format + Batch sending — รองรับ 50 → 500+ SKU/บิล
+// LINE Flex JSON limit = 50KB/message · liff.sendMessages = 5 msgs/call
+const FLEX_BATCH_SIZE = 5;          // LIFF cap per call
+const HYBRID_A_COUNT = 30;          // ใน Hybrid mode: 30 รายการแรก/card = Format A
+
+function decideFlexStrategy(totalItems){
+  // Returns {mode, perCard}
+  //   mode 'A':      Visual + ribbon (~700B/item) → 50/card
+  //   mode 'HYBRID': 30 visual + rest compact (~100/card)
+  //   mode 'B':      Compact + small img (~250B/item) → 100/card
+  if(totalItems <= 100)  return { mode: 'A',      perCard: 50  };
+  if(totalItems <= 200)  return { mode: 'HYBRID', perCard: 100 };
+  if(totalItems <= 500)  return { mode: 'B',      perCard: 100 };
+  // > 500: ใช้ B + จำกัด — ป้องกัน LIFF ค้าง
+  return { mode: 'B', perCard: 100, warn: true };
+}
+
+// Flex อย่างเดียว (ไม่มี text duplicate) — adaptive split ตาม strategy
 function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
   // ใช้ LIFF URL เพื่อให้ liff.closeWindow ทำงานได้ (LINE inject LIFF context)
   const COPY_LIFF_ID = '2010211018-4Zqj1MmB';
   const copyBaseUrl = 'https://liff.line.me/' + COPY_LIFF_ID;
 
-  const flex = {
-    type:'flex',
-    altText:'ออเดอร์ '+orderId+' · '+cartItems.length+' รายการ · '+total.toLocaleString('th-TH')+' ฿',
-    contents: buildFlexBubble(orderId, timestamp, customerName, cartItems, total, copyBaseUrl)
-  };
+  const strategy = decideFlexStrategy(cartItems.length);
+  const perCard = strategy.perCard;
 
-  return [flex];
+  // Split cart เป็น chunks ขนาด perCard
+  const chunks = [];
+  for(let i=0; i<cartItems.length; i+=perCard){
+    chunks.push(cartItems.slice(i, i+perCard));
+  }
+
+  const totalChunks = chunks.length;
+  // คำนวณยอดของแต่ละ chunk (subtotal)
+  const subtotals = chunks.map(chunk =>
+    chunk.reduce((s,c) => s + (c.price * c.qty), 0)
+  );
+
+  // สร้าง flex message ต่อ chunk
+  return chunks.map((chunk, idx) => ({
+    type:'flex',
+    altText: totalChunks > 1
+      ? 'ออเดอร์ '+orderId+' (ตะกร้า '+(idx+1)+'/'+totalChunks+') · '+chunk.length+' รายการ'
+      : 'ออเดอร์ '+orderId+' · '+chunk.length+' รายการ · '+total.toLocaleString('th-TH')+' ฿',
+    contents: buildFlexBubble(
+      orderId, timestamp, customerName,
+      chunk,
+      subtotals[idx],
+      copyBaseUrl,
+      {
+        chunkIdx: idx + 1,         // 1-based for display
+        totalChunks: totalChunks,
+        isLast: idx === totalChunks - 1,
+        grandTotal: total,          // ยอดรวมทุก chunk (สำหรับ card สุดท้าย)
+        totalItems: cartItems.length, // จำนวน item รวมทุก chunk
+        mode: strategy.mode         // 'A' / 'HYBRID' / 'B'
+      }
+    )
+  }));
 }
 
 // แสดง success modal
@@ -1251,16 +1394,26 @@ async function sendOrder(){
   // เช็คว่าอยู่ใน LIFF browser หรือไม่
   if(liffReady && liffInClient && typeof liff !== 'undefined' && typeof liff.sendMessages === 'function'){
 
-    // ส่ง Flex card เดี่ยวๆ (buildOrderMessages คืน [flex] ไม่มี text duplicate)
+    // ส่ง Flex card — auto split + batch (5/call) สำหรับ cart ใหญ่
     try{
       const messages = buildOrderMessages(orderId, timestamp, customerName, cart, total);
-      console.log('[LIFF] Sending Flex (size:', JSON.stringify(messages).length, 'bytes)');
-      const p = liff.sendMessages(messages);
-      const t = new Promise(function(_, reject){
-        setTimeout(function(){ reject(new Error('sendMessages timeout 15s')); }, LIFF_SEND_TIMEOUT_MS);
-      });
-      await Promise.race([p, t]);
-      console.log('[LIFF] Flex sent OK ✓');
+      console.log('[LIFF] Sending', messages.length, 'flex card(s) total size:', JSON.stringify(messages).length, 'bytes');
+
+      // Batch sending: LIFF อนุญาต 5 messages ต่อ 1 call → ส่งหลายรอบถ้าจำเป็น
+      for(let bi = 0; bi < messages.length; bi += FLEX_BATCH_SIZE){
+        const batch = messages.slice(bi, bi + FLEX_BATCH_SIZE);
+        console.log('[LIFF] Batch', Math.floor(bi/FLEX_BATCH_SIZE)+1, '— sending', batch.length, 'card(s)');
+        const p = liff.sendMessages(batch);
+        const t = new Promise(function(_, reject){
+          setTimeout(function(){ reject(new Error('sendMessages timeout 15s')); }, LIFF_SEND_TIMEOUT_MS);
+        });
+        await Promise.race([p, t]);
+        // หาก batch ถัดไปยังมี → รอ 400ms เพื่อลด rate-limit risk
+        if(bi + FLEX_BATCH_SIZE < messages.length){
+          await new Promise(function(r){ setTimeout(r, 400); });
+        }
+      }
+      console.log('[LIFF] All flex sent OK ✓');
 
       cart = [];
       clearCartStorage(); // ลบ cart ที่บันทึกไว้หลังส่งสำเร็จ
@@ -1389,43 +1542,14 @@ window.showDebugInfo = function(){
   info.push('UA: ' + (navigator.userAgent || '').substring(0, 80));
   info.push('');
   info.push('--- LIFF Status ---');
-  info.push('LIFF SDK loaded: ' + (typeof liff !== 'undefined' ? '✅ YES' : '❌ NO'));
-  info.push('liffReady: ' + (typeof liffReady !== 'undefined' ? liffReady : 'undefined'));
-  info.push('liffInClient: ' + (typeof liffInClient !== 'undefined' ? liffInClient : 'undefined'));
-  info.push('LIFF_ID configured: ' + (typeof LIFF_ID !== 'undefined' ? LIFF_ID : 'undefined'));
-  info.push('liffProfile: ' + (typeof liffProfile !== 'undefined' && liffProfile ? liffProfile.displayName : 'null'));
-  if(typeof liff !== 'undefined' && liff.isLoggedIn){
-    try { info.push('isLoggedIn: ' + liff.isLoggedIn()); } catch(e){ info.push('isLoggedIn err: '+e.message); }
-    info.push('sendMessages available: ' + (typeof liff.sendMessages === 'function' ? '✅ YES' : '❌ NO'));
-    try { info.push('OS: ' + liff.getOS()); } catch(e){}
-    try { info.push('Version: ' + liff.getVersion()); } catch(e){}
-    try { info.push('LINE Version: ' + liff.getLineVersion()); } catch(e){}
-    try { info.push('Language: ' + liff.getLanguage()); } catch(e){}
-    // ⭐ ข้อมูลสำคัญที่จะบอกว่าเปิดจากไหน
+  info.push('LIFF SDK loaded: ' + (typeof liff !== 'undefined' ? 'YES' : 'NO'));
+  info.push('liffReady: ' + (typeof liffReady !== 'undefined' ? liffReady : 'undef'));
+  info.push('liffInClient: ' + (typeof liffInClient !== 'undefined' ? liffInClient : 'undef'));
+  if(typeof liff !== 'undefined'){
     try {
-      const ctx = liff.getContext();
-      if(ctx){
-        info.push('Context type: ' + (ctx.type || 'unknown'));
-        info.push('Context utouId: ' + (ctx.utouId || 'n/a'));
-        info.push('Context roomId: ' + (ctx.roomId || 'n/a'));
-        info.push('Context groupId: ' + (ctx.groupId || 'n/a'));
-        info.push('Context userId: ' + (ctx.userId || 'n/a'));
-        info.push('Context endpoint: ' + (ctx.endpointUrl || 'n/a'));
-      } else {
-        info.push('Context: NULL');
-      }
-    } catch(e){ info.push('Context err: '+e.message); }
-    // ⭐ permissions ที่ user grant จริง
-    try {
-      if(liff.permission && liff.permission.query){
-        liff.permission.query('chat_message.write').then(p => console.log('chat_message.write permission:', p));
-      }
-    } catch(e){}
-    try {
-      if(liff.getAccessToken){
-        const token = liff.getAccessToken();
-        info.push('Has access token: ' + (token ? '✅' : '❌'));
-      }
+      info.push('isInClient: ' + liff.isInClient());
+      info.push('isLoggedIn: ' + liff.isLoggedIn());
+      info.push('sendMessages available: ' + (typeof liff.sendMessages === 'function' ? 'YES' : 'NO'));
     } catch(e){}
   }
   info.push('');
