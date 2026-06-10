@@ -631,12 +631,16 @@ function clearCart(){
   if(!confirm('ล้างสินค้าทั้งหมดในตะกร้า ('+cart.length+' รายการ · '+cnt+' ชิ้น)?\nสินค้าจะถูกลบทั้งหมด ไม่สามารถย้อนกลับได้')) return;
   cart = [];
   clearCartStorage();
-  // Reset ปุ่ม "ใส่ตะกร้า" ของสินค้าทุกตัวบนหน้า catalog
+  resetAllCardButtons(); // ใช้ updateCardBtn ที่ดูสถานะ stock จริง
+  renderCart();
+}
+
+// Reset ปุ่ม card บนทุก ItemCard บนหน้า — ใช้ updateCardBtn() ที่ดู stock
+function resetAllCardButtons(){
   document.querySelectorAll('[id^="cbtn-"]').forEach(function(btn){
     const code = btn.id.replace('cbtn-', '');
-    btn.outerHTML = '<button id="cbtn-'+code+'" class="preorder-btn" style="width:100%;padding:5px 0" onclick="addCart(\''+code+'\')">🛒 สั่งจอง</button>';
+    updateCardBtn(code); // เลือก preorder-btn (หมด) / add-btn (มี) / qty-ctrl (อยู่ใน cart) อัตโนมัติ
   });
-  renderCart();
 }
 
 
@@ -1476,6 +1480,7 @@ async function sendOrder(){
 
       cart = [];
       clearCartStorage(); // ลบ cart ที่บันทึกไว้หลังส่งสำเร็จ
+      resetAllCardButtons(); // reset ปุ่ม [-N+] กลับเป็น "+ ใส่ตะกร้า" / "🛒 สั่งจอง" ตาม stock
       renderCart();
       closeCart();
       restoreBtn();
