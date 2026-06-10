@@ -201,29 +201,91 @@ function onCopySuccess(){
 }
 
 (async function init(){
-  // ====== โหมดใหม่: ?sku=XXX → copy เลข SKU เดี่ยว (สำหรับ Flex tap-to-copy) ======
+  // ====== โหมดใหม่: ?sku=XXX → copy เลข SKU เดี่ยว (FAST PATH สำหรับ Flex tap-to-copy) ======
+  // Order: setup UI → schedule timers → copy → init LIFF → close on init complete
   const skuParam = getParam('sku');
   if(skuParam){
     const sku = String(skuParam).replace(/\s+/g, '').trim();
+
+    // === STEP 0: Setup UI + state ทันที (ไม่ await) ===
     document.getElementById('fmt-label').textContent = 'SKU';
     document.getElementById('preview').textContent = sku;
     document.getElementById('byte-count').textContent = sku.length;
     window._copyText = sku;
     document.getElementById('copy-btn').addEventListener('click', () => doCopy(window._copyText));
 
-    // Init LIFF เพื่อให้ closeWindow พร้อม
+    let closedFlag = false; // ป้องกัน double-close
+    const tryClose = function(){
+      if(closedFlag) return true;
+      if(typeof liff !== 'undefined' && liff.isInClient && liff.isInClient() && liff.closeWindow){
+        try{
+          liff.closeWindow();
+          closedFlag = true;
+          return true;
+        } catch(e){ console.warn('[sku] closeWindow failed:', e); }
+      }
+      return false;
+    };
+
+    // === STEP 1: ตั้ง timer แบบ scheduled ทันที (ไม่รอ LIFF init) ===
+    // ถ้า LIFF init เร็วพอ → tryClose จะปิดที่ ~250ms จริงๆ
+    setTimeout(tryClose, 250);
+    setTimeout(tryClose, 600);
+    setTimeout(tryClose, 1200);
+    // ถ้าผ่าน 2 วินาทียังไม่ปิด → แสดง banner ใหญ่ (กรณี !inClient หรือ LIFF SDK fail)
+    setTimeout(function(){
+      if(!closedFlag && !document.hidden) showBigCloseHint();
+    }, 2000);
+
+    // === STEP 2: Copy ทันที (parallel กับ LIFF init) ===
+    let copyDone = false;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      try{
+        await navigator.clipboard.writeText(sku);
+        copyDone = true;
+      } catch(e){ console.warn('[sku] clipboard.writeText failed:', e); }
+    }
+    // Fallback execCommand (สำหรับ webview เก่า/restricted)
+    if(!copyDone){
+      try{
+        const ta = document.createElement('textarea');
+        ta.value = sku;
+        ta.setAttribute('readonly','');
+        ta.style.cssText='position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select(); ta.setSelectionRange(0, sku.length);
+        copyDone = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch(e){ console.warn('[sku] execCommand fallback failed:', e); }
+    }
+
+    // === STEP 3: Visual feedback ===
+    if(copyDone){
+      setIcon('success', '✓', '✓ คัดลอก ' + sku, 'กำลังปิด...');
+      showToast('✓ ' + sku);
+      const btn = document.getElementById('copy-btn');
+      btn.className = 'btn success';
+      btn.textContent = '✓ คัดลอกแล้ว';
+    } else {
+      // copy ไม่ผ่าน → user ต้องกดปุ่มเอง → click handler เรียก doCopy
+      setIcon('warn', '!', 'แตะปุ่มเพื่อคัดลอก', 'คลิปบอร์ดอัตโนมัติไม่พร้อม');
+    }
+
+    // === STEP 4: Init LIFF → call tryClose ทันทีหลัง init เสร็จ ===
     if(typeof liff !== 'undefined'){
       try{
         await liff.init({ liffId: '2010211018-4Zqj1MmB' });
         window._liffReady = true;
-      } catch(e){ window._liffReady = true; }
-    } else { window._liffReady = true; }
-
-    // Auto-copy ทันที
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      try{ await navigator.clipboard.writeText(sku); onCopySuccess(); }
-      catch(e){ console.warn('auto-copy sku failed:', e); }
+        // ปิดทันที่ที่ LIFF พร้อม (ปกติเร็วกว่า 250ms timer)
+        if(copyDone) tryClose();
+      } catch(e){
+        window._liffReady = true;
+        console.error('[sku] liff.init failed:', e);
+      }
+    } else {
+      window._liffReady = true;
     }
+
     return;
   }
 
