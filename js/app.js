@@ -1593,8 +1593,41 @@ async function loadCatalogData() {
   }));
 }
 window.addEventListener('DOMContentLoaded', async function () {
-  initLiff();          // LIFF init แบบ non-blocking
-  initSmartHeader();   // Auto-resize header
-  await loadCatalogData();
-  requestAnimationFrame(function(){requestAnimationFrame(function(){init();});});
+  console.log('[boot] DOMContentLoaded fired');
+  try {
+    initLiff();
+    console.log('[boot] initLiff() ok');
+  } catch(e){ console.error('[boot] initLiff failed:', e); }
+  try {
+    initSmartHeader();
+    console.log('[boot] initSmartHeader() ok');
+  } catch(e){ console.error('[boot] initSmartHeader failed:', e); }
+  try {
+    console.log('[boot] loading catalog data...');
+    await loadCatalogData();
+    console.log('[boot] catalog data loaded, RAW_DATA keys:', Object.keys(RAW_DATA));
+  } catch(e){
+    console.error('[boot] loadCatalogData failed:', e);
+    // แสดง error บนหน้า loading แทนค้าง
+    const sub = document.getElementById('loadingSub');
+    if(sub) sub.textContent = 'โหลดข้อมูลไม่สำเร็จ — กรุณา refresh';
+    return;
+  }
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      try {
+        init();
+        console.log('[boot] init() ok ✓');
+      } catch(e){
+        console.error('[boot] init() FAILED:', e);
+        const sub = document.getElementById('loadingSub');
+        if(sub) sub.textContent = 'เริ่มระบบไม่สำเร็จ: ' + (e.message || e);
+        // ลอง hide loading + แสดง home อย่างน้อย
+        try {
+          document.getElementById('loading').classList.add('hidden');
+          document.getElementById('home').style.display='';
+        } catch(_){}
+      }
+    });
+  });
 });
