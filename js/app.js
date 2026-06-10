@@ -640,33 +640,63 @@ function clearCart(){
 }
 
 
-// SKU click-to-copy (web cart sidebar)
+// SKU click-to-copy (web cart sidebar) — robust + log
 window.copySkuFromCart = function(ev, code){
-  ev.stopPropagation();
+  console.log('[copySkuFromCart] clicked, code:', code);
+  if(ev && ev.stopPropagation) ev.stopPropagation();
+  if(ev && ev.preventDefault) ev.preventDefault();
   const clean = String(code || '').replace(/\s+/g, '').trim();
-  if(!clean) return;
-  // try modern clipboard API first
-  const fallback = function(){
-    const ta = document.createElement('textarea');
-    ta.value = clean; ta.style.position='fixed'; ta.style.opacity='0';
-    document.body.appendChild(ta); ta.select();
-    try{ document.execCommand('copy'); }catch(e){}
-    document.body.removeChild(ta);
-  };
+  if(!clean){ console.warn('[copySkuFromCart] empty code, abort'); return; }
+
+  // visual feedback function
+  const target = ev && ev.target;
   const showOk = function(){
-    const target = ev.target;
+    if(!target) return;
     const origText = target.textContent;
+    const origColor = target.style.color;
     target.style.color = '#06c755';
-    target.textContent = '✓ คัดลอกแล้ว';
+    target.style.fontWeight = '700';
+    target.textContent = '✓ คัดลอก '+clean;
     setTimeout(function(){
-      target.style.color = '';
+      target.style.color = origColor;
+      target.style.fontWeight = '';
       target.textContent = origText;
-    }, 1200);
+    }, 1500);
   };
+
+  // execCommand fallback (works in most webviews)
+  const execFallback = function(){
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = clean;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;border:none;padding:0;margin:0;';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      ta.setSelectionRange(0, clean.length);
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      console.log('[copySkuFromCart] execCommand result:', ok);
+      return ok;
+    } catch(e){
+      console.error('[copySkuFromCart] execCommand error:', e);
+      return false;
+    }
+  };
+
+  // Try modern clipboard API
   if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(clean).then(showOk).catch(function(){ fallback(); showOk(); });
+    navigator.clipboard.writeText(clean).then(function(){
+      console.log('[copySkuFromCart] clipboard.writeText OK');
+      showOk();
+    }).catch(function(err){
+      console.warn('[copySkuFromCart] clipboard.writeText failed:', err, '— fallback to execCommand');
+      if(execFallback()){ showOk(); }
+      else { alert('คัดลอก SKU: '+clean+'\n(เครื่องไม่รองรับ auto-copy ให้ก๊อปด้วยมือ)'); }
+    });
   } else {
-    fallback(); showOk();
+    if(execFallback()){ showOk(); }
+    else { alert('คัดลอก SKU: '+clean); }
   }
 };
 
@@ -1191,18 +1221,18 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
 // Smart Adaptive Format + Batch sending — รองรับ 50 → 500+ SKU/บิล
 // LINE Flex JSON limit = 50KB/message · liff.sendMessages = 5 msgs/call
 const FLEX_BATCH_SIZE = 5;          // LIFF cap per call
-const HYBRID_A_COUNT = 30;          // ใน Hybrid mode: 30 รายการแรก/card = Format A
+const HYBRID_A_COUNT = 15;          // ใน Hybrid mode: 15 รายการแรก/card = Format A (รักษา 50KB cap)
 
 function decideFlexStrategy(totalItems){
   // Returns {mode, perCard}
-  //   ค่าระวัง 30% margin จาก 50KB cap ของ LINE Flex JSON
-  //   mode 'A':      Visual + ribbon (~700B/item) → 40/card
-  //   mode 'HYBRID': 30 visual + rest compact → 70/card
-  //   mode 'B':      Compact + small img (~250B/item) → 100/card
-  if(totalItems <= 40)   return { mode: 'A',      perCard: 40  };
-  if(totalItems <= 150)  return { mode: 'HYBRID', perCard: 70  };
-  if(totalItems <= 500)  return { mode: 'B',      perCard: 100 };
-  return { mode: 'B', perCard: 100, warn: true };
+  //   ค่าระวัง 50% margin จาก 50KB cap (เจอ INVALID_MESSAGE จริงที่ 70/card HYBRID)
+  //   mode 'A':      Visual + ribbon (~900B/item) → 25/card
+  //   mode 'HYBRID': 15 visual + 35 compact = 50/card
+  //   mode 'B':      Compact + small img (~400B/item) → 80/card
+  if(totalItems <= 25)   return { mode: 'A',      perCard: 25 };
+  if(totalItems <= 100)  return { mode: 'HYBRID', perCard: 50 };
+  if(totalItems <= 400)  return { mode: 'B',      perCard: 80 };
+  return { mode: 'B', perCard: 80, warn: true };
 }
 
 // Flex อย่างเดียว (ไม่มี text duplicate) — adaptive split ตาม strategy
@@ -1226,27 +1256,37 @@ function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
     chunk.reduce((s,c) => s + (c.price * c.qty), 0)
   );
 
-  // สร้าง flex message ต่อ chunk
-  return chunks.map((chunk, idx) => ({
-    type:'flex',
-    altText: totalChunks > 1
-      ? 'ออเดอร์ '+orderId+' (ตะกร้า '+(idx+1)+'/'+totalChunks+') · '+chunk.length+' รายการ'
-      : 'ออเดอร์ '+orderId+' · '+chunk.length+' รายการ · '+total.toLocaleString('th-TH')+' ฿',
-    contents: buildFlexBubble(
+  // สร้าง flex message ต่อ chunk + log size สำหรับ debug
+  const messages = chunks.map((chunk, idx) => {
+    const bubble = buildFlexBubble(
       orderId, timestamp, customerName,
       chunk,
       subtotals[idx],
       copyBaseUrl,
       {
-        chunkIdx: idx + 1,         // 1-based for display
+        chunkIdx: idx + 1,
         totalChunks: totalChunks,
         isLast: idx === totalChunks - 1,
-        grandTotal: total,          // ยอดรวมทุก chunk (สำหรับ card สุดท้าย)
-        totalItems: cartItems.length, // จำนวน item รวมทุก chunk
-        mode: strategy.mode         // 'A' / 'HYBRID' / 'B'
+        grandTotal: total,
+        totalItems: cartItems.length,
+        mode: strategy.mode
       }
-    )
-  }));
+    );
+    const bubbleSize = JSON.stringify(bubble).length;
+    const safetyWarn = bubbleSize > 45000 ? ' ⚠ใกล้ LIFF 50KB cap' : '';
+    console.log('[Flex] card', (idx+1)+'/'+totalChunks, '— mode='+strategy.mode, '— items='+chunk.length, '— size='+bubbleSize+'B'+safetyWarn);
+    return {
+      type: 'flex',
+      altText: totalChunks > 1
+        ? 'ออเดอร์ '+orderId+' (ตะกร้า '+(idx+1)+'/'+totalChunks+') · '+chunk.length+' รายการ'
+        : 'ออเดอร์ '+orderId+' · '+chunk.length+' รายการ · '+total.toLocaleString('th-TH')+' ฿',
+      contents: bubble
+    };
+  });
+
+  const totalBytes = JSON.stringify(messages).length;
+  console.log('[Flex] TOTAL', messages.length, 'card(s) ·', totalBytes, 'bytes ·', cartItems.length, 'items · mode='+strategy.mode);
+  return messages;
 }
 
 // แสดง success modal
