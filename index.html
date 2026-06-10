@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.line-scdn.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://api.line.me https://*.line.me; base-uri 'self'; object-src 'none'; form-action 'self';">
 <title>เปรียว คอสเมติกส์ — VIP Catalog</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -170,7 +171,6 @@
     <p style="font-size:.72rem;color:#dc2626;font-weight:700;margin-bottom:6px;line-height:1.5">⚠️ ราคาสินค้าและสต็อกสินค้าบางรายการอาจมีการเปลี่ยนแปลง</p>
     <input id="memberInput" class="member-input" type="text" placeholder="หมายเลข VIP Member หรือชื่อร้าน (ระบุก่อนส่งออเดอร์)">
     <button class="cart-send" id="cartSendBtn" onclick="window.sendOrderSafe && window.sendOrderSafe()">💬 ส่งออเดอร์ไปที่ Line OA เปรียว คอสเมติกส์</button>
-    <button id="debugBtn" style="margin-top:8px;width:100%;padding:8px;background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:6px;font-size:.7rem;font-family:inherit;cursor:pointer" onclick="window.showDebugInfo && window.showDebugInfo()">🐛 Debug Info (กดถ้าปุ่มส่งไม่ทำงาน)</button>
   </div>
 </div>
 <script src="js/app.js"></script>
