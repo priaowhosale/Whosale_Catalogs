@@ -1013,7 +1013,7 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
       const bodyContents = [
         {type:'text', text:(idx+1)+'. '+String(c.name||'-'),
          weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:2},
-        {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#2080BE', decoration:'underline', action:{type:'uri', label:'Copy SKU', uri: copyBaseUrl + '?sku=' + encodeURIComponent(String(c.code||'').replace(/\s+/g,''))}}
+        {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#2080BE', weight:'bold'}
       ];
 
       // ราคา×จำนวน = รวม (แยก element ให้ qty เด่น)
@@ -1076,7 +1076,7 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
           contents:[
             {type:'text', text:(idx+1)+'. '+String(c.name||'-'),
              weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:2},
-            {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#2080BE', decoration:'underline', action:{type:'uri', label:'Copy SKU', uri: copyBaseUrl + '?sku=' + encodeURIComponent(String(c.code||'').replace(/\s+/g,''))}},
+            {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#2080BE', weight:'bold'},
             {
               type:'box', layout:'baseline', spacing:'xs', margin:'sm',
               contents:[
@@ -1215,7 +1215,7 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
       contents:[
         {type:'text', text:'รอน้อง Salesman แจ้งยอดชำระสักครู่ค่ะ',
          size:'xs', color:'#888888', align:'center', wrap:true, margin:'none'},
-        {type:'text', text:'แตะที่ #SKU ของรายการเพื่อคัดลอกเลขสินค้า',
+        {type:'text', text:'📋 กดค้างที่ #SKU เพื่อคัดลอกรหัสสินค้า',
          size:'xxs', color:'#aaaaaa', align:'center', wrap:true, margin:'xs'}
       ]
     }
