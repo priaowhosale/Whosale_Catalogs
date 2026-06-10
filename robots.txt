@@ -1,0 +1,141 @@
+# ============================================================
+# robots.txt — เปรียว คอสเมติกส์ VIP Catalog
+# ============================================================
+# วัตถุประสงค์:
+#   1. กัน AI crawler ทุกเจ้าไม่ให้ดูดข้อมูลราคา/stock ไปเทรน
+#   2. กัน search engine ไม่ให้ index หน้า admin / data
+#   3. อนุญาตเฉพาะหน้าหลัก index.html + copy.html
+# ============================================================
+
+# ============================================================
+# AI Training Bots — Block ทั้งหมด (ไม่ให้เอาไปเทรน)
+# ============================================================
+
+# OpenAI (ChatGPT, GPT-4, GPT-5)
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+# Anthropic (Claude)
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+# Google AI (Gemini) — แยกจาก Googlebot ปกติ
+User-agent: Google-Extended
+Disallow: /
+
+# Perplexity AI
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Perplexity-User
+Disallow: /
+
+# Common Crawl (feeds many AIs)
+User-agent: CCBot
+Disallow: /
+
+# ByteDance (TikTok / Doubao AI)
+User-agent: Bytespider
+Disallow: /
+
+# Meta (Llama)
+User-agent: Meta-ExternalAgent
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: facebookexternalhit
+Disallow: /
+
+# Apple Intelligence
+User-agent: Applebot-Extended
+Disallow: /
+
+# Amazon (Alexa, AWS AI)
+User-agent: Amazonbot
+Disallow: /
+
+# Cohere
+User-agent: cohere-ai
+Disallow: /
+
+# Mistral
+User-agent: MistralAI-User
+Disallow: /
+
+# DeepSeek
+User-agent: DeepSeekBot
+Disallow: /
+
+# xAI (Grok)
+User-agent: xAI-Bot
+Disallow: /
+
+# Other crawlers ที่อาจป้อน AI
+User-agent: omgili
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+User-agent: ImagesiftBot
+Disallow: /
+
+User-agent: Timpibot
+Disallow: /
+
+User-agent: PetalBot
+Disallow: /
+
+# ============================================================
+# Search Engines — Allow main pages, Block sensitive paths
+# ============================================================
+
+User-agent: Googlebot
+Disallow: /data/
+Disallow: /backoffice/
+Disallow: /assets/brands/
+Allow: /
+
+User-agent: Bingbot
+Disallow: /data/
+Disallow: /backoffice/
+Disallow: /assets/brands/
+Allow: /
+
+User-agent: DuckDuckBot
+Disallow: /data/
+Disallow: /backoffice/
+Allow: /
+
+User-agent: YandexBot
+Disallow: /data/
+Disallow: /backoffice/
+Allow: /
+
+User-agent: Baiduspider
+Disallow: /data/
+Disallow: /backoffice/
+Allow: /
+
+# ============================================================
+# Default — ทุก bot ที่ไม่ได้ระบุข้างบน
+# ============================================================
+User-agent: *
+Disallow: /data/
+Disallow: /backoffice/
+Disallow: /docs/
+Allow: /
