@@ -1628,28 +1628,7 @@ document.addEventListener('keydown', function(e){
 });
 window.openLineModal = openLineModal;
 window.closeLineModal = closeLineModal;
-// === LINE PC App Detection ===
-function tryOpenLinePC(){
-  const lineUrl = 'line://ti/p/%40evp5054h';
-  let appOpened = false;
-  const onBlur = function(){ appOpened = true; };
-  const onVisChange = function(){ if(document.hidden){ appOpened = true; } };
-  window.addEventListener('blur', onBlur);
-  document.addEventListener('visibilitychange', onVisChange);
-  // Hidden iframe → trigger line:// protocol โดยไม่ navigate away
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:absolute;width:1px;height:1px;border:0;left:-9999px;top:-9999px';
-  iframe.src = lineUrl;
-  document.body.appendChild(iframe);
-  setTimeout(function(){
-    try{ if(iframe.parentNode) iframe.parentNode.removeChild(iframe); }catch(e){}
-    window.removeEventListener('blur', onBlur);
-    document.removeEventListener('visibilitychange', onVisChange);
-    if(!appOpened && !document.hidden){
-      showLineNoApp();
-    }
-  }, 1500);
-}
+// === LINE Install Helper (manual trigger only) ===
 function showLineNoApp(){
   const m = document.getElementById('lineNoAppOverlay');
   if(m){ m.style.display = 'flex'; }
@@ -1658,7 +1637,6 @@ function closeLineNoApp(){
   const m = document.getElementById('lineNoAppOverlay');
   if(m){ m.style.display = 'none'; }
 }
-window.tryOpenLinePC = tryOpenLinePC;
 window.showLineNoApp = showLineNoApp;
 window.closeLineNoApp = closeLineNoApp;
 

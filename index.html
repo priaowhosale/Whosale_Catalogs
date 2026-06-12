@@ -205,13 +205,16 @@
         <span style="flex:1;height:1px;background:#e0e0e0"></span>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <button type="button" onclick="tryOpenLinePC()" class="line-action-btn" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1.5px solid #06c755;background:#f0fbf3;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:all .15s">
+        <a href="line://ti/p/%40evp5054h" target="_blank" rel="noopener" class="line-action-btn" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1.5px solid #06c755;background:#f0fbf3;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:all .15s;text-decoration:none">
           <span style="font-size:1.5rem;width:32px;text-align:center">💻</span>
           <span style="flex:1">
             <strong style="display:block;color:#0a1628;font-size:.92rem">เปิดแอป LINE บน PC</strong>
-            <small style="color:#666;font-size:.74rem">ระบบจะตรวจอัตโนมัติว่าติดตั้ง LINE PC แล้วหรือยัง</small>
+            <small style="color:#666;font-size:.74rem">Browser ถาม "เปิดด้วย LINE?" → คลิก Open</small>
           </span>
-        </button>
+        </a>
+        <p style="margin:6px 0 0;text-align:center;font-size:.78rem;color:#666">
+          ยังไม่มี LINE PC? <a href="#" onclick="event.preventDefault();showLineNoApp();" style="color:#06c755;font-weight:700;text-decoration:underline">คลิกที่นี่</a>
+        </p>
       </div>
     </div>
   </div>
