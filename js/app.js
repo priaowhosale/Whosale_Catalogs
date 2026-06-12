@@ -1214,7 +1214,9 @@ function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
     return s;
   }, 0);
 
-  // Format 1 บรรทัด: "1. 8851001 ×2 = 240  NIVEA Cream 50ml (🔥 SALE — ลด 30% · เดิม 60)"
+  // Format 2 บรรทัด/item:
+  //   1. NIVEA Cream 50ml
+  //      8851001 ×2 = 240 (🔥 SALE — ลด 30% · เดิม 60)
   function fmtLine(c, idx){
     const prod = allProducts.find(function(p){ return p.code === c.code; });
     const lineTotal = c.price * c.qty;
@@ -1231,7 +1233,8 @@ function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
       }
       if(parts.length > 0) promoTag = ' (' + parts.join(' · ') + ')';
     }
-    return idx + '. ' + c.code + ' ×' + c.qty + ' = ' + lineTotal.toLocaleString('th-TH') + '  ' + (c.name || '') + promoTag;
+    // 2-line format: ลำดับ + ชื่อสินค้า (โปร) → SKU ×qty = total
+    return idx + '. ' + (c.name || '') + '\n   ' + c.code + ' ×' + c.qty + ' = ' + lineTotal.toLocaleString('th-TH') + promoTag;
   }
 
   // สร้าง lines ทั้งหมด
@@ -1323,7 +1326,10 @@ function openQrZoom(qrSrc){
   document.body.appendChild(z);
 }
 
-function showFallbackModal(orderId, timestamp, text){
+function showFallbackModal(orderId, timestamp, text, shortText){
+  // shortText: optional compact version for QR URL (fits LINE share URL ~1000 char limit)
+  // text: full version for clipboard + modal display
+  shortText = shortText || text;
   // auto copy
   if(navigator.clipboard) navigator.clipboard.writeText(text).catch(function(){});
 
@@ -1332,7 +1338,8 @@ function showFallbackModal(orderId, timestamp, text){
 
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   // ใช้ line.me/R/msg/text/ → เปิด LINE share dialog พร้อม text pre-fill
-  const lineShareUrl = 'https://line.me/R/msg/text/?'+encodeURIComponent(text);
+  // shortText สำหรับ URL (กัน URL ยาวเกิน LINE share limit ~1000 chars)
+  const lineShareUrl = 'https://line.me/R/msg/text/?'+encodeURIComponent(shortText);
   // QR: ใช้ ECC=L + margin=4 เพื่อลด density (สแกนง่ายขึ้นด้วยกล้องคุณภาพต่ำ)
   const qrBase = 'https://api.qrserver.com/v1/create-qr-code/?ecc=L&margin=4&data='+encodeURIComponent(lineShareUrl);
   const qrUrl  = qrBase + '&size=240x240';   // default ใน modal
@@ -1450,24 +1457,12 @@ async function sendOrder(){
   const customerName = (liffProfile && liffProfile.displayName) || memberFromInput || '';
   const total = cart.reduce((s,c) => s + (c.price * c.qty), 0);
 
-  // เตรียม text fallback
-  const textLines = [
-    '📋 ออเดอร์ #'+orderId,
-    '🕐 '+timestamp,
-    customerName ? '👤 '+customerName : '',
-    liffProfile && liffProfile.userId ? '🆔 '+liffProfile.userId : '',
-    ''
-  ];
-  cart.forEach(function(c, i){
-    const u = c.baseUnit || '';
-    const unitName = u.includes(' / ') ? u.split(' / ')[1].trim() : u;
-    const ustr = c.qty + (unitName ? ' '+unitName : '');
-    textLines.push((i+1)+'. '+c.name);
-    textLines.push('   #'+c.code+' | '+ustr+' × '+c.price.toLocaleString('th-TH')+' = '+(c.price*c.qty).toLocaleString('th-TH')+' ฿');
-  });
-  textLines.push('');
-  textLines.push('💰 รวมทั้งสิ้น: '+total.toLocaleString('th-TH')+' บาท');
-  const fullText = textLines.filter(l => l !== '').join('\n');
+  // เตรียม text — ใช้ format เดียวกับที่ LIFF Mobile ส่ง (buildOrderMessages = Format C)
+  // ทั้ง modal display + clipboard + QR URL ใช้ text ชุดเดียวกัน
+  const messagesForText = buildOrderMessages(orderId, timestamp, customerName, cart, total);
+  const fullText = messagesForText.map(function(m){ return m.text; }).join('\n\n');
+  // shortText = same as fullText (one source of truth)
+  const shortText = fullText;
 
   // Restore button
   const restoreBtn = () => {
@@ -1531,14 +1526,14 @@ async function sendOrder(){
       restoreBtn();
       const errMsg = (sendErr && sendErr.message) ? sendErr.message : String(sendErr);
       alert('❌ ส่งออเดอร์ผ่าน LIFF ไม่สำเร็จ\n\nError: '+errMsg+'\n\nจะใช้วิธี copy+paste แทน');
-      showFallbackModal(orderId, timestamp, fullText);
+      showFallbackModal(orderId, timestamp, fullText, shortText);
       return;
     }
   }
 
   // Fallback: เปิดผ่าน browser ปกติ / desktop
   restoreBtn();
-  showFallbackModal(orderId, timestamp, fullText);
+  showFallbackModal(orderId, timestamp, fullText, shortText);
 }
 // ============================================================
 // SMART HEADER AUTO-RESIZE
