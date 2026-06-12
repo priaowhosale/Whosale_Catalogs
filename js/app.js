@@ -167,6 +167,28 @@ function init(){
       }
     });
   }
+
+  // LINE FAB → เปิด popup window เล็ก (mini chat style)
+  const lineFabEl = document.getElementById('lineFab');
+  if(lineFabEl){
+    lineFabEl.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      // Mini chat window dimensions
+      const w = 400, h = 640;
+      const left = Math.max(20, (window.screen.availWidth || window.innerWidth) - w - 40);
+      const top  = Math.max(20, ((window.screen.availHeight || window.innerHeight) - h) / 2);
+      const features = 'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top +
+                       ',toolbar=no,location=no,menubar=no,resizable=yes,scrollbars=yes,status=no';
+      const win = window.open('https://lin.ee/mDhRNMT', 'priao_line_chat', features);
+      if(!win){
+        // Popup blocked → fallback to normal new tab
+        window.open('https://lin.ee/mDhRNMT', '_blank');
+      } else {
+        try{ win.focus(); }catch(err){}
+      }
+    });
+  }
   document.getElementById('loading').classList.add('hidden');
   document.getElementById('home').style.display='';
 }
