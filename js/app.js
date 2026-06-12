@@ -1621,14 +1621,10 @@ function closeLineModal(){
   if(m){ m.style.display = 'none'; }
 }
 function openLinePopupPC(){
-  const w = 400, h = 640;
-  const left = Math.max(20, (window.screen.availWidth || window.innerWidth) - w - 40);
-  const top  = Math.max(20, ((window.screen.availHeight || window.innerHeight) - h) / 2);
-  const features = 'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top +
-                   ',toolbar=no,location=no,menubar=no,resizable=yes,scrollbars=yes,status=no';
-  const win = window.open('https://lin.ee/mDhRNMT', 'priao_line_chat', features);
-  if(!win){ window.open('https://lin.ee/mDhRNMT', '_blank'); }
-  else { try{ win.focus(); }catch(err){} }
+  // Universal link → เปิด LINE PC App ถ้าติดตั้ง, fallback หน้า Add Friend web
+  // %40 = @ (URL-encoded) · evp5054h = LINE OA Basic ID
+  const lineAppUrl = 'https://line.me/R/ti/p/%40evp5054h';
+  window.open(lineAppUrl, '_blank');
 }
 function copyLineLink(){
   const link = 'https://lin.ee/mDhRNMT';
