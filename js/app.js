@@ -1187,51 +1187,101 @@ function decideFlexStrategy(totalItems){
 }
 
 // Flex อย่างเดียว (ไม่มี text duplicate) — adaptive split ตาม strategy
+// ============================================================
+// buildOrderMessages — Format C (SKU-first plain text)
+// PC: drag-select + Ctrl+C · Mobile: long-press → คัดลอก
+// LINE limit: 5000 chars/message · 5 messages/call
+// ============================================================
+const TEXT_MSG_LIMIT = 4500;  // safety margin under LINE 5000 cap
+
 function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
-  const strategy = decideFlexStrategy(cartItems.length);
-  const perCard = strategy.perCard;
-
-  // Split cart เป็น chunks ขนาด perCard
-  const chunks = [];
-  for(let i=0; i<cartItems.length; i+=perCard){
-    chunks.push(cartItems.slice(i, i+perCard));
-  }
-
-  const totalChunks = chunks.length;
-  // คำนวณยอดของแต่ละ chunk (subtotal)
-  const subtotals = chunks.map(chunk =>
-    chunk.reduce((s,c) => s + (c.price * c.qty), 0)
-  );
-
-  // สร้าง flex message ต่อ chunk + log size สำหรับ debug
-  const messages = chunks.map((chunk, idx) => {
-    const bubble = buildFlexBubble(
-      orderId, timestamp, customerName,
-      chunk,
-      subtotals[idx],
-      {
-        chunkIdx: idx + 1,
-        totalChunks: totalChunks,
-        isLast: idx === totalChunks - 1,
-        grandTotal: total,
-        totalItems: cartItems.length,
-        mode: strategy.mode
-      }
-    );
-    const bubbleSize = JSON.stringify(bubble).length;
-    const safetyWarn = bubbleSize > 45000 ? ' ⚠ใกล้ LIFF 50KB cap' : '';
-    console.log('[Flex] card', (idx+1)+'/'+totalChunks, '— mode='+strategy.mode, '— items='+chunk.length, '— size='+bubbleSize+'B'+safetyWarn);
-    return {
-      type: 'flex',
-      altText: totalChunks > 1
-        ? 'ออเดอร์ '+orderId+' (ตะกร้า '+(idx+1)+'/'+totalChunks+') · '+chunk.length+' รายการ'
-        : 'ออเดอร์ '+orderId+' · '+chunk.length+' รายการ · '+total.toLocaleString('th-TH')+' ฿',
-      contents: bubble
-    };
+  // แยกสินค้าพร้อมส่ง vs สั่งจอง (สินค้าหมด)
+  const regularItems = [];
+  const preorderItems = [];
+  cartItems.forEach(function(c){
+    const p = allProducts.find(function(x){ return x.code === c.code; });
+    const isOOS = p && (p.tag === 'สินค้าหมดชั่วคราว' || p.stock <= 0);
+    if(isOOS) preorderItems.push(c);
+    else regularItems.push(c);
   });
 
-  const totalBytes = JSON.stringify(messages).length;
-  console.log('[Flex] TOTAL', messages.length, 'card(s) ·', totalBytes, 'bytes ·', cartItems.length, 'items · mode='+strategy.mode);
+  const totalQty = cartItems.reduce(function(s, c){ return s + (c.qty || 0); }, 0);
+  const totalSavings = cartItems.reduce(function(s, c){
+    const prod = allProducts.find(function(p){ return p.code === c.code; });
+    if(prod && prod.originalPrice && prod.originalPrice > c.price){
+      return s + (prod.originalPrice - c.price) * c.qty;
+    }
+    return s;
+  }, 0);
+
+  // Format 1 บรรทัด: "8851001 ×2 = 240  NIVEA Cream 🔥"
+  function fmtLine(c){
+    const prod = allProducts.find(function(p){ return p.code === c.code; });
+    const lineTotal = c.price * c.qty;
+    let mark = '';
+    if(prod){
+      if(prod.promoType === 'sale')        mark = ' 🔥';
+      else if(prod.promoType === 'bundle') mark = ' 🎁';
+      else if(prod.promoType === 'flash')  mark = ' ⚡';
+    }
+    return c.code + ' ×' + c.qty + ' = ' + lineTotal.toLocaleString('th-TH') + '  ' + (c.name || '') + mark;
+  }
+
+  // สร้าง lines ทั้งหมด
+  const lines = [];
+  lines.push('🛒 #' + orderId);
+  lines.push('ลูกค้า: ' + (customerName || '-') + ' · ' + cartItems.length + ' รายการ · ' + totalQty + ' ชิ้น');
+  lines.push(timestamp);
+  lines.push('');
+
+  if(regularItems.length > 0){
+    lines.push('━ พร้อมส่ง (' + regularItems.length + ' รายการ) ━');
+    regularItems.forEach(function(c){ lines.push(fmtLine(c)); });
+    lines.push('');
+  }
+
+  if(preorderItems.length > 0){
+    lines.push('━ 📦 รอสินค้า (' + preorderItems.length + ' รายการ) ━');
+    preorderItems.forEach(function(c){ lines.push(fmtLine(c)); });
+    lines.push('');
+    lines.push('💌 น้องเซลล์จะรีบเช็คสต๊อกและแจ้งรอบส่งกลับให้นะคะ');
+    lines.push('');
+  }
+
+  lines.push('━━━━━━━━━━━━━━━');
+  lines.push('💰 ยอดรวม: ' + total.toLocaleString('th-TH') + ' บาท');
+  if(totalSavings > 0){
+    lines.push('✓ ประหยัด: ' + totalSavings.toLocaleString('th-TH') + ' บาท');
+  }
+
+  // Split lines เป็น chunks ขนาด ≤ TEXT_MSG_LIMIT chars
+  const chunks = [];
+  let currentLines = [];
+  let currentSize = 0;
+  for(let i = 0; i < lines.length; i++){
+    const line = lines[i];
+    const lineSize = line.length + 1; // +1 newline
+    if(currentSize + lineSize > TEXT_MSG_LIMIT && currentLines.length > 0){
+      chunks.push(currentLines.join('\n'));
+      currentLines = [];
+      currentSize = 0;
+    }
+    currentLines.push(line);
+    currentSize += lineSize;
+  }
+  if(currentLines.length > 0) chunks.push(currentLines.join('\n'));
+
+  // ใส่ continuation header ถ้ามีหลาย message
+  const totalParts = chunks.length;
+  const messages = chunks.map(function(text, idx){
+    const finalText = (totalParts > 1 && idx > 0)
+      ? '🛒 #' + orderId + ' (ต่อ ' + (idx + 1) + '/' + totalParts + ')\n' + text
+      : text;
+    console.log('[Text] msg', (idx+1)+'/'+totalParts, '·', finalText.length, 'chars');
+    return { type: 'text', text: finalText };
+  });
+
+  console.log('[Text] TOTAL', messages.length, 'message(s) ·', cartItems.length, 'items');
   return messages;
 }
 
