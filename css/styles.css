@@ -172,3 +172,11 @@ body{font-family:"Noto Sans Thai",sans-serif;background:#f4f8fc;color:#0a1628}
 }
 .sku-copy:hover{color:#0065a8;text-decoration-style:solid}
 .sku-copy:active{opacity:.6}
+
+/* LINE FAB — bottom-left, opens LINE OA chat */
+.line-fab{display:flex !important;position:fixed !important;bottom:24px;left:20px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#06c755,#0fa54a);color:#fff;text-decoration:none;cursor:pointer;box-shadow:0 6px 20px rgba(6,199,85,.45);z-index:200;align-items:center;justify-content:center;transition:all .2s;border:none;padding:0}
+.line-fab:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(6,199,85,.55)}
+.line-fab:active{transform:scale(.95)}
+.line-fab svg{width:32px;height:32px;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.15))}
+@media(max-width:600px){.line-fab{display:none !important}}
+@media(max-width:480px){.line-fab{width:52px;height:52px;bottom:20px;left:16px}.line-fab svg{width:28px;height:28px}}

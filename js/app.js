@@ -1620,37 +1620,6 @@ function closeLineModal(){
   const m = document.getElementById('lineModalOverlay');
   if(m){ m.style.display = 'none'; }
 }
-function copyLineLink(){
-  const link = 'https://lin.ee/mDhRNMT';
-  const titleEl = document.getElementById('lineCopyTitle');
-  const onOk = function(){
-    if(titleEl){
-      const origText = titleEl.textContent;
-      titleEl.textContent = '✓ คัดลอกแล้ว!';
-      titleEl.style.color = '#06c755';
-      setTimeout(function(){
-        titleEl.textContent = origText;
-        titleEl.style.color = '';
-      }, 1800);
-    }
-  };
-  function execFallback(){
-    try{
-      const ta = document.createElement('textarea');
-      ta.value = link;
-      ta.setAttribute('readonly','');
-      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
-      document.body.appendChild(ta);
-      ta.focus(); ta.select(); ta.setSelectionRange(0, link.length);
-      const ok = document.execCommand('copy');
-      document.body.removeChild(ta);
-      if(ok) onOk(); else alert('คัดลอก: ' + link);
-    } catch(e){ alert('คัดลอก: ' + link); }
-  }
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(link).then(onOk).catch(function(){ execFallback(); });
-  } else { execFallback(); }
-}
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape'){
     const m = document.getElementById('lineModalOverlay');
@@ -1659,7 +1628,39 @@ document.addEventListener('keydown', function(e){
 });
 window.openLineModal = openLineModal;
 window.closeLineModal = closeLineModal;
-window.copyLineLink = copyLineLink;
+// === LINE PC App Detection ===
+function tryOpenLinePC(){
+  const lineUrl = 'line://ti/p/%40evp5054h';
+  let appOpened = false;
+  const onBlur = function(){ appOpened = true; };
+  const onVisChange = function(){ if(document.hidden){ appOpened = true; } };
+  window.addEventListener('blur', onBlur);
+  document.addEventListener('visibilitychange', onVisChange);
+  // Hidden iframe → trigger line:// protocol โดยไม่ navigate away
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:absolute;width:1px;height:1px;border:0;left:-9999px;top:-9999px';
+  iframe.src = lineUrl;
+  document.body.appendChild(iframe);
+  setTimeout(function(){
+    try{ if(iframe.parentNode) iframe.parentNode.removeChild(iframe); }catch(e){}
+    window.removeEventListener('blur', onBlur);
+    document.removeEventListener('visibilitychange', onVisChange);
+    if(!appOpened && !document.hidden){
+      showLineNoApp();
+    }
+  }, 1500);
+}
+function showLineNoApp(){
+  const m = document.getElementById('lineNoAppOverlay');
+  if(m){ m.style.display = 'flex'; }
+}
+function closeLineNoApp(){
+  const m = document.getElementById('lineNoAppOverlay');
+  if(m){ m.style.display = 'none'; }
+}
+window.tryOpenLinePC = tryOpenLinePC;
+window.showLineNoApp = showLineNoApp;
+window.closeLineNoApp = closeLineNoApp;
 
 // Tiered size warnings (text mode, plain text auto-split)
 const ORDER_SOFT_WARN  = 1000;   // ⚠ Warning "แนะนำแยกบิล"

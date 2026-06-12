@@ -205,29 +205,31 @@
         <span style="flex:1;height:1px;background:#e0e0e0"></span>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <a href="line://ti/p/%40evp5054h" target="_blank" rel="noopener" class="line-action-btn" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1.5px solid #06c755;background:#f0fbf3;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:all .15s;text-decoration:none">
+        <button type="button" onclick="tryOpenLinePC()" class="line-action-btn" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1.5px solid #06c755;background:#f0fbf3;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:all .15s">
           <span style="font-size:1.5rem;width:32px;text-align:center">💻</span>
           <span style="flex:1">
             <strong style="display:block;color:#0a1628;font-size:.92rem">เปิดแอป LINE บน PC</strong>
-            <small style="color:#666;font-size:.74rem">Browser จะถาม "เปิดด้วย LINE?" → คลิก Open</small>
-          </span>
-        </a>
-        <a href="line://nv/chats" target="_blank" rel="noopener" class="line-action-btn" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1.5px solid #e0e0e0;background:#fff;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:all .15s;text-decoration:none">
-          <span style="font-size:1.5rem;width:32px;text-align:center">💬</span>
-          <span style="flex:1">
-            <strong style="display:block;color:#0a1628;font-size:.92rem">เปิด LINE PC (แชทใดๆ)</strong>
-            <small style="color:#666;font-size:.74rem">เปิด LINE Desktop → ค้นหา "Priao" ในแชท</small>
-          </span>
-        </a>
-        <button type="button" onclick="copyLineLink()" id="lineCopyBtn" class="line-action-btn" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1.5px solid #e0e0e0;background:#fff;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:all .15s">
-          <span style="font-size:1.5rem;width:32px;text-align:center">📋</span>
-          <span style="flex:1">
-            <strong style="display:block;color:#0a1628;font-size:.92rem" id="lineCopyTitle">คัดลอกลิงก์ LINE OA</strong>
-            <small style="color:#666;font-size:.74rem">https://lin.ee/mDhRNMT</small>
+            <small style="color:#666;font-size:.74rem">ระบบจะตรวจอัตโนมัติว่าติดตั้ง LINE PC แล้วหรือยัง</small>
           </span>
         </button>
       </div>
     </div>
+  </div>
+</div>
+<!-- LINE Not Installed Modal -->
+<div id="lineNoAppOverlay" onclick="closeLineNoApp()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;z-index:3100;padding:16px">
+  <div onclick="event.stopPropagation()" style="background:#fff;border-radius:16px;width:100%;max-width:360px;box-shadow:0 16px 48px rgba(0,0,0,.3);overflow:hidden">
+    <div style="padding:20px;background:#fff3cd;border-bottom:1px solid #ffe69c;text-align:center">
+      <div style="font-size:2.4rem;margin-bottom:6px">⚠️</div>
+      <strong style="display:block;color:#664d03;font-size:1.05rem;margin-bottom:4px">ไม่พบ LINE Desktop App</strong>
+      <span style="color:#996c00;font-size:.85rem">กรุณาติดตั้ง LINE Version PC ก่อน</span>
+    </div>
+    <div style="padding:18px">
+      <p style="margin:0 0 14px;color:#0a1628;font-size:.88rem;line-height:1.6;text-align:center">ดาวน์โหลดและติดตั้ง LINE Desktop App แล้ว Login เข้าสู่ระบบ จากนั้นกดปุ่ม "เปิดแอป LINE บน PC" อีกครั้ง</p>
+      <a href="https://line.me/en/download" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 14px;background:linear-gradient(135deg,#06c755,#0fa54a);color:#fff;text-decoration:none;border-radius:10px;font-weight:700;font-size:.95rem;margin-bottom:10px">⬇️ ดาวน์โหลด LINE Desktop</a>
+      <p style="margin:0;text-align:center;color:#888;font-size:.78rem;line-height:1.4">หรือสแกน QR ด้านบนเพื่อใช้บนมือถือ</p>
+    </div>
+    <button type="button" onclick="closeLineNoApp()" style="display:block;width:100%;padding:12px;background:#f5f5f5;border:none;border-top:1px solid #e0e0e0;color:#666;font-family:inherit;font-size:.88rem;font-weight:600;cursor:pointer">ปิด</button>
   </div>
 </div>
 </body>
