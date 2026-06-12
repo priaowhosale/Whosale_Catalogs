@@ -1624,10 +1624,43 @@ document.addEventListener('keydown', function(e){
   if(e.key === 'Escape'){
     const m = document.getElementById('lineModalOverlay');
     if(m && m.style.display === 'flex'){ m.style.display = 'none'; }
+    const ml = document.getElementById('lineLoadingOverlay');
+    if(ml && ml.style.display === 'flex'){ ml.style.display = 'none'; }
+    const mn = document.getElementById('lineNoAppOverlay');
+    if(mn && mn.style.display === 'flex'){ mn.style.display = 'none'; }
   }
 });
 window.openLineModal = openLineModal;
 window.closeLineModal = closeLineModal;
+// === LINE PC App Opening (with Loading Spinner) ===
+function openLinePCWithLoading(){
+  showLineLoading();
+  // Trigger line:// protocol via anchor click (most reliable)
+  const a = document.createElement('a');
+  a.href = 'line://ti/p/%40evp5054h';
+  a.target = '_blank';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){
+    try{ if(a.parentNode) a.parentNode.removeChild(a); }catch(e){}
+  }, 200);
+  // รอ 5 วินาที ให้ LINE Desktop เปิดจนเสร็จ — แล้วค่อย hide loading
+  // (manual close ใช้ได้ตลอด ถ้า user ไม่อยากรอ)
+  setTimeout(hideLineLoading, 5000);
+}
+function showLineLoading(){
+  const m = document.getElementById('lineLoadingOverlay');
+  if(m){ m.style.display = 'flex'; }
+}
+function hideLineLoading(){
+  const m = document.getElementById('lineLoadingOverlay');
+  if(m){ m.style.display = 'none'; }
+}
+window.openLinePCWithLoading = openLinePCWithLoading;
+window.showLineLoading = showLineLoading;
+window.hideLineLoading = hideLineLoading;
+
 // === LINE Install Helper (manual trigger only) ===
 function showLineNoApp(){
   const m = document.getElementById('lineNoAppOverlay');

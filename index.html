@@ -205,13 +205,13 @@
         <span style="flex:1;height:1px;background:#e0e0e0"></span>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <a href="line://ti/p/%40evp5054h" target="_blank" rel="noopener" class="line-action-btn" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1.5px solid #06c755;background:#f0fbf3;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:all .15s;text-decoration:none">
+        <button type="button" onclick="openLinePCWithLoading()" class="line-action-btn" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1.5px solid #06c755;background:#f0fbf3;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:all .15s">
           <span style="font-size:1.5rem;width:32px;text-align:center">💻</span>
           <span style="flex:1">
             <strong style="display:block;color:#0a1628;font-size:.92rem">เปิดแอป LINE บน PC</strong>
             <small style="color:#666;font-size:.74rem">Browser ถาม "เปิดด้วย LINE?" → คลิก Open</small>
           </span>
-        </a>
+        </button>
         <p style="margin:6px 0 0;text-align:center;font-size:.78rem;color:#666">
           ยังไม่มี LINE PC? <a href="#" onclick="event.preventDefault();showLineNoApp();" style="color:#06c755;font-weight:700;text-decoration:underline">คลิกที่นี่</a>
         </p>
@@ -233,6 +233,15 @@
       <p style="margin:0;text-align:center;color:#888;font-size:.78rem;line-height:1.4">หรือสแกน QR ด้านบนเพื่อใช้บนมือถือ</p>
     </div>
     <button type="button" onclick="closeLineNoApp()" style="display:block;width:100%;padding:12px;background:#f5f5f5;border:none;border-top:1px solid #e0e0e0;color:#666;font-family:inherit;font-size:.88rem;font-weight:600;cursor:pointer">ปิด</button>
+  </div>
+</div>
+<!-- LINE PC Opening Loading Overlay -->
+<div id="lineLoadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;z-index:3050;padding:16px">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:320px;box-shadow:0 16px 48px rgba(0,0,0,.3);padding:32px 24px;text-align:center">
+    <div style="width:96px;height:96px;border:8px solid #e0f5e8;border-top-color:#06c755;border-right-color:#06c755;border-radius:50%;margin:0 auto 24px;animation:spin 0.9s linear infinite;filter:drop-shadow(0 4px 16px rgba(6,199,85,0.35))"></div>
+    <strong style="display:block;color:#0a1628;font-size:1.1rem;margin-bottom:10px;font-weight:800">กำลังเปิด LINE Desktop App</strong>
+    <small style="color:#666;font-size:.85rem;line-height:1.6;display:block;margin-bottom:20px">รอจน LINE Desktop เปิดจนเสร็จ<br>(ใช้เวลา 2-5 วินาที)</small>
+    <button type="button" onclick="hideLineLoading()" style="padding:8px 28px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:8px;color:#666;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer">ปิด</button>
   </div>
 </div>
 </body>
