@@ -245,5 +245,78 @@
     <button type="button" onclick="hideLineLoading()" style="padding:9px 22px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:8px;color:#666;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer">ซ่อนหน้าต่างนี้</button>
   </div>
 </div>
+<!-- Order Send Help Modal (LINE didn't open) -->
+<div id="orderHelpOverlay" onclick="closeOrderHelp()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:3200;padding:16px">
+  <div onclick="event.stopPropagation()" style="background:#fff;border-radius:16px;width:100%;max-width:420px;max-height:92vh;overflow:auto;box-shadow:0 16px 48px rgba(0,0,0,.35)">
+    <div style="padding:18px 20px;background:#fff3cd;border-bottom:1px solid #ffe69c;text-align:center;border-radius:16px 16px 0 0">
+      <div style="font-size:2rem;margin-bottom:4px">🤔</div>
+      <strong style="display:block;color:#664d03;font-size:1.05rem">ดูเหมือน LINE PC ไม่เปิด</strong>
+      <small style="color:#996c00;font-size:.82rem;display:block;margin-top:4px">เราตรวจไม่เจอ LINE Desktop ในเวลาที่ควรจะเป็น</small>
+    </div>
+    <div style="padding:16px 18px">
+      <!-- BACKUP COPY — ปุ่มใหญ่ที่ top สุดเพื่อกัน user หาย -->
+      <div style="background:#e8f5e9;border:2px solid #06c755;border-radius:10px;padding:14px;margin-bottom:14px">
+        <strong style="display:block;color:#0a1628;font-size:.92rem;margin-bottom:2px">✓ ออเดอร์ของคุณยังอยู่ในระบบ</strong>
+        <small id="helpOrderInfo" style="display:block;color:#666;font-size:.78rem;margin-bottom:10px">กำลังโหลดข้อมูล...</small>
+        <button type="button" onclick="copyOrderTextDirect()" id="helpCopyBtn" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;background:linear-gradient(135deg,#06c755,#0fa54a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:.98rem;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(6,199,85,.35)">
+          📋 คัดลอกออเดอร์ทั้งหมด
+        </button>
+        <small style="display:block;color:#15803d;font-size:.72rem;margin-top:8px;text-align:center">💡 บันทึกไว้แล้วใน clipboard · กลับมาคัดลอกได้แม้ refresh หน้า</small>
+      </div>
+      <div style="background:#f0f7ff;border:1px solid #d4e4f7;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:.78rem;color:#0a1628;line-height:1.55">
+        <strong>สาเหตุที่เป็นไปได้:</strong><br>
+        1. ยังไม่มี LINE PC ติดตั้ง<br>
+        2. คลิก Cancel ตอน browser ถาม "เปิดด้วย LINE?"<br>
+        3. Browser block protocol launch
+      </div>
+      <p style="margin:0 0 12px;font-weight:700;color:#0a1628;font-size:.88rem">เลือกทางแก้เพิ่มเติม:</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button type="button" onclick="retryOpenLinePC()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:9px;border:1.5px solid #06c755;background:#f0fbf3;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:all .15s">
+          <span style="font-size:1.3rem;width:28px;text-align:center">🔄</span>
+          <span style="flex:1">
+            <strong style="display:block;color:#0a1628;font-size:.88rem">ลองเปิด LINE PC อีกครั้ง</strong>
+            <small style="color:#666;font-size:.72rem">เผื่อกด Cancel โดยไม่ตั้งใจ</small>
+          </span>
+        </button>
+        <a href="https://line.me/en/download" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:9px;border:1.5px solid #e0e0e0;background:#fff;cursor:pointer;font-family:inherit;text-align:left;width:100%;text-decoration:none">
+          <span style="font-size:1.3rem;width:28px;text-align:center">⬇️</span>
+          <span style="flex:1">
+            <strong style="display:block;color:#0a1628;font-size:.88rem">ดาวน์โหลด LINE Desktop</strong>
+            <small style="color:#666;font-size:.72rem">ถ้ายังไม่มี LINE PC ติดตั้ง</small>
+          </span>
+        </a>
+        <a href="https://web.line.me/" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:9px;border:1.5px solid #e0e0e0;background:#fff;cursor:pointer;font-family:inherit;text-align:left;width:100%;text-decoration:none">
+          <span style="font-size:1.3rem;width:28px;text-align:center">📲</span>
+          <span style="flex:1">
+            <strong style="display:block;color:#0a1628;font-size:.88rem">ใช้ LINE Web แทน</strong>
+            <small style="color:#666;font-size:.72rem">Login → ค้นหา "เปรียว" → Ctrl+V</small>
+          </span>
+        </a>
+        <button type="button" onclick="showOrderTextModal()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:9px;border:1.5px solid #e0e0e0;background:#fff;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:all .15s">
+          <span style="font-size:1.3rem;width:28px;text-align:center">📋</span>
+          <span style="flex:1">
+            <strong style="display:block;color:#0a1628;font-size:.88rem">แสดงข้อความออเดอร์</strong>
+            <small style="color:#666;font-size:.72rem">เลือก+คัดลอกเองทีหลังได้</small>
+          </span>
+        </button>
+      </div>
+    </div>
+    <button type="button" onclick="closeOrderHelp()" style="display:block;width:100%;padding:12px;background:#f5f5f5;border:none;border-top:1px solid #e0e0e0;color:#666;font-family:inherit;font-size:.88rem;font-weight:600;cursor:pointer;border-radius:0 0 16px 16px">ปิด</button>
+  </div>
+</div>
+<!-- Order Text Display Modal (for manual copy) -->
+<div id="orderTextOverlay" onclick="closeOrderTextModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:3300;padding:16px">
+  <div onclick="event.stopPropagation()" style="background:#fff;border-radius:16px;width:100%;max-width:520px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.35);overflow:hidden">
+    <div style="padding:14px 18px;background:linear-gradient(135deg,#06c755,#0fa54a);color:#fff;display:flex;justify-content:space-between;align-items:center">
+      <strong style="font-size:1rem">📋 ข้อความออเดอร์</strong>
+      <button type="button" onclick="closeOrderTextModal()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:.8rem;font-weight:700;font-family:inherit">✕</button>
+    </div>
+    <div style="padding:14px 18px;flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <small style="display:block;margin-bottom:8px;color:#666;font-size:.78rem">ลากเลือก + Ctrl+C เพื่อคัดลอก แล้วไปวางในแชต LINE</small>
+      <textarea id="orderTextArea" readonly style="flex:1;min-height:240px;padding:12px;border:1.5px solid #e0e0e0;border-radius:8px;font-family:'Courier New',monospace;font-size:.82rem;line-height:1.5;resize:vertical;background:#fafafa"></textarea>
+      <button type="button" onclick="copyOrderTextNow()" id="orderTextCopyBtn" style="margin-top:10px;padding:10px 14px;background:linear-gradient(135deg,#06c755,#0fa54a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:.9rem;font-weight:700;cursor:pointer">📋 คัดลอกทั้งหมด</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

@@ -1398,8 +1398,10 @@ async function quickSendPC(orderId, timestamp, customerName, fullText, total){
   );
   if(!ok) return false;
 
-  // 2. Auto-copy + store for retry
+  // 2. Auto-copy + store for retry (+ localStorage backup)
   window._lastOrderText = fullText;
+  window._lastOrderInfo = { orderId: orderId, total: total, itemCount: itemCount, customerName: customerName, fullText: fullText, ts: Date.now() };
+  try{ localStorage.setItem('priao_last_order_backup', JSON.stringify(window._lastOrderInfo)); }catch(e){}
   let copyOk = false;
   if(navigator.clipboard && navigator.clipboard.writeText){
     try{ await navigator.clipboard.writeText(fullText); copyOk = true; }
@@ -1439,10 +1441,161 @@ async function quickSendPC(orderId, timestamp, customerName, fullText, total){
   renderCart();
   closeCart();
 
-  // 4. Show toast — clipboard พร้อมแล้ว ให้ user สลับไป LINE PC เอง (ไม่เปิด URL)
+  // 4. Show toast (immediate feedback)
   showQuickSendToast(orderId, itemCount, total, copyOk);
+
+  // 5. Background detection — ถ้า LINE ไม่เปิดใน 8s → auto show Help Modal
+  let _detected = false;
+  let _safetyTimer = null;
+  function _cleanup(){
+    window.removeEventListener('blur', _onBlur);
+    document.removeEventListener('visibilitychange', _onVis);
+    if(_safetyTimer){ clearTimeout(_safetyTimer); _safetyTimer = null; }
+  }
+  function _markDetected(){
+    if(_detected) return;
+    _detected = true;
+    _cleanup();
+  }
+  function _onBlur(){ _markDetected(); }
+  function _onVis(){ if(document.hidden){ _markDetected(); } }
+  window.addEventListener('blur', _onBlur);
+  document.addEventListener('visibilitychange', _onVis);
+  _safetyTimer = setTimeout(function(){
+    _cleanup();
+    if(!_detected){
+      // LINE ไม่เปิดในเวลาที่ควรจะเป็น → แสดง Help Modal
+      showOrderHelp();
+    }
+  }, 8000);
+
   return true;
 }
+
+// === Order Help Modal Functions ===
+function showOrderHelp(){
+  // Load from localStorage if memory cleared
+  if(!window._lastOrderInfo){
+    try{
+      const stored = localStorage.getItem('priao_last_order_backup');
+      if(stored){
+        const data = JSON.parse(stored);
+        // Expire after 24h
+        if(data && (Date.now() - (data.ts||0)) < 86400000){
+          window._lastOrderInfo = data;
+          window._lastOrderText = data.fullText;
+        }
+      }
+    }catch(e){}
+  }
+  // Populate order info display
+  const infoEl = document.getElementById('helpOrderInfo');
+  if(infoEl){
+    if(window._lastOrderInfo){
+      const i = window._lastOrderInfo;
+      infoEl.textContent = '#' + (i.orderId||'?') + ' · ' + (i.itemCount||0) + ' รายการ · ' + (i.total||0).toLocaleString('th-TH') + ' บาท';
+    } else {
+      infoEl.textContent = '(ไม่พบข้อมูลออเดอร์ล่าสุด)';
+    }
+  }
+  // Auto-attempt copy ในกรณี clipboard ถูกแทนที่แล้ว
+  if(window._lastOrderText && navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(window._lastOrderText).catch(function(){});
+  }
+  const m = document.getElementById('orderHelpOverlay');
+  if(m){ m.style.display = 'flex'; }
+}
+function copyOrderTextDirect(){
+  const btn = document.getElementById('helpCopyBtn');
+  const txt = window._lastOrderText || '';
+  if(!txt){ alert('ไม่พบข้อความออเดอร์'); return; }
+  const onOk = function(){
+    if(btn){
+      const old = btn.innerHTML;
+      btn.innerHTML = '✓ คัดลอกแล้ว!';
+      btn.style.background = '#10b981';
+      setTimeout(function(){
+        btn.innerHTML = old;
+        btn.style.background = '';
+      }, 1800);
+    }
+  };
+  function execFallback(){
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.setAttribute('readonly','');
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select(); ta.setSelectionRange(0, txt.length);
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if(ok) onOk(); else alert('คัดลอกไม่ได้ · กรุณาเลือก+Ctrl+C เอง\n\n' + txt);
+    } catch(e){ alert(txt); }
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(onOk).catch(execFallback);
+  } else {
+    execFallback();
+  }
+}
+window.copyOrderTextDirect = copyOrderTextDirect;
+function closeOrderHelp(){
+  const m = document.getElementById('orderHelpOverlay');
+  if(m){ m.style.display = 'none'; }
+}
+function retryOpenLinePC(){
+  try{
+    const a = document.createElement('a');
+    a.href = 'line://ti/p/%40evp5054h';
+    a.target = '_blank';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){ try{ a.parentNode && a.parentNode.removeChild(a); }catch(e){} }, 200);
+  }catch(e){ console.warn('retry line:// failed:', e); }
+}
+function showOrderTextModal(){
+  const m = document.getElementById('orderTextOverlay');
+  const ta = document.getElementById('orderTextArea');
+  if(ta){ ta.value = window._lastOrderText || '(ไม่มีข้อความออเดอร์ล่าสุด)'; }
+  if(m){ m.style.display = 'flex'; }
+  // Close Help modal underneath
+  closeOrderHelp();
+  // Auto-select textarea
+  setTimeout(function(){ if(ta){ ta.focus(); ta.select(); } }, 100);
+}
+function closeOrderTextModal(){
+  const m = document.getElementById('orderTextOverlay');
+  if(m){ m.style.display = 'none'; }
+}
+function copyOrderTextNow(){
+  const btn = document.getElementById('orderTextCopyBtn');
+  const txt = window._lastOrderText || '';
+  if(!txt) return;
+  const onOk = function(){
+    if(btn){
+      const old = btn.textContent;
+      btn.textContent = '✓ คัดลอกแล้ว!';
+      setTimeout(function(){ btn.textContent = old; }, 1500);
+    }
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(onOk).catch(function(){
+      const ta = document.getElementById('orderTextArea');
+      if(ta){ ta.focus(); ta.select(); document.execCommand('copy'); onOk(); }
+    });
+  } else {
+    const ta = document.getElementById('orderTextArea');
+    if(ta){ ta.focus(); ta.select(); document.execCommand('copy'); onOk(); }
+  }
+}
+window.showOrderHelp = showOrderHelp;
+window.closeOrderHelp = closeOrderHelp;
+window.retryOpenLinePC = retryOpenLinePC;
+window.showOrderTextModal = showOrderTextModal;
+window.closeOrderTextModal = closeOrderTextModal;
+window.copyOrderTextNow = copyOrderTextNow;
 
 function showQuickSendToast(orderId, count, total, copyOk){
   // Remove existing toast if any
@@ -1634,12 +1787,11 @@ function closeLineModal(){
 }
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape'){
-    const m = document.getElementById('lineModalOverlay');
-    if(m && m.style.display === 'flex'){ m.style.display = 'none'; }
-    const ml = document.getElementById('lineLoadingOverlay');
-    if(ml && ml.style.display === 'flex'){ ml.style.display = 'none'; }
-    const mn = document.getElementById('lineNoAppOverlay');
-    if(mn && mn.style.display === 'flex'){ mn.style.display = 'none'; }
+    const ids = ['lineModalOverlay','lineLoadingOverlay','lineNoAppOverlay','orderHelpOverlay','orderTextOverlay'];
+    for(let i=0;i<ids.length;i++){
+      const el = document.getElementById(ids[i]);
+      if(el && el.style.display === 'flex'){ el.style.display = 'none'; }
+    }
   }
 });
 window.openLineModal = openLineModal;
