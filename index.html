@@ -184,5 +184,44 @@
   </div>
 </div>
 <script src="js/app.js"></script>
+<!-- LINE Chat Modal -->
+<div class="line-modal-overlay" id="lineModalOverlay" onclick="closeLineModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;z-index:3000;padding:16px">
+  <div class="line-modal" onclick="event.stopPropagation()" style="background:#fff;border-radius:16px;width:100%;max-width:380px;max-height:92vh;overflow:auto;box-shadow:0 16px 48px rgba(0,0,0,.3)">
+    <div class="line-modal-hdr" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:linear-gradient(135deg,#06c755,#0fa54a);color:#fff;border-radius:16px 16px 0 0">
+      <span style="font-weight:800;font-size:1.05rem">💬 ติดต่อร้าน Priao</span>
+      <button type="button" class="line-modal-close" onclick="closeLineModal()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:.85rem;font-weight:700;font-family:inherit">✕</button>
+    </div>
+    <div class="line-modal-body" style="padding:20px 18px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+        <img id="lineModalQR" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=https%3A%2F%2Flin.ee%2FmDhRNMT&margin=10" alt="LINE OA QR" style="width:200px;height:200px;border-radius:10px;background:#f5f5f5;padding:8px;box-shadow:0 2px 8px rgba(0,0,0,.08)">
+        <div style="text-align:center">
+          <strong style="display:block;color:#0a1628;font-size:.95rem">📱 สแกน QR ด้วยมือถือ</strong>
+          <span style="color:#666;font-size:.82rem">→ Add Friend + แชทใน LINE app ทันที</span>
+        </div>
+      </div>
+      <div class="line-or-sep" style="display:flex;align-items:center;gap:12px;margin:18px 0;color:#999;font-size:.78rem">
+        <span style="flex:1;height:1px;background:#e0e0e0"></span>
+        <span>หรือ</span>
+        <span style="flex:1;height:1px;background:#e0e0e0"></span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button type="button" onclick="openLinePopupPC()" class="line-action-btn" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1.5px solid #06c755;background:#f0fbf3;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:all .15s">
+          <span style="font-size:1.5rem;width:32px;text-align:center">💻</span>
+          <span style="flex:1">
+            <strong style="display:block;color:#0a1628;font-size:.92rem">เปิดในเบราว์เซอร์ (PC)</strong>
+            <small style="color:#666;font-size:.74rem">Login ด้วย QR หรือ ID/Password</small>
+          </span>
+        </button>
+        <button type="button" onclick="copyLineLink()" id="lineCopyBtn" class="line-action-btn" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1.5px solid #e0e0e0;background:#fff;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:all .15s">
+          <span style="font-size:1.5rem;width:32px;text-align:center">📋</span>
+          <span style="flex:1">
+            <strong style="display:block;color:#0a1628;font-size:.92rem" id="lineCopyTitle">คัดลอกลิงก์ LINE OA</strong>
+            <small style="color:#666;font-size:.74rem">https://lin.ee/mDhRNMT</small>
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>

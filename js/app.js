@@ -168,25 +168,13 @@ function init(){
     });
   }
 
-  // LINE FAB → เปิด popup window เล็ก (mini chat style)
+  // LINE FAB → เปิด Mini Modal ของเรา (QR + Browser link + Copy)
   const lineFabEl = document.getElementById('lineFab');
   if(lineFabEl){
     lineFabEl.addEventListener('click', function(e){
       e.preventDefault();
       e.stopPropagation();
-      // Mini chat window dimensions
-      const w = 400, h = 640;
-      const left = Math.max(20, (window.screen.availWidth || window.innerWidth) - w - 40);
-      const top  = Math.max(20, ((window.screen.availHeight || window.innerHeight) - h) / 2);
-      const features = 'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top +
-                       ',toolbar=no,location=no,menubar=no,resizable=yes,scrollbars=yes,status=no';
-      const win = window.open('https://lin.ee/mDhRNMT', 'priao_line_chat', features);
-      if(!win){
-        // Popup blocked → fallback to normal new tab
-        window.open('https://lin.ee/mDhRNMT', '_blank');
-      } else {
-        try{ win.focus(); }catch(err){}
-      }
+      openLineModal();
     });
   }
   document.getElementById('loading').classList.add('hidden');
@@ -1622,6 +1610,67 @@ function showFallbackModal(orderId, timestamp, text, shortText){
   };
   document.getElementById('fbCloseBtn').onclick = function(){ document.body.removeChild(mo); };
 }
+
+// === LINE Modal Helpers ===
+function openLineModal(){
+  const m = document.getElementById('lineModalOverlay');
+  if(m){ m.style.display = 'flex'; }
+}
+function closeLineModal(){
+  const m = document.getElementById('lineModalOverlay');
+  if(m){ m.style.display = 'none'; }
+}
+function openLinePopupPC(){
+  const w = 400, h = 640;
+  const left = Math.max(20, (window.screen.availWidth || window.innerWidth) - w - 40);
+  const top  = Math.max(20, ((window.screen.availHeight || window.innerHeight) - h) / 2);
+  const features = 'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top +
+                   ',toolbar=no,location=no,menubar=no,resizable=yes,scrollbars=yes,status=no';
+  const win = window.open('https://lin.ee/mDhRNMT', 'priao_line_chat', features);
+  if(!win){ window.open('https://lin.ee/mDhRNMT', '_blank'); }
+  else { try{ win.focus(); }catch(err){} }
+}
+function copyLineLink(){
+  const link = 'https://lin.ee/mDhRNMT';
+  const titleEl = document.getElementById('lineCopyTitle');
+  const onOk = function(){
+    if(titleEl){
+      const origText = titleEl.textContent;
+      titleEl.textContent = '✓ คัดลอกแล้ว!';
+      titleEl.style.color = '#06c755';
+      setTimeout(function(){
+        titleEl.textContent = origText;
+        titleEl.style.color = '';
+      }, 1800);
+    }
+  };
+  function execFallback(){
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = link;
+      ta.setAttribute('readonly','');
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select(); ta.setSelectionRange(0, link.length);
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if(ok) onOk(); else alert('คัดลอก: ' + link);
+    } catch(e){ alert('คัดลอก: ' + link); }
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(link).then(onOk).catch(function(){ execFallback(); });
+  } else { execFallback(); }
+}
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape'){
+    const m = document.getElementById('lineModalOverlay');
+    if(m && m.style.display === 'flex'){ m.style.display = 'none'; }
+  }
+});
+window.openLineModal = openLineModal;
+window.closeLineModal = closeLineModal;
+window.openLinePopupPC = openLinePopupPC;
+window.copyLineLink = copyLineLink;
 
 // Tiered size warnings (text mode, plain text auto-split)
 const ORDER_SOFT_WARN  = 1000;   // ⚠ Warning "แนะนำแยกบิล"
