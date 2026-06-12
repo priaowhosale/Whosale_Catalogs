@@ -1214,17 +1214,24 @@ function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
     return s;
   }, 0);
 
-  // Format 1 บรรทัด: "1. 8851001 ×2 = 240  NIVEA Cream 🔥"
+  // Format 1 บรรทัด: "1. 8851001 ×2 = 240  NIVEA Cream 50ml (🔥 SALE — ลด 30% · เดิม 60)"
   function fmtLine(c, idx){
     const prod = allProducts.find(function(p){ return p.code === c.code; });
     const lineTotal = c.price * c.qty;
-    let mark = '';
-    if(prod){
-      if(prod.promoType === 'sale')        mark = ' 🔥';
-      else if(prod.promoType === 'bundle') mark = ' 🎁';
-      else if(prod.promoType === 'flash')  mark = ' ⚡';
+    let promoTag = '';
+    if(prod && prod.promoType){
+      const parts = [];
+      // ใช้ promoLabel ที่มีทั้ง emoji + คำอธิบาย เช่น "🔥 SALE — ลด 30%"
+      const label = (prod.promoLabel || '').trim();
+      if(label) parts.push(label);
+      // แสดงราคาเดิมถ้ามี (เพื่อเปรียบเทียบ)
+      const orig = prod.originalPrice || 0;
+      if(orig > c.price && orig > 0){
+        parts.push('เดิม ' + orig.toLocaleString('th-TH'));
+      }
+      if(parts.length > 0) promoTag = ' (' + parts.join(' · ') + ')';
     }
-    return idx + '. ' + c.code + ' ×' + c.qty + ' = ' + lineTotal.toLocaleString('th-TH') + '  ' + (c.name || '') + mark;
+    return idx + '. ' + c.code + ' ×' + c.qty + ' = ' + lineTotal.toLocaleString('th-TH') + '  ' + (c.name || '') + promoTag;
   }
 
   // สร้าง lines ทั้งหมด
