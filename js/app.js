@@ -1341,13 +1341,14 @@ async function quickSendPC(orderId, timestamp, customerName, fullText, total){
     'ส่งออเดอร์ #' + orderId + ' ?\n\n' +
     itemCount + ' รายการ · ' + totalQty + ' ชิ้น\n' +
     'ยอดรวม: ' + total.toLocaleString('th-TH') + ' บาท\n\n' +
-    '✓ ตกลง = คัดลอก + เปิด LINE OA\n' +
+    '✓ ตกลง = คัดลอกออเดอร์เข้า clipboard\n' +
     '✗ ยกเลิก = กลับไปแก้\n\n' +
-    '(หลังเปิด LINE: Ctrl+V → Enter)'
+    '(ต่อจากนั้น: เปิด LINE PC → แชตเปรียว → Ctrl+V → Enter)'
   );
   if(!ok) return false;
 
-  // 2. Auto-copy
+  // 2. Auto-copy + store for retry
+  window._lastOrderText = fullText;
   let copyOk = false;
   if(navigator.clipboard && navigator.clipboard.writeText){
     try{ await navigator.clipboard.writeText(fullText); copyOk = true; }
@@ -1367,27 +1368,19 @@ async function quickSendPC(orderId, timestamp, customerName, fullText, total){
     }catch(e){ console.warn('[quickSendPC] execCommand failed:', e); }
   }
 
-  // 3. Open LINE OA in new tab
-  const lineWin = window.open(LINE_OA_URL, '_blank');
-  if(!lineWin){
-    // Popup blocked → show toast with link
-    showQuickSendToast(orderId, itemCount, total, copyOk, true);
-    return true;
-  }
-
-  // 4. Clear cart + close cart sidebar
+  // 3. Clear cart + close cart sidebar
   cart = [];
   clearCartStorage();
   resetAllCardButtons();
   renderCart();
   closeCart();
 
-  // 5. Show toast
-  showQuickSendToast(orderId, itemCount, total, copyOk, false);
+  // 4. Show toast — clipboard พร้อมแล้ว ให้ user สลับไป LINE PC เอง (ไม่เปิด URL)
+  showQuickSendToast(orderId, itemCount, total, copyOk);
   return true;
 }
 
-function showQuickSendToast(orderId, count, total, copyOk, popupBlocked){
+function showQuickSendToast(orderId, count, total, copyOk){
   // Remove existing toast if any
   const existing = document.getElementById('quick-send-toast');
   if(existing) existing.remove();
@@ -1402,40 +1395,61 @@ function showQuickSendToast(orderId, count, total, copyOk, popupBlocked){
 
   const t = document.createElement('div');
   t.id = 'quick-send-toast';
-  t.style.cssText = 'position:fixed;bottom:20px;right:20px;background:linear-gradient(135deg,#06c755,#0fa54a);color:#fff;padding:16px 20px;border-radius:12px;box-shadow:0 8px 24px rgba(6,199,85,.4);z-index:10000;max-width:360px;animation:qsSlideIn .3s ease;font-family:inherit;cursor:pointer';
+  t.style.cssText = 'position:fixed;bottom:20px;right:20px;background:linear-gradient(135deg,#06c755,#0fa54a);color:#fff;padding:18px 22px;border-radius:14px;box-shadow:0 8px 28px rgba(6,199,85,.45);z-index:10000;max-width:380px;animation:qsSlideIn .3s ease;font-family:inherit';
 
   const copyStatus = copyOk
-    ? '📋 ออเดอร์อยู่ใน clipboard'
-    : '⚠ คัดลอกอัตโนมัติไม่สำเร็จ — ใช้ปุ่มคัดลอกในแอป';
-  const openStatus = popupBlocked
-    ? '<a href="' + LINE_OA_URL + '" target="_blank" style="color:#fff;text-decoration:underline">📤 คลิกเพื่อเปิด LINE OA →</a>'
-    : '📤 LINE OA เปิดในแท็บใหม่';
+    ? '✓ ออเดอร์อยู่ใน clipboard แล้ว'
+    : '⚠ คัดลอกอัตโนมัติไม่สำเร็จ';
 
   t.innerHTML = ''
-    + '<div style="font-weight:800;font-size:.95rem;margin-bottom:6px">✓ #' + orderId + ' พร้อมส่ง</div>'
-    + '<div style="font-size:.78rem;line-height:1.7;opacity:.95">'
+    + '<div style="font-weight:800;font-size:1rem;margin-bottom:8px">✓ #' + orderId + ' พร้อมส่ง</div>'
+    + '<div style="font-size:.8rem;line-height:1.7;opacity:.95;margin-bottom:10px">'
       + count + ' รายการ · ' + total.toLocaleString('th-TH') + ' บาท<br>'
-      + copyStatus + '<br>'
-      + openStatus + '<br>'
-      + '<strong>➜ กด Ctrl+V → Enter ในแชต LINE</strong>'
+      + '<strong>' + copyStatus + '</strong>'
     + '</div>'
-    + '<div style="font-size:.65rem;opacity:.7;margin-top:8px;text-align:right">แตะเพื่อปิด</div>';
+    + '<div style="background:rgba(255,255,255,.18);padding:10px 12px;border-radius:8px;font-size:.8rem;line-height:1.7">'
+      + '<strong>วิธีส่ง:</strong><br>'
+      + '1. สลับไป <strong>LINE PC</strong> ที่เปิดอยู่<br>'
+      + '2. เปิดแชต <strong>เปรียว คอสเมติกส์</strong><br>'
+      + '3. กด <strong>Ctrl+V → Enter</strong>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:10px">'
+      + '<button id="qsRetryCopy" style="flex:1;background:rgba(255,255,255,.22);color:#fff;border:none;padding:8px;border-radius:8px;cursor:pointer;font-size:.75rem;font-weight:700;font-family:inherit">📋 คัดลอกอีกครั้ง</button>'
+      + '<button id="qsDismiss" style="flex:1;background:rgba(255,255,255,.12);color:#fff;border:none;padding:8px;border-radius:8px;cursor:pointer;font-size:.75rem;font-weight:700;font-family:inherit">ปิด</button>'
+    + '</div>';
 
   document.body.appendChild(t);
 
-  // Click to dismiss
-  t.onclick = function(){
-    t.style.animation = 'qsSlideOut .25s ease forwards';
-    setTimeout(function(){ t.remove(); }, 280);
-  };
+  // Retry copy button
+  const retryBtn = document.getElementById('qsRetryCopy');
+  if(retryBtn && window._lastOrderText){
+    retryBtn.onclick = function(ev){
+      ev.stopPropagation();
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(window._lastOrderText).then(function(){
+          retryBtn.textContent = '✓ คัดลอกแล้ว!';
+          setTimeout(function(){ retryBtn.textContent = '📋 คัดลอกอีกครั้ง'; }, 1500);
+        }).catch(function(){ alert(window._lastOrderText); });
+      } else { alert(window._lastOrderText); }
+    };
+  }
 
-  // Auto-dismiss after 8 sec
+  // Dismiss button
+  const dismissBtn = document.getElementById('qsDismiss');
+  if(dismissBtn){
+    dismissBtn.onclick = function(){
+      t.style.animation = 'qsSlideOut .25s ease forwards';
+      setTimeout(function(){ t.remove(); }, 280);
+    };
+  }
+
+  // Auto-dismiss after 12 sec (longer — user needs time to switch + paste)
   setTimeout(function(){
     if(document.getElementById('quick-send-toast')){
       t.style.animation = 'qsSlideOut .3s ease forwards';
       setTimeout(function(){ t.remove(); }, 350);
     }
-  }, 8000);
+  }, 12000);
 }
 
 function showFallbackModal(orderId, timestamp, text, shortText){
