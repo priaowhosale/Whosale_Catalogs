@@ -1620,12 +1620,6 @@ function closeLineModal(){
   const m = document.getElementById('lineModalOverlay');
   if(m){ m.style.display = 'none'; }
 }
-function openLinePopupPC(){
-  // Universal link → เปิด LINE PC App ถ้าติดตั้ง, fallback หน้า Add Friend web
-  // %40 = @ (URL-encoded) · evp5054h = LINE OA Basic ID
-  const lineAppUrl = 'https://line.me/R/ti/p/%40evp5054h';
-  window.open(lineAppUrl, '_blank');
-}
 function copyLineLink(){
   const link = 'https://lin.ee/mDhRNMT';
   const titleEl = document.getElementById('lineCopyTitle');
@@ -1665,7 +1659,6 @@ document.addEventListener('keydown', function(e){
 });
 window.openLineModal = openLineModal;
 window.closeLineModal = closeLineModal;
-window.openLinePopupPC = openLinePopupPC;
 window.copyLineLink = copyLineLink;
 
 // Tiered size warnings (text mode, plain text auto-split)
