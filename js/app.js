@@ -155,6 +155,18 @@ function init(){
 
   buildSidebar();buildMobCats();applyFilter();
   if(cart.length>0)renderCart(); // re-render cart sidebar ให้แสดงของที่ restore
+
+  // กัน Enter ใน memberInput → ไม่ trigger Send button โดยไม่ตั้งใจ
+  const memInpEl = document.getElementById('memberInput');
+  if(memInpEl){
+    memInpEl.addEventListener('keydown', function(e){
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        e.stopPropagation();
+        memInpEl.blur(); // unfocus → ไม่ trigger button ถัดไป
+      }
+    });
+  }
   document.getElementById('loading').classList.add('hidden');
   document.getElementById('home').style.display='';
 }
@@ -497,15 +509,44 @@ function showPreorderConfirm(product, onConfirm){
     + '<style>@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}</style>';
 
   document.body.appendChild(mo);
-  document.getElementById('pc-cancel').onclick = () => document.body.removeChild(mo);
-  document.getElementById('pc-confirm').onclick = () => {
-    document.body.removeChild(mo);
+
+  const cancelBtn = document.getElementById('pc-cancel');
+  const confirmBtn = document.getElementById('pc-confirm');
+
+  // Cleanup function — remove modal + keyboard listener
+  const cleanup = function(){
+    if(mo.parentNode) document.body.removeChild(mo);
+    document.removeEventListener('keydown', keyHandler);
+  };
+
+  // Keyboard handler: Enter = ยืนยัน, ESC = ยกเลิก
+  const keyHandler = function(e){
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      e.stopPropagation();
+      cleanup();
+      if(typeof onConfirm === 'function') onConfirm();
+    } else if(e.key === 'Escape'){
+      e.preventDefault();
+      e.stopPropagation();
+      cleanup();
+    }
+  };
+  document.addEventListener('keydown', keyHandler);
+
+  cancelBtn.onclick = cleanup;
+  confirmBtn.onclick = function(){
+    cleanup();
     if(typeof onConfirm === 'function') onConfirm();
   };
+
   // คลิกพื้นหลังก็ยกเลิก
-  mo.addEventListener('click', e => {
-    if(e.target === mo) document.body.removeChild(mo);
+  mo.addEventListener('click', function(e){
+    if(e.target === mo) cleanup();
   });
+
+  // Auto-focus confirm button — Enter จะกด confirm + visual cue
+  setTimeout(function(){ try{ confirmBtn.focus(); }catch(e){} }, 50);
 }
 function removeCardItem(code){
   const idx=cart.findIndex(c=>c.code===code);if(idx<0)return;
@@ -1566,6 +1607,9 @@ const ORDER_HARD_CAP   = 2000;   // ❌ Block "ต้องแบ่งบิล
 
 async function sendOrder(){
   if(!cart.length) return;
+  // ป้องกันการกดซ้ำ (double-click / Enter spam)
+  if(window._sendingInProgress) return;
+  window._sendingInProgress = true;
 
   // ====== Tiered size guard ======
   const itemCount = cart.length;
@@ -1579,6 +1623,7 @@ async function sendOrder(){
       'สูงสุดต่อบิล: ' + (ORDER_HARD_CAP - 1).toLocaleString('th-TH') + ' รายการ\n\n' +
       'กรุณาแบ่งสินค้าเป็นบิลย่อยค่ะ'
     );
+    window._sendingInProgress = false;
     return;
   }
 
@@ -1593,7 +1638,7 @@ async function sendOrder(){
       '   ✓ ตกลง = ส่งทั้งหมด\n' +
       '   ✗ ยกเลิก = กลับไปแก้ไข'
     );
-    if(!ok) return;
+    if(!ok){ window._sendingInProgress = false; return; }
   }
   // < 1,000 → ส่งเงียบๆ ตามปกติ
 
@@ -1677,6 +1722,7 @@ async function sendOrder(){
       closeCart();
       restoreBtn();
       showSuccessModal(orderId);
+      window._sendingInProgress = false;
       return;
 
     } catch(sendErr){
@@ -1697,6 +1743,7 @@ async function sendOrder(){
       } else {
         showFallbackModal(orderId, timestamp, fullText, shortText);
       }
+      window._sendingInProgress = false;
       return;
     }
   }
@@ -1710,6 +1757,7 @@ async function sendOrder(){
   } else {
     showFallbackModal(orderId, timestamp, fullText, shortText);
   }
+  window._sendingInProgress = false;
 }
 // ============================================================
 // SMART HEADER AUTO-RESIZE
