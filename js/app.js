@@ -804,13 +804,6 @@ function safeImageUrl(url){
   return u;
 }
 
-// ----- Helpers สำหรับสร้าง URL ของ copy.html -----
-// URL-safe base64 encode (รองรับ UTF-8 ไทย)
-function b64UrlEncode(str){
-  return btoa(unescape(encodeURIComponent(str)))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-}
-
 // เฉพาะ SKU (barcode ล้วน 1 บรรทัด/SKU ไม่มี # ไม่มีจำนวน)
 function buildSkuText(cartItems){
   return cartItems.map(c => String(c.code || '')).join('\n');
@@ -833,53 +826,10 @@ function buildListText(orderId, customerName, cartItems, nameMax){
   return lines.join('\n');
 }
 
-// สร้าง URL ของ copy.html — auto-truncate ถ้ายาวเกิน LINE uri-action limit (1000 chars)
-function buildCopyUrl(baseHref, fmt, orderId, customerName, cartItems){
-  const URL_BUDGET = 950;
-  const buildUrl = (t) => baseHref+'?fmt='+fmt+'&t='+b64UrlEncode(t);
-
-  if(fmt === 'sku'){
-    let text = buildSkuText(cartItems);
-    let url = buildUrl(text);
-    let n = cartItems.length;
-    while(url.length > URL_BUDGET && n > 1){
-      n--;
-      text = cartItems.slice(0, n).map(c => String(c.code || '')).join('\n')
-           + '\n[+ '+(cartItems.length - n)+' รายการ — ดูในการ์ด]';
-      url = buildUrl(text);
-    }
-    return url;
-  }
-
-  // LIST: ลอง name length 60 → 40 → 25 → 15 → ไม่มีชื่อ → ลดจำนวน
-  const candidates = [null, 60, 40, 25, 15];
-  for(let i = 0; i < candidates.length; i++){
-    const text = buildListText(orderId, customerName, cartItems, candidates[i]);
-    const url = buildUrl(text);
-    if(url.length <= URL_BUDGET) return url;
-  }
-
-  const buildBareList = (n) => {
-    const slice = cartItems.slice(0, n);
-    let t = 'Order ID:'+String(orderId||'')+'\nลูกค้า:'+String(customerName||'')+'\n\n'
-          + slice.map((c,i) => (i+1)+'. '+String(c.code||'')+' × '+c.qty).join('\n');
-    if(n < cartItems.length) t += '\n[+ '+(cartItems.length - n)+' รายการ — ดูในการ์ด]';
-    return t;
-  };
-  let n = cartItems.length;
-  let text = buildBareList(n);
-  let url = buildUrl(text);
-  while(url.length > URL_BUDGET && n > 1){
-    n--;
-    text = buildBareList(n);
-    url = buildUrl(text);
-  }
-  return url;
-}
 
 // สร้าง Flex Message bubble — มี 2 ปุ่ม copy ใน footer
 // opts (optional): {chunkIdx, totalChunks, isLast, grandTotal, totalItems}
-function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, copyBaseUrl, opts){
+function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, opts){
   opts = opts || {};
   const isMultiChunk = (opts.totalChunks || 1) > 1;
   const itemContents = [];
@@ -1013,7 +963,7 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
       const bodyContents = [
         {type:'text', text:(idx+1)+'. '+String(c.name||'-'),
          weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:2},
-        {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#2080BE', weight:'bold'}
+        {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#2080BE', weight:'bold', decoration:'underline', action:{type:'clipboard', label:'Copy SKU', clipboardText: String(c.code||'').replace(/\s+/g,'')}}
       ];
 
       // ราคา×จำนวน = รวม (แยก element ให้ qty เด่น)
@@ -1076,7 +1026,7 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
           contents:[
             {type:'text', text:(idx+1)+'. '+String(c.name||'-'),
              weight:'bold', size:'sm', color:'#0A1628', wrap:true, maxLines:2},
-            {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#2080BE', weight:'bold'},
+            {type:'text', text:'#'+String(c.code||''), size:'xs', color:'#2080BE', weight:'bold', decoration:'underline', action:{type:'clipboard', label:'Copy SKU', clipboardText: String(c.code||'').replace(/\s+/g,'')}},
             {
               type:'box', layout:'baseline', spacing:'xs', margin:'sm',
               contents:[
@@ -1114,9 +1064,9 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
       backgroundColor:'#FFF8E6', paddingAll:'md', cornerRadius:'md',
       borderColor:'#FAC775', borderWidth:'1px',
       contents:[
-        {type:'text', text:'💌 ขอบคุณที่สั่งจองนะคะ',
+        {type:'text', text:'💌 ขอบคุณสำหรับการสั่งจองค่ะ',
          size:'xs', weight:'bold', color:'#7C5E00', wrap:true},
-        {type:'text', text:'น้อง Sales จะทักหาเร็วที่สุดเท่าที่ทำได้ เพื่อยืนยันสินค้าและเวลาให้ค่ะ ✨',
+        {type:'text', text:'น้องเซลล์จะรีบเช็คสต๊อกและแจ้งรอบส่งกลับให้นะคะ ✨',
          size:'xs', color:'#633806', wrap:true, margin:'xs'}
       ]
     });
@@ -1188,9 +1138,6 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
     });
   }
 
-  // ไม่ใช้ copy buttons แล้ว — แต่ละ #SKU ใน item เป็น tappable แทน
-  // (copyBaseUrl ยังคง pass มาเผื่อใช้กรณีอื่น)
-
   return {
     type:'bubble',
     size:'mega',
@@ -1215,7 +1162,7 @@ function buildFlexBubble(orderId, timestamp, customerName, cartItems, total, cop
       contents:[
         {type:'text', text:'รอน้อง Salesman แจ้งยอดชำระสักครู่ค่ะ',
          size:'xs', color:'#888888', align:'center', wrap:true, margin:'none'},
-        {type:'text', text:'📋 กดค้างที่ #SKU เพื่อคัดลอกรหัสสินค้า',
+        {type:'text', text:'📋 แตะ #SKU เพื่อคัดลอกอัตโนมัติ (LINE 14.5+)',
          size:'xxs', color:'#aaaaaa', align:'center', wrap:true, margin:'xs'}
       ]
     }
@@ -1241,10 +1188,6 @@ function decideFlexStrategy(totalItems){
 
 // Flex อย่างเดียว (ไม่มี text duplicate) — adaptive split ตาม strategy
 function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
-  // ใช้ LIFF URL เพื่อให้ liff.closeWindow ทำงานได้ (LINE inject LIFF context)
-  const COPY_LIFF_ID = '2010211018-4Zqj1MmB';
-  const copyBaseUrl = 'https://liff.line.me/' + COPY_LIFF_ID;
-
   const strategy = decideFlexStrategy(cartItems.length);
   const perCard = strategy.perCard;
 
@@ -1266,7 +1209,6 @@ function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
       orderId, timestamp, customerName,
       chunk,
       subtotals[idx],
-      copyBaseUrl,
       {
         chunkIdx: idx + 1,
         totalChunks: totalChunks,
