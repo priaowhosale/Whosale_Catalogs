@@ -623,7 +623,10 @@ function renderCart(){
     items.innerHTML=h;
   }
   const total=cart.reduce((s,c)=>s+(c.price*c.qty),0);
-  document.getElementById('cartTotal').textContent='รวม: '+total.toLocaleString('th-TH')+' บาท';
+  const totalQtyCart=cart.reduce((s,c)=>s+(c.qty||0),0);
+  document.getElementById('cartTotal').textContent = cart.length
+    ? (cart.length + ' รายการ · ' + totalQtyCart + ' ชิ้น · รวม ' + total.toLocaleString('th-TH') + ' บาท')
+    : 'รวม: 0 บาท';
 }
 function clearCart(){
   if(!cart.length) return;
@@ -1338,8 +1341,10 @@ function showFallbackModal(orderId, timestamp, text, shortText){
 
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   // ใช้ line.me/R/msg/text/ → เปิด LINE share dialog พร้อม text pre-fill
-  // shortText สำหรับ URL (กัน URL ยาวเกิน LINE share limit ~1000 chars)
+  // shortText (compact) สำหรับ URL — กัน URL ยาวเกิน LINE share limit ~2000 chars
   const lineShareUrl = 'https://line.me/R/msg/text/?'+encodeURIComponent(shortText);
+  const QR_URL_LIMIT = 2000;  // QR-encodable limit (line.me typically truncates beyond this)
+  const qrFeasible = lineShareUrl.length <= QR_URL_LIMIT;
   // QR: ใช้ ECC=L + margin=4 เพื่อลด density (สแกนง่ายขึ้นด้วยกล้องคุณภาพต่ำ)
   const qrBase = 'https://api.qrserver.com/v1/create-qr-code/?ecc=L&margin=4&data='+encodeURIComponent(lineShareUrl);
   const qrUrl  = qrBase + '&size=240x240';   // default ใน modal
@@ -1356,6 +1361,21 @@ function showFallbackModal(orderId, timestamp, text, shortText){
         cart.forEach(function(c, i){
           var prod = allProducts.find(function(p){ return p.code === c.code; });
           var img = (prod && prod.imageUrl) ? prod.imageUrl : '';
+          var promoBadge = '';
+          if(prod && prod.promoType){
+            var pp = [];
+            var pLabel = (prod.promoLabel || '').trim();
+            if(pLabel) pp.push(pLabel);
+            var pOrig = prod.originalPrice || 0;
+            if(pOrig > c.price && pOrig > 0) pp.push('เดิม ' + pOrig.toLocaleString('th-TH'));
+            if(pp.length > 0){
+              var pColor = prod.promoType === 'sale' ? {bg:'#FFFAEB',fg:'#7C5E00',bd:'#F59E0B'}
+                          : prod.promoType === 'bundle' ? {bg:'#F0F7FF',fg:'#0C447C',bd:'#2080BE'}
+                          : prod.promoType === 'flash' ? {bg:'#FEF2F2',fg:'#7F1D1D',bd:'#DC2626'}
+                          : {bg:'#f4f8fc',fg:'#666',bd:'#b8d9f0'};
+              promoBadge = '<div style="margin-top:4px;display:inline-block;font-size:.65rem;background:'+pColor.bg+';color:'+pColor.fg+';border:1px solid '+pColor.bd+';padding:2px 8px;border-radius:6px;font-weight:700">'+pp.join(' · ').replace(/</g,'&lt;')+'</div>';
+            }
+          }
           rows += '<div style="display:flex;gap:10px;padding:10px 12px;border-bottom:1px solid #f0f4f8;align-items:flex-start">'
             + (img
                 ? '<img src="'+img+'" alt="" loading="lazy" onerror="this.style.display=\'none\'" style="width:48px;height:48px;border-radius:6px;object-fit:cover;background:#f4f8fc;flex-shrink:0;border:1px solid #e6f1fb">'
@@ -1364,6 +1384,7 @@ function showFallbackModal(orderId, timestamp, text, shortText){
             + '<div style="font-size:.78rem;font-weight:600;color:#0a1628;line-height:1.35;margin-bottom:2px">'+(i+1)+'. '+String(c.name||'').replace(/</g,'&lt;')+'</div>'
             + '<div style="font-size:.68rem;color:#999;margin-bottom:2px">#'+String(c.code||'')+'</div>'
             + '<div style="display:flex;justify-content:space-between;font-size:.72rem"><span style="color:#888">'+c.price.toLocaleString('th-TH')+' × '+c.qty+'</span><span style="color:#2080be;font-weight:700">'+(c.price*c.qty).toLocaleString('th-TH')+' ฿</span></div>'
+            + promoBadge
             + '</div>'
             + '</div>';
         });
@@ -1380,10 +1401,12 @@ function showFallbackModal(orderId, timestamp, text, shortText){
         +'<button id="fbCopyBtn" style="width:100%;padding:10px;background:#2080be;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.82rem;font-family:inherit">คัดลอกอีกครั้ง</button>'
         +'<button id="fbCloseBtn" style="width:100%;padding:10px;background:#eee;color:#555;border:none;border-radius:10px;cursor:pointer;font-size:.82rem;font-family:inherit">ปิด</button>'
         +'</div>'
-      : '<div style="display:flex;gap:14px;align-items:center;background:#f4f8fc;padding:14px;border-radius:10px;margin-bottom:10px">'
-        +'<img id="qrImgEl" src="'+qrUrl+'" alt="QR — คลิกเพื่อขยาย" title="คลิกเพื่อขยาย QR" style="width:140px;height:140px;border-radius:8px;background:#fff;cursor:zoom-in;border:2px solid #e6f1fb;transition:all .15s" onclick="openQrZoom(\''+qrBig+'\')">'
-        +'<div style="flex:1;font-size:.78rem;color:#0a1628;line-height:1.5"><strong style="color:#2080be">📲 สแกน QR ด้วยกล้อง LINE ในมือถือ</strong><br>1. LINE จะถามว่าส่งไปแชตไหน<br>2. <strong>เลือก เปรียว คอสเมติกส์</strong><br>3. ข้อความออเดอร์จะ pre-fill ให้แล้ว → กดส่งได้เลย</div>'
-        +'</div>'
+      : (qrFeasible
+          ? '<div style="display:flex;gap:14px;align-items:center;background:#f4f8fc;padding:14px;border-radius:10px;margin-bottom:10px">'
+            +'<img id="qrImgEl" src="'+qrUrl+'" alt="QR — คลิกเพื่อขยาย" title="คลิกเพื่อขยาย QR" style="width:140px;height:140px;border-radius:8px;background:#fff;cursor:zoom-in;border:2px solid #e6f1fb;transition:all .15s" onclick="openQrZoom(\''+qrBig+'\')" onerror="this.parentElement.innerHTML=\'<div style=padding:16px;text-align:center;color:#888;font-size:.85rem>QR สร้างไม่ได้ — ใช้ปุ่ม คัดลอก แทนค่ะ</div>\'">'
+            +'<div style="flex:1;font-size:.78rem;color:#0a1628;line-height:1.5"><strong style="color:#2080be">📲 สแกน QR ด้วยกล้อง LINE ในมือถือ</strong><br>1. LINE จะถามว่าส่งไปแชตไหน<br>2. <strong>เลือก เปรียว คอสเมติกส์</strong><br>3. ข้อความออเดอร์จะ pre-fill ให้แล้ว → กดส่งได้เลย</div>'
+            +'</div>'
+          : '<div style="background:#FEF3C7;border:1px solid #F59E0B;padding:14px;border-radius:10px;margin-bottom:10px;font-size:.82rem;color:#7C5E00;line-height:1.6"><strong>⚠ ออเดอร์ใหญ่เกินขนาด QR</strong><br>'+cart.length+' รายการ → URL ยาวเกินที่ QR จะรองรับได้<br>💡 <strong>กรุณาใช้ปุ่ม "คัดลอกอีกครั้ง"</strong> → paste ในแชท LINE OA</div>')
         +'<div style="display:flex;gap:8px">'
         +'<button id="fbCopyBtn" style="flex:1;padding:10px;background:#2080be;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.82rem;font-family:inherit">คัดลอกอีกครั้ง</button>'
         +'<button id="fbLineBtn" style="flex:1;padding:10px;background:#06c755;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.82rem;font-family:inherit">เปิด LINE OA</button>'
@@ -1457,12 +1480,19 @@ async function sendOrder(){
   const customerName = (liffProfile && liffProfile.displayName) || memberFromInput || '';
   const total = cart.reduce((s,c) => s + (c.price * c.qty), 0);
 
-  // เตรียม text — ใช้ format เดียวกับที่ LIFF Mobile ส่ง (buildOrderMessages = Format C)
-  // ทั้ง modal display + clipboard + QR URL ใช้ text ชุดเดียวกัน
+  // เตรียม text — fullText สำหรับ modal display + clipboard (Format C เต็ม)
+  // shortText สำหรับ QR URL (compact เพื่อไม่ให้ URL ยาวเกิน LINE share limit)
   const messagesForText = buildOrderMessages(orderId, timestamp, customerName, cart, total);
   const fullText = messagesForText.map(function(m){ return m.text; }).join('\n\n');
-  // shortText = same as fullText (one source of truth)
-  const shortText = fullText;
+
+  // Compact version สำหรับ QR (~25 chars/item)
+  const qrLines = ['📋 #' + orderId];
+  if(customerName) qrLines.push('👤 ' + customerName);
+  cart.forEach(function(c, i){
+    qrLines.push((i+1) + '. ' + c.code + ' ×' + c.qty + ' = ' + (c.price*c.qty).toLocaleString('th-TH'));
+  });
+  qrLines.push('💰 รวม ' + total.toLocaleString('th-TH') + ' บาท');
+  const shortText = qrLines.join('\n');
 
   // Restore button
   const restoreBtn = () => {
