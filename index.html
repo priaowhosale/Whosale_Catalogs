@@ -25,8 +25,8 @@
 </div>
 <div id="home" style="display:none">
   <div class="hero">
-    <div><img class="logo" src="assets/logo.jpg" alt="เปรียว คอสเมติกส์"></div>
-    <h1>เปรียว คอสเมติกส์</h1>
+    <div onclick="goHome()" style="cursor:pointer;display:inline-block" title="กลับหน้าหลัก"><img class="logo" src="assets/logo.jpg" alt="เปรียว คอสเมติกส์ (กลับหน้าหลัก)"></div>
+    <h1 onclick="goHome()" style="cursor:pointer" title="กลับหน้าหลัก">เปรียว คอสเมติกส์</h1>
     <p>VIP Member · Wholesale Catalog</p>
     <div class="search-bar">
       <input id="homeSearch" type="text" placeholder="ค้นหาสินค้า เช่น ลิปสติก, ครีมกันแดด..." autocomplete="off" onkeydown="if(event.key==='Enter'){doSearch(this.value);}">
@@ -162,22 +162,26 @@
     </main>
   </div>
 </div>
+<a href="https://lin.ee/mDhRNMT" target="_blank" rel="noopener noreferrer" class="line-fab" id="lineFab" title="แชทกับร้าน Priao บน LINE OA">
+  <span class="line-fab-icon">💬</span>
+  <span class="line-fab-label">LINE</span>
+</a>
 <button class="cart-fab" id="cartFab" onclick="toggleCart()">🛒 <span id="cartFabLabel" style="font-size:.82rem">ตะกร้า</span><span class="cart-fab-cnt" id="cartFabCnt" style="display:none">0</span></button>
 <div class="overlay" id="overlay" onclick="closeCart()"></div>
 <div class="cart-panel" id="cartPanel">
   <div class="cart-hdr" style="display:flex;justify-content:space-between;align-items:center">
     <div style="display:flex;gap:10px;align-items:center;flex:1;min-width:0">
       <span style="font-weight:800;white-space:nowrap">🛒 ตะกร้าสินค้า</span>
-      <button id="cartClearBtn" onclick="clearCart()" style="background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;display:none">🗑️ ล้างตะกร้า</button>
+      <button type="button" id="cartClearBtn" onclick="clearCart()" style="background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;display:none">🗑️ ล้างตะกร้า</button>
     </div>
-    <button class="cart-close" onclick="closeCart()" style="margin-left:24px">✕</button>
+    <button type="button" class="cart-close" onclick="closeCart()" style="margin-left:24px">✕</button>
   </div>
   <div class="cart-items" id="cartItems"><p style="text-align:center;color:#aaa;margin-top:24px">ยังไม่มีสินค้า</p></div>
   <div class="cart-footer">
     <div class="cart-total" id="cartTotal">รวม: 0 บาท</div>
     <p style="font-size:.72rem;color:#dc2626;font-weight:700;margin-bottom:6px;line-height:1.5">⚠️ ราคาสินค้าและสต็อกสินค้าบางรายการอาจมีการเปลี่ยนแปลง</p>
-    <input id="memberInput" class="member-input" type="text" placeholder="หมายเลข VIP Member หรือชื่อร้าน (ระบุก่อนส่งออเดอร์)">
-    <button class="cart-send" id="cartSendBtn" onclick="window.sendOrderSafe && window.sendOrderSafe()">💬 ส่งออเดอร์ไปที่ Line OA เปรียว คอสเมติกส์</button>
+    <input id="memberInput" class="member-input" type="text" placeholder="หมายเลข VIP Member หรือชื่อร้าน (ระบุก่อนส่งออเดอร์)" autocomplete="off">
+    <button type="button" class="cart-send" id="cartSendBtn" onclick="window.sendOrderSafe && window.sendOrderSafe()">💬 ส่งออเดอร์ไปที่ Line OA เปรียว คอสเมติกส์</button>
   </div>
 </div>
 <script src="js/app.js"></script>
