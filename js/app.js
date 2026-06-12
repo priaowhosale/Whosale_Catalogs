@@ -1635,7 +1635,7 @@ window.closeLineModal = closeLineModal;
 // === LINE PC App Opening (with Loading Spinner) ===
 function openLinePCWithLoading(){
   showLineLoading();
-  // Trigger line:// protocol via anchor click (most reliable)
+  // Trigger line:// protocol via anchor click
   const a = document.createElement('a');
   a.href = 'line://ti/p/%40evp5054h';
   a.target = '_blank';
@@ -1645,9 +1645,35 @@ function openLinePCWithLoading(){
   setTimeout(function(){
     try{ if(a.parentNode) a.parentNode.removeChild(a); }catch(e){}
   }, 200);
-  // รอ 5 วินาที ให้ LINE Desktop เปิดจนเสร็จ — แล้วค่อย hide loading
-  // (manual close ใช้ได้ตลอด ถ้า user ไม่อยากรอ)
-  setTimeout(hideLineLoading, 5000);
+
+  // Smart detection: รอจน LINE PC เปิดจริงๆ (blur หรือ visibility change)
+  // ตรวจเจอแล้ว → รอ 2s ให้ LINE โหลด chat เสร็จ → ค่อยปิด spinner
+  let detected = false;
+  let safetyTimer = null;
+
+  function cleanup(){
+    window.removeEventListener('blur', onBlur);
+    document.removeEventListener('visibilitychange', onVisChange);
+    if(safetyTimer){ clearTimeout(safetyTimer); safetyTimer = null; }
+  }
+  function onAppDetected(){
+    if(detected) return;
+    detected = true;
+    cleanup();
+    // รอ 2 วิเพิ่ม ให้ LINE Desktop เปิด chat เสร็จสมบูรณ์
+    setTimeout(hideLineLoading, 2000);
+  }
+  function onBlur(){ onAppDetected(); }
+  function onVisChange(){ if(document.hidden){ onAppDetected(); } }
+
+  window.addEventListener('blur', onBlur);
+  document.addEventListener('visibilitychange', onVisChange);
+
+  // Safety timeout: ถ้าไม่ตรวจเจออะไรใน 10 วิ → ปิด spinner anyway
+  safetyTimer = setTimeout(function(){
+    cleanup();
+    hideLineLoading();
+  }, 10000);
 }
 function showLineLoading(){
   const m = document.getElementById('lineLoadingOverlay');
