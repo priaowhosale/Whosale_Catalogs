@@ -1392,9 +1392,9 @@ async function quickSendPC(orderId, timestamp, customerName, fullText, total){
     'ส่งออเดอร์ #' + orderId + ' ?\n\n' +
     itemCount + ' รายการ · ' + totalQty + ' ชิ้น\n' +
     'ยอดรวม: ' + total.toLocaleString('th-TH') + ' บาท\n\n' +
-    '✓ ตกลง = คัดลอกออเดอร์เข้า clipboard\n' +
+    '✓ ตกลง = คัดลอกออเดอร์ + เปิด LINE PC อัตโนมัติ\n' +
     '✗ ยกเลิก = กลับไปแก้\n\n' +
-    '(ต่อจากนั้น: เปิด LINE PC → แชตเปรียว → Ctrl+V → Enter)'
+    '(จากนั้นใน LINE: Ctrl+V → Enter)'
   );
   if(!ok) return false;
 
@@ -1418,6 +1418,19 @@ async function quickSendPC(orderId, timestamp, customerName, fullText, total){
       document.body.removeChild(ta);
     }catch(e){ console.warn('[quickSendPC] execCommand failed:', e); }
   }
+
+  // 2.5. Auto-open LINE PC App chat → ลูกค้าแค่ Ctrl+V → Enter
+  try{
+    const lineA = document.createElement('a');
+    lineA.href = 'line://ti/p/%40evp5054h';
+    lineA.target = '_blank';
+    lineA.style.display = 'none';
+    document.body.appendChild(lineA);
+    lineA.click();
+    setTimeout(function(){
+      try{ if(lineA.parentNode) lineA.parentNode.removeChild(lineA); }catch(e){}
+    }, 200);
+  }catch(e){ console.warn('[quickSendPC] line:// trigger failed:', e); }
 
   // 3. Clear cart + close cart sidebar
   cart = [];
@@ -1459,10 +1472,9 @@ function showQuickSendToast(orderId, count, total, copyOk){
       + '<strong>' + copyStatus + '</strong>'
     + '</div>'
     + '<div style="background:rgba(255,255,255,.18);padding:10px 12px;border-radius:8px;font-size:.8rem;line-height:1.7">'
-      + '<strong>วิธีส่ง:</strong><br>'
-      + '1. สลับไป <strong>LINE PC</strong> ที่เปิดอยู่<br>'
-      + '2. เปิดแชต <strong>เปรียว คอสเมติกส์</strong><br>'
-      + '3. กด <strong>Ctrl+V → Enter</strong>'
+      + '<strong>📲 LINE PC กำลังเปิดแชตเปรียว...</strong><br>'
+      + '1. รอ LINE Desktop เปิดเสร็จ<br>'
+      + '2. กด <strong>Ctrl+V → Enter</strong>'
     + '</div>'
     + '<div style="display:flex;gap:8px;margin-top:10px">'
       + '<button id="qsRetryCopy" style="flex:1;background:rgba(255,255,255,.22);color:#fff;border:none;padding:8px;border-radius:8px;cursor:pointer;font-size:.75rem;font-weight:700;font-family:inherit">📋 คัดลอกอีกครั้ง</button>'
