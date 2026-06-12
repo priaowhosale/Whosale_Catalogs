@@ -1329,6 +1329,115 @@ function openQrZoom(qrSrc){
   document.body.appendChild(z);
 }
 
+// ============================================================
+// Quick Send for PC — skip modal, do confirm + auto-copy + open LINE OA
+// ============================================================
+async function quickSendPC(orderId, timestamp, customerName, fullText, total){
+  const itemCount = cart.length;
+  const totalQty = cart.reduce(function(s,c){ return s + (c.qty || 0); }, 0);
+
+  // 1. Confirm popup
+  const ok = confirm(
+    'ส่งออเดอร์ #' + orderId + ' ?\n\n' +
+    itemCount + ' รายการ · ' + totalQty + ' ชิ้น\n' +
+    'ยอดรวม: ' + total.toLocaleString('th-TH') + ' บาท\n\n' +
+    '✓ ตกลง = คัดลอก + เปิด LINE OA\n' +
+    '✗ ยกเลิก = กลับไปแก้\n\n' +
+    '(หลังเปิด LINE: Ctrl+V → Enter)'
+  );
+  if(!ok) return false;
+
+  // 2. Auto-copy
+  let copyOk = false;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    try{ await navigator.clipboard.writeText(fullText); copyOk = true; }
+    catch(e){ console.warn('[quickSendPC] clipboard failed:', e); }
+  }
+  if(!copyOk){
+    // execCommand fallback
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = fullText;
+      ta.setAttribute('readonly','');
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      copyOk = document.execCommand('copy');
+      document.body.removeChild(ta);
+    }catch(e){ console.warn('[quickSendPC] execCommand failed:', e); }
+  }
+
+  // 3. Open LINE OA in new tab
+  const lineWin = window.open(LINE_OA_URL, '_blank');
+  if(!lineWin){
+    // Popup blocked → show toast with link
+    showQuickSendToast(orderId, itemCount, total, copyOk, true);
+    return true;
+  }
+
+  // 4. Clear cart + close cart sidebar
+  cart = [];
+  clearCartStorage();
+  resetAllCardButtons();
+  renderCart();
+  closeCart();
+
+  // 5. Show toast
+  showQuickSendToast(orderId, itemCount, total, copyOk, false);
+  return true;
+}
+
+function showQuickSendToast(orderId, count, total, copyOk, popupBlocked){
+  // Remove existing toast if any
+  const existing = document.getElementById('quick-send-toast');
+  if(existing) existing.remove();
+
+  // Inject animation CSS once
+  if(!document.getElementById('quick-send-toast-style')){
+    const s = document.createElement('style');
+    s.id = 'quick-send-toast-style';
+    s.textContent = '@keyframes qsSlideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes qsSlideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(120%);opacity:0}}';
+    document.head.appendChild(s);
+  }
+
+  const t = document.createElement('div');
+  t.id = 'quick-send-toast';
+  t.style.cssText = 'position:fixed;bottom:20px;right:20px;background:linear-gradient(135deg,#06c755,#0fa54a);color:#fff;padding:16px 20px;border-radius:12px;box-shadow:0 8px 24px rgba(6,199,85,.4);z-index:10000;max-width:360px;animation:qsSlideIn .3s ease;font-family:inherit;cursor:pointer';
+
+  const copyStatus = copyOk
+    ? '📋 ออเดอร์อยู่ใน clipboard'
+    : '⚠ คัดลอกอัตโนมัติไม่สำเร็จ — ใช้ปุ่มคัดลอกในแอป';
+  const openStatus = popupBlocked
+    ? '<a href="' + LINE_OA_URL + '" target="_blank" style="color:#fff;text-decoration:underline">📤 คลิกเพื่อเปิด LINE OA →</a>'
+    : '📤 LINE OA เปิดในแท็บใหม่';
+
+  t.innerHTML = ''
+    + '<div style="font-weight:800;font-size:.95rem;margin-bottom:6px">✓ #' + orderId + ' พร้อมส่ง</div>'
+    + '<div style="font-size:.78rem;line-height:1.7;opacity:.95">'
+      + count + ' รายการ · ' + total.toLocaleString('th-TH') + ' บาท<br>'
+      + copyStatus + '<br>'
+      + openStatus + '<br>'
+      + '<strong>➜ กด Ctrl+V → Enter ในแชต LINE</strong>'
+    + '</div>'
+    + '<div style="font-size:.65rem;opacity:.7;margin-top:8px;text-align:right">แตะเพื่อปิด</div>';
+
+  document.body.appendChild(t);
+
+  // Click to dismiss
+  t.onclick = function(){
+    t.style.animation = 'qsSlideOut .25s ease forwards';
+    setTimeout(function(){ t.remove(); }, 280);
+  };
+
+  // Auto-dismiss after 8 sec
+  setTimeout(function(){
+    if(document.getElementById('quick-send-toast')){
+      t.style.animation = 'qsSlideOut .3s ease forwards';
+      setTimeout(function(){ t.remove(); }, 350);
+    }
+  }, 8000);
+}
+
 function showFallbackModal(orderId, timestamp, text, shortText){
   // shortText: optional compact version for QR URL (fits LINE share URL ~1000 char limit)
   // text: full version for clipboard + modal display
@@ -1567,14 +1676,26 @@ async function sendOrder(){
       restoreBtn();
       const errMsg = (sendErr && sendErr.message) ? sendErr.message : String(sendErr);
       alert('❌ ส่งออเดอร์ผ่าน LIFF ไม่สำเร็จ\n\nError: '+errMsg+'\n\nจะใช้วิธี copy+paste แทน');
-      showFallbackModal(orderId, timestamp, fullText, shortText);
+      // PC → Quick Send (skip modal) · Mobile → Modal with QR
+      const isMobileUA_e = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if(!isMobileUA_e){
+        await quickSendPC(orderId, timestamp, customerName, fullText, total);
+      } else {
+        showFallbackModal(orderId, timestamp, fullText, shortText);
+      }
       return;
     }
   }
 
   // Fallback: เปิดผ่าน browser ปกติ / desktop
   restoreBtn();
-  showFallbackModal(orderId, timestamp, fullText, shortText);
+  // PC → Quick Send (skip modal) · Mobile → Modal with QR
+  const isMobileUA_f = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if(!isMobileUA_f){
+    await quickSendPC(orderId, timestamp, customerName, fullText, total);
+  } else {
+    showFallbackModal(orderId, timestamp, fullText, shortText);
+  }
 }
 // ============================================================
 // SMART HEADER AUTO-RESIZE
