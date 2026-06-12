@@ -1401,21 +1401,32 @@ function showFallbackModal(orderId, timestamp, text, shortText){
         +'<button id="fbCopyBtn" style="width:100%;padding:10px;background:#2080be;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.82rem;font-family:inherit">คัดลอกอีกครั้ง</button>'
         +'<button id="fbCloseBtn" style="width:100%;padding:10px;background:#eee;color:#555;border:none;border-radius:10px;cursor:pointer;font-size:.82rem;font-family:inherit">ปิด</button>'
         +'</div>'
-      : (qrFeasible
-          ? '<div style="display:flex;gap:14px;align-items:center;background:#f4f8fc;padding:14px;border-radius:10px;margin-bottom:10px">'
-            +'<img id="qrImgEl" src="'+qrUrl+'" alt="QR — คลิกเพื่อขยาย" title="คลิกเพื่อขยาย QR" style="width:140px;height:140px;border-radius:8px;background:#fff;cursor:zoom-in;border:2px solid #e6f1fb;transition:all .15s" onclick="openQrZoom(\''+qrBig+'\')" onerror="this.parentElement.innerHTML=\'<div style=padding:16px;text-align:center;color:#888;font-size:.85rem>QR สร้างไม่ได้ — ใช้ปุ่ม คัดลอก แทนค่ะ</div>\'">'
-            +'<div style="flex:1;font-size:.78rem;color:#0a1628;line-height:1.5"><strong style="color:#2080be">📲 สแกน QR ด้วยกล้อง LINE ในมือถือ</strong><br>1. LINE จะถามว่าส่งไปแชตไหน<br>2. <strong>เลือก เปรียว คอสเมติกส์</strong><br>3. ข้อความออเดอร์จะ pre-fill ให้แล้ว → กดส่งได้เลย</div>'
-            +'</div>'
-          : '<div style="background:#FEF3C7;border:1px solid #F59E0B;padding:14px;border-radius:10px;margin-bottom:10px;font-size:.82rem;color:#7C5E00;line-height:1.6"><strong>⚠ ออเดอร์ใหญ่เกินขนาด QR</strong><br>'+cart.length+' รายการ → URL ยาวเกินที่ QR จะรองรับได้<br>💡 <strong>กรุณาใช้ปุ่ม "คัดลอกอีกครั้ง"</strong> → paste ในแชท LINE OA</div>')
-        +'<div style="display:flex;gap:8px">'
-        +'<button id="fbCopyBtn" style="flex:1;padding:10px;background:#2080be;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.82rem;font-family:inherit">คัดลอกอีกครั้ง</button>'
-        +'<button id="fbLineBtn" style="flex:1;padding:10px;background:#06c755;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.82rem;font-family:inherit">เปิด LINE OA</button>'
-        +'<button id="fbCloseBtn" style="padding:10px 16px;background:#eee;color:#555;border:none;border-radius:10px;cursor:pointer;font-size:.82rem;font-family:inherit">ปิด</button>'
-        +'</div>')
+      : '<div style="background:linear-gradient(135deg,#e8f8ee,#d4f3df);border:2px solid #06c755;padding:18px;border-radius:12px;margin-bottom:14px">'
+          +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><span style="font-size:1.4rem">✓</span><strong style="color:#06c755;font-size:.95rem">ออเดอร์อยู่ใน clipboard แล้ว</strong></div>'
+          +'<div style="background:#fff;border-radius:10px;padding:12px;font-size:.85rem;color:#0a1628;line-height:1.8">'
+            +'<strong style="color:#2080be">วิธีส่งใน 3 ขั้นตอน:</strong><br>'
+            +'1. กดปุ่ม <strong>📤 เปิดแชต LINE OA</strong> ด้านล่าง<br>'
+            +'2. กด <strong>Ctrl+V</strong> ในช่องพิมพ์<br>'
+            +'3. กด <strong>Enter</strong> ส่งเลย'
+          +'</div>'
+        +'</div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        +'<button id="fbLineBtn" style="flex:2;padding:14px;background:#06c755;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-size:.95rem;font-family:inherit;min-width:200px">📤 เปิดแชต LINE OA</button>'
+        +'<button id="fbCopyBtn" style="flex:1;padding:14px;background:#2080be;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.85rem;font-family:inherit;min-width:130px">📋 คัดลอกอีกครั้ง</button>'
+        +'<button id="fbCloseBtn" style="padding:14px 18px;background:#eee;color:#555;border:none;border-radius:10px;cursor:pointer;font-size:.85rem;font-family:inherit">ปิด</button>'
+        +'</div>'
+        +(qrFeasible
+          ? '<details style="margin-top:14px"><summary style="cursor:pointer;font-size:.75rem;color:#888;padding:6px 0">📲 หรือใช้ Mobile ส่งแทน (QR) ▾</summary><div style="display:flex;gap:14px;align-items:center;background:#f4f8fc;padding:12px;border-radius:8px;margin-top:8px"><img id="qrImgEl" src="'+qrUrl+'" alt="QR" style="width:120px;height:120px;border-radius:6px;background:#fff;cursor:zoom-in;border:2px solid #e6f1fb" onclick="openQrZoom(\''+qrBig+'\')" onerror="this.style.display=\'none\'"><div style="flex:1;font-size:.75rem;color:#666;line-height:1.5">สแกนด้วยกล้อง LINE ในมือถือ<br>→ เลือกแชท → text pre-fill</div></div></details>'
+          : '<div style="margin-top:10px;font-size:.72rem;color:#999;text-align:center">ออเดอร์ใหญ่ — QR ใช้ไม่ได้ ใช้ Copy + Paste แทน</div>'))
     +'</div>';
   document.body.appendChild(mo);
 
-  document.getElementById('fbLineBtn').onclick = function(){ window.open(lineShareUrl, '_blank'); };
+  document.getElementById('fbLineBtn').onclick = function(){
+    // Mobile: ใช้ lineShareUrl (pre-fill ผ่าน share dialog)
+    // Desktop: ใช้ LINE_OA_URL ตรง (user paste เอง — เร็วกว่า)
+    const targetUrl = isMobile ? lineShareUrl : (typeof LINE_OA_URL !== 'undefined' ? LINE_OA_URL : lineShareUrl);
+    window.open(targetUrl, '_blank');
+  };
   document.getElementById('fbCopyBtn').onclick = function(){
     navigator.clipboard.writeText(text).then(function(){
       const b = document.getElementById('fbCopyBtn');
