@@ -1214,8 +1214,8 @@ function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
     return s;
   }, 0);
 
-  // Format 1 บรรทัด: "8851001 ×2 = 240  NIVEA Cream 🔥"
-  function fmtLine(c){
+  // Format 1 บรรทัด: "1. 8851001 ×2 = 240  NIVEA Cream 🔥"
+  function fmtLine(c, idx){
     const prod = allProducts.find(function(p){ return p.code === c.code; });
     const lineTotal = c.price * c.qty;
     let mark = '';
@@ -1224,7 +1224,7 @@ function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
       else if(prod.promoType === 'bundle') mark = ' 🎁';
       else if(prod.promoType === 'flash')  mark = ' ⚡';
     }
-    return c.code + ' ×' + c.qty + ' = ' + lineTotal.toLocaleString('th-TH') + '  ' + (c.name || '') + mark;
+    return idx + '. ' + c.code + ' ×' + c.qty + ' = ' + lineTotal.toLocaleString('th-TH') + '  ' + (c.name || '') + mark;
   }
 
   // สร้าง lines ทั้งหมด
@@ -1236,13 +1236,13 @@ function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
 
   if(regularItems.length > 0){
     lines.push('━ พร้อมส่ง (' + regularItems.length + ' รายการ) ━');
-    regularItems.forEach(function(c){ lines.push(fmtLine(c)); });
+    regularItems.forEach(function(c, i){ lines.push(fmtLine(c, i + 1)); });
     lines.push('');
   }
 
   if(preorderItems.length > 0){
     lines.push('━ 📦 รอสินค้า (' + preorderItems.length + ' รายการ) ━');
-    preorderItems.forEach(function(c){ lines.push(fmtLine(c)); });
+    preorderItems.forEach(function(c, i){ lines.push(fmtLine(c, regularItems.length + i + 1)); });
     lines.push('');
     lines.push('💌 น้องเซลล์จะรีบเช็คสต๊อกและแจ้งรอบส่งกลับให้นะคะ');
     lines.push('');
@@ -1389,8 +1389,42 @@ function showFallbackModal(orderId, timestamp, text){
   document.getElementById('fbCloseBtn').onclick = function(){ document.body.removeChild(mo); };
 }
 
+// Tiered size warnings (text mode, plain text auto-split)
+const ORDER_SOFT_WARN  = 1000;   // ⚠ Warning "แนะนำแยกบิล"
+const ORDER_HARD_CAP   = 2000;   // ❌ Block "ต้องแบ่งบิล"
+
 async function sendOrder(){
   if(!cart.length) return;
+
+  // ====== Tiered size guard ======
+  const itemCount = cart.length;
+  const totalQtyCheck = cart.reduce(function(s, c){ return s + (c.qty || 0); }, 0);
+
+  // 1. Hard cap — block entirely (≥ 2,000)
+  if(itemCount >= ORDER_HARD_CAP){
+    alert(
+      '❌ เกินขีดจำกัดต่อบิล\n\n' +
+      'ออเดอร์นี้มี ' + itemCount.toLocaleString('th-TH') + ' รายการ\n' +
+      'สูงสุดต่อบิล: ' + (ORDER_HARD_CAP - 1).toLocaleString('th-TH') + ' รายการ\n\n' +
+      'กรุณาแบ่งสินค้าเป็นบิลย่อยค่ะ'
+    );
+    return;
+  }
+
+  // 2. Soft warning — suggest split (1,000-1,999)
+  if(itemCount >= ORDER_SOFT_WARN){
+    const ok = confirm(
+      '⚠ ออเดอร์ใหญ่มาก!\n\n' +
+      itemCount.toLocaleString('th-TH') + ' รายการ · ' + totalQtyCheck.toLocaleString('th-TH') + ' ชิ้น\n\n' +
+      '💡 แนะนำแยกบิลเพื่อความสะดวก\n' +
+      '   (เซลล์จัดการง่ายกว่า)\n\n' +
+      'ต้องการส่งทั้งหมดทีเดียวเลยไหม?\n' +
+      '   ✓ ตกลง = ส่งทั้งหมด\n' +
+      '   ✗ ยกเลิก = กลับไปแก้ไข'
+    );
+    if(!ok) return;
+  }
+  // < 1,000 → ส่งเงียบๆ ตามปกติ
 
   // Find send button to show loading state
   const sendBtn = document.querySelector('.cart-send');
