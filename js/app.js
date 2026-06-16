@@ -451,6 +451,16 @@ function addCartN(code){
   const inp=document.getElementById('qin-'+code);
   const n=Math.max(1,Math.min(999,parseInt(inp?inp.value:1)||1));
   const p=allProducts.find(x=>x.code===code);if(!p)return;
+  const inCart = cart.findIndex(c=>c.code===code) >= 0;
+  const isOOS = p.tag === 'สินค้าหมดชั่วคราว' || p.stock <= 0;
+  if(isOOS && !inCart){
+    showPreorderConfirm(p, function(){ _doAddCartN(code, n); });
+    return;
+  }
+  _doAddCartN(code, n);
+}
+function _doAddCartN(code, n){
+  const p=allProducts.find(x=>x.code===code);if(!p)return;
   const idx=cart.findIndex(c=>c.code===code);
   if(idx>=0)cart[idx].qty+=n;
   else cart.push({code:p.code,name:p.name,price:p.stdPrice,packQty:p.packQty,baseUnit:p.baseUnit,qty:n});
@@ -459,6 +469,16 @@ function addCartN(code){
 function addCartQty(code){
   const inp=document.getElementById('qi-'+code);
   const qty=inp?Math.max(1,parseInt(inp.value)||1):1;
+  const p=allProducts.find(x=>x.code===code);if(!p)return;
+  const inCart = cart.findIndex(c=>c.code===code) >= 0;
+  const isOOS = p.tag === 'สินค้าหมดชั่วคราว' || p.stock <= 0;
+  if(isOOS && !inCart){
+    showPreorderConfirm(p, function(){ _doAddCartQty(code, qty); });
+    return;
+  }
+  _doAddCartQty(code, qty);
+}
+function _doAddCartQty(code, qty){
   const p=allProducts.find(x=>x.code===code);if(!p)return;
   const idx=cart.findIndex(c=>c.code===code);
   if(idx>=0)cart[idx].qty+=qty;
@@ -583,13 +603,15 @@ function updateCardBtn(code){
   }
 }
 function removeCart(code){
-  cart=cart.filter(c=>c.code!==code);renderCart();
-  const el=document.getElementById('cbtn-'+code);
-  if(el){el.className='add-btn';el.innerHTML='+ เพิ่มลงตะกร้า';el.onclick=function(){addCart(code);};}
+  cart=cart.filter(c=>c.code!==code);
+  renderCart();
+  updateCardBtn(code); // ใช้ helper ที่เช็ค stock จริง → ถูกต้องตาม state
 }
 function changeQty(code,delta){
   const idx=cart.findIndex(c=>c.code===code);if(idx<0)return;
-  cart[idx].qty=Math.max(1,cart[idx].qty+delta);renderCart();
+  cart[idx].qty=Math.max(1,cart[idx].qty+delta);
+  renderCart();
+  updateCardBtn(code); // sync ปุ่ม card บน catalog
 }
 function renderCart(){
   saveCart(); // persist cart ทุกครั้งที่มี render — ป้องกัน cart หายตอนสลับแอป
@@ -766,7 +788,10 @@ function closeCart(){document.getElementById('cartPanel').classList.remove('open
 // ============================================================
 // 1. ใส่ LIFF ID ของคุณตรงนี้ (ได้จาก LINE Developers Console)
 const LIFF_ID = '2010211018-V4JAFUOl'; // Priao VIP Catalog
-const LINE_OA_URL = 'https://lin.ee/mDhRNMT'; // LINE OA ของเปรียว
+const LINE_OA_URL = 'https://lin.ee/mDhRNMT'; // LINE OA ของเปรียว (Add Friend short URL)
+const LINE_OA_ID = 'evp5054h';                              // LINE OA Basic ID (จาก page.line.me/<id>)
+const LINE_OA_DEEPLINK = 'line://ti/p/%40' + LINE_OA_ID;    // PC App deep link (Windows/Mac)
+const ORDER_BACKUP_KEY = 'priao_last_order_backup';         // localStorage key สำหรับ order backup
 
 // ==== Timing constants (เก็บไว้ที่เดียว — แก้ง่าย) ====
 const LIFF_SEND_TIMEOUT_MS = 15000;   // timeout ของ liff.sendMessages
@@ -859,26 +884,7 @@ function safeImageUrl(url){
 }
 
 // เฉพาะ SKU (barcode ล้วน 1 บรรทัด/SKU ไม่มี # ไม่มีจำนวน)
-function buildSkuText(cartItems){
-  return cartItems.map(c => String(c.code || '')).join('\n');
-}
-
-// รายการ + Order ID (ไม่มีคำนวณยอด, SKU ไม่มี #)
-function buildListText(orderId, customerName, cartItems, nameMax){
-  const trim = (s) => {
-    s = String(s || '');
-    if(!nameMax || s.length <= nameMax) return s;
-    return s.substring(0, nameMax - 1) + '…';
-  };
-  const lines = ['Order ID:'+String(orderId || '')];
-  if(customerName) lines.push('ลูกค้า:'+String(customerName));
-  lines.push('');
-  cartItems.forEach(function(c, i){
-    lines.push((i+1)+'. '+trim(c.name));
-    lines.push('   '+String(c.code || '')+' × '+c.qty);
-  });
-  return lines.join('\n');
-}
+// (buildSkuText + buildListText removed — dead since Format C migration)
 
 
 // สร้าง Flex Message bubble — มี 2 ปุ่ม copy ใน footer
@@ -1401,7 +1407,7 @@ async function quickSendPC(orderId, timestamp, customerName, fullText, total){
   // 2. Auto-copy + store for retry (+ localStorage backup)
   window._lastOrderText = fullText;
   window._lastOrderInfo = { orderId: orderId, total: total, itemCount: itemCount, customerName: customerName, fullText: fullText, ts: Date.now() };
-  try{ localStorage.setItem('priao_last_order_backup', JSON.stringify(window._lastOrderInfo)); }catch(e){}
+  try{ localStorage.setItem(ORDER_BACKUP_KEY, JSON.stringify(window._lastOrderInfo)); }catch(e){}
   let copyOk = false;
   if(navigator.clipboard && navigator.clipboard.writeText){
     try{ await navigator.clipboard.writeText(fullText); copyOk = true; }
@@ -1424,7 +1430,7 @@ async function quickSendPC(orderId, timestamp, customerName, fullText, total){
   // 2.5. Auto-open LINE PC App chat → ลูกค้าแค่ Ctrl+V → Enter
   try{
     const lineA = document.createElement('a');
-    lineA.href = 'line://ti/p/%40evp5054h';
+    lineA.href = LINE_OA_DEEPLINK;
     lineA.target = '_blank';
     lineA.style.display = 'none';
     document.body.appendChild(lineA);
@@ -1477,7 +1483,7 @@ function showOrderHelp(){
   // Load from localStorage if memory cleared
   if(!window._lastOrderInfo){
     try{
-      const stored = localStorage.getItem('priao_last_order_backup');
+      const stored = localStorage.getItem(ORDER_BACKUP_KEY);
       if(stored){
         const data = JSON.parse(stored);
         // Expire after 24h
@@ -1547,7 +1553,7 @@ function closeOrderHelp(){
 function retryOpenLinePC(){
   try{
     const a = document.createElement('a');
-    a.href = 'line://ti/p/%40evp5054h';
+    a.href = LINE_OA_DEEPLINK;
     a.target = '_blank';
     a.style.display = 'none';
     document.body.appendChild(a);
@@ -1801,7 +1807,7 @@ function openLinePCWithLoading(){
   showLineLoading();
   // Trigger line:// protocol via anchor click
   const a = document.createElement('a');
-  a.href = 'line://ti/p/%40evp5054h';
+  a.href = LINE_OA_DEEPLINK;
   a.target = '_blank';
   a.style.display = 'none';
   document.body.appendChild(a);
