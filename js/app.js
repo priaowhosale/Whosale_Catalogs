@@ -90,7 +90,8 @@ function goTag(tag){
   const si=document.getElementById('catSearch');if(si)si.value='';
   applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');
-  if(b){if(navHistory.length>0)b.classList.add('show');else b.classList.remove('show');}
+  if(b){if(navHistory.length>0)b.classList.add('show');else b.classList.remove('show');  _updateHash();
+}
   const tagLabel=tag==='Hot'?'🔥 สินค้าขายดี':'✨ สินค้าใหม่';
   updateActiveCatBar('all',tagLabel,tag==='Hot'?'🔥':'✨');
 }
@@ -165,6 +166,10 @@ function init(){
   }
   document.getElementById('loading').classList.add('hidden');
   document.getElementById('home').style.display='';
+  // Restore state from URL hash (F5/direct link support)
+  _applyHashRoute();
+  // Listen for browser back/forward navigation
+  window.addEventListener('hashchange', _applyHashRoute);
 }
 
 function updateActiveCatBar(catId,label,icon){
@@ -178,11 +183,81 @@ function updateActiveCatBar(catId,label,icon){
     bar.classList.add('show');
   } else {bar.classList.remove('show');}
 }
+// === URL Hash Routing ===
+function _updateHash(){
+  const params = [];
+  if(curCat && curCat !== 'all') params.push('cat=' + encodeURIComponent(curCat));
+  if(curSub && curSub !== 'all') params.push('sub=' + encodeURIComponent(curSub));
+  if(curTag && curTag !== 'all') params.push('tag=' + encodeURIComponent(curTag));
+  if(curSearch) params.push('search=' + encodeURIComponent(curSearch));
+  if(curPage > 1) params.push('page=' + curPage);
+  const hashStr = params.join('&');
+  const newUrl = hashStr ? '#' + hashStr : (window.location.pathname + window.location.search);
+  try{ history.replaceState(null, '', newUrl); }catch(e){}
+}
+function _readHash(){
+  const hash = (window.location.hash || '').replace(/^#/, '');
+  if(!hash) return null;
+  const st = { cat:'all', sub:'all', tag:'all', search:'', page:1 };
+  hash.split('&').forEach(function(p){
+    const eq = p.indexOf('=');
+    if(eq < 0) return;
+    const k = p.substring(0, eq);
+    const v = decodeURIComponent(p.substring(eq + 1).replace(/\+/g, ' '));
+    if(k === 'cat') st.cat = v;
+    else if(k === 'sub') st.sub = v;
+    else if(k === 'tag') st.tag = v;
+    else if(k === 'search') st.search = v;
+    else if(k === 'page') st.page = parseInt(v) || 1;
+  });
+  // Empty state = home
+  if(st.cat === 'all' && st.tag === 'all' && !st.search) return null;
+  return st;
+}
+function _applyHashRoute(){
+  const st = _readHash();
+  if(!st){
+    // No hash → ensure home view
+    const homeEl = document.getElementById('home');
+    const catEl = document.getElementById('catalog');
+    if(homeEl && homeEl.style.display === 'none'){
+      navHistory = [];
+      const hb = document.getElementById('backBtnBar'); if(hb) hb.classList.remove('show');
+      updateActiveCatBar('all', '', '');
+      if(catEl) catEl.style.display = 'none';
+      homeEl.style.display = '';
+      window.scrollTo(0, 0);
+    }
+    return;
+  }
+  // Has hash → switch to catalog view + apply state
+  document.getElementById('home').style.display = 'none';
+  document.getElementById('catalog').style.display = '';
+  curCat = st.cat; curSub = st.sub; curTag = st.tag; curSearch = st.search; curPage = st.page;
+  const si = document.getElementById('catSearch'); if(si) si.value = st.search;
+  applyFilter();
+  if(typeof updateSidebarActive === 'function') updateSidebarActive();
+  if(typeof updateMobActive === 'function') updateMobActive();
+  const backBtnBar = document.getElementById('backBtnBar');
+  if(backBtnBar) backBtnBar.classList.add('show');
+  if(st.cat !== 'all'){
+    updateActiveCatBar(st.cat, CAT_NAMES[st.cat] || '', CAT_EMOJI[st.cat] || '');
+  } else if(st.tag !== 'all'){
+    const label = st.tag === 'Hot' ? '🔥 สินค้าขายดี' : (st.tag === 'New' ? '✨ สินค้าใหม่' : st.tag);
+    updateActiveCatBar('filter', label, '');
+  } else if(st.search){
+    updateActiveCatBar('search', 'ค้นหา: ' + st.search, '🔍');
+  }
+}
+window._updateHash = _updateHash;
+window._applyHashRoute = _applyHashRoute;
+
 function _pushHistory(){navHistory.push({cat:curCat,sub:curSub,tag:curTag,search:curSearch,page:curPage,scrollY:window.scrollY||window.pageYOffset||0});}
 function goBack(){
   if(!navHistory.length){goHome();return;}
   const p=navHistory.pop();
   curCat=p.cat;curSub=p.sub;curTag=p.tag;curSearch=p.search;curPage=p.page;
+  _updateHash();
   document.getElementById('home').style.display='none';
   document.getElementById('catalog').style.display='';
   const si=document.getElementById('catSearch');if(si)si.value=curSearch;
@@ -199,6 +274,7 @@ function goHome(){
   document.getElementById('catalog').style.display='none';
   document.getElementById('home').style.display='';
   window.scrollTo(0,0);
+  try{ history.replaceState(null,'',window.location.pathname+window.location.search); }catch(e){}
 }
 function goCat(catId){
   _pushHistory();
@@ -209,6 +285,7 @@ function goCat(catId){
   applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
   updateActiveCatBar(catId,CAT_NAMES[catId],CAT_EMOJI[catId]);
+  _updateHash();
 }
 function goB(brand){
   _pushHistory();
@@ -219,6 +296,7 @@ function goB(brand){
   applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
   updateActiveCatBar('brand',brand,'🏷️');
+  _updateHash();
 }
 function doSearch(){
   const q=(document.getElementById('homeSearch').value||'').trim();
@@ -230,6 +308,7 @@ function doSearch(){
   const si=document.getElementById('catSearch');if(si)si.value=q;
   applyFilter();updateActiveCatBar('search','ค้นหา: '+q,'🔍');
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
+  _updateHash();
 }
 function setMobTag(tag){
   curTag=tag;curCat='all';curSub='all';curPage=1;
@@ -245,6 +324,7 @@ function setMobTag(tag){
   document.querySelectorAll('.mob-tag-btn').forEach(b=>{
     if((tag==='Hot'&&b.textContent.includes('ขายดี'))||(tag==='New'&&b.textContent.includes('ใหม่')))b.classList.add('active');
   });
+  _updateHash();
 }
 
 
@@ -320,11 +400,11 @@ function buildMobCats(){
 }
 function updateSidebarActive(){document.querySelectorAll('#sidebar .sb-btn').forEach(b=>b.classList.remove('active'));}
 function updateMobActive(){document.querySelectorAll('#mobCats .mob-cat-btn').forEach(b=>b.classList.remove('active'));}
-function setTag(tag){curTag=tag;curPage=1;applyFilter();}
+function setTag(tag){curTag=tag;curPage=1;applyFilter();_updateHash();}
 function setSub(sub){
   curSub=sub;curPage=1;
   document.querySelectorAll('.sub-btn').forEach(b=>b.classList.toggle('active',b.dataset.val===sub));
-  applyFilter();
+  applyFilter();_updateHash();
 }
 function setView(v){
   viewMode=v;
@@ -368,7 +448,8 @@ function cardBtn(p){
   const item=cart.find(c=>c.code===p.code);
   const isOOS=p.tag==='สินค้าหมดชั่วคราว'||p.stock===0;
   if(item&&item.qty>0){
-    return '<div id="cbtn-'+p.code+'" class="qty-ctrl">'
+    const qtyCls = isOOS ? 'qty-ctrl preorder' : 'qty-ctrl'; // sync กับ updateCardBtn — แดงถ้า OOS
+    return '<div id="cbtn-'+p.code+'" class="'+qtyCls+'">'
       +'<button onclick="removeCardItem(\''+p.code+'\')">−</button>'
       +'<input id="qi-'+p.code+'" type="number" value="'+item.qty+'" min="1" max="999"'
       +' onchange="setCartQty(\''+p.code+'\',this.value)"  onclick="event.stopPropagation()">'
@@ -431,7 +512,7 @@ function renderPagination(){
   if(curPage<total)h+='<button class="pg-btn" onclick="goPage('+(curPage+1)+')">›</button>';
   pg.innerHTML=h;
 }
-function goPage(n){curPage=n;renderProducts();renderPagination();document.getElementById('mainContent').scrollTop=0;}
+function goPage(n){curPage=n;renderProducts();renderPagination();document.getElementById('mainContent').scrollTop=0;_updateHash();}
 
 function addCartN(code){
   const inp=document.getElementById('qin-'+code);
