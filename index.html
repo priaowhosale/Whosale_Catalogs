@@ -28,9 +28,15 @@
     <div onclick="goHome()" style="cursor:pointer;display:inline-block" title="กลับหน้าหลัก"><img class="logo" src="assets/logo.jpg" alt="เปรียว คอสเมติกส์ (กลับหน้าหลัก)"></div>
     <h1 onclick="goHome()" style="cursor:pointer" title="กลับหน้าหลัก">เปรียว คอสเมติกส์</h1>
     <p>VIP Member · Wholesale Catalog</p>
-    <div class="search-bar">
-      <input id="homeSearch" type="text" placeholder="ค้นหาสินค้า เช่น ลิปสติก, ครีมกันแดด..." autocomplete="off" onkeydown="if(event.key==='Enter'){doSearch(this.value);}">
-      <button onclick="doSearch()">ค้นหา</button>
+    <div class="search-bar-wrap" style="position:relative;max-width:440px;margin:0 auto">
+      <div class="search-bar">
+        <input id="homeSearch" type="text" placeholder="ค้นหาสินค้า เช่น ลิปสติก, ครีมกันแดด..." autocomplete="off"
+          oninput="showSearchSuggestions(this,'homeSearchDropdown')"
+          onfocus="showSearchSuggestions(this,'homeSearchDropdown')"
+          onkeydown="if(event.key==='Enter'){doSearch(this.value);}else if(event.key==='Escape'){closeSearchDropdowns();}">
+        <button onclick="doSearch()">ค้นหา</button>
+      </div>
+      <div class="search-dropdown" id="homeSearchDropdown"></div>
     </div>
   </div>
   <div class="quick-tabs">
@@ -137,9 +143,15 @@
       <img id="pcUserAvatar" src="" alt="" style="width:clamp(22px,5.5vw,28px);height:clamp(22px,5.5vw,28px);border-radius:50%;object-fit:cover;background:#fff;flex-shrink:0">
       <span id="pcUserName" style="font-size:clamp(.62rem,1.9vw,.78rem);font-weight:700;color:var(--acc2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0"></span>
     </div>
-    <div class="pc-search">
-      <span>🔍</span>
-      <input id="catSearch" type="search" placeholder="ค้นหาสินค้า..." autocomplete="off" oninput="curSearch=this.value.trim();curPage=1;applyFilter();_updateHash();" onkeydown="if(event.key==='Enter'){curSearch=this.value.trim();curPage=1;applyFilter();_updateHash();}">
+    <div class="pc-search-wrap" style="position:relative;flex:1;min-width:0;max-width:300px">
+      <div class="pc-search">
+        <span>🔍</span>
+        <input id="catSearch" type="search" placeholder="ค้นหาสินค้า..." autocomplete="off"
+          oninput="curSearch=this.value.trim();curPage=1;applyFilter();_updateHash();showSearchSuggestions(this,'catSearchDropdown')"
+          onfocus="showSearchSuggestions(this,'catSearchDropdown')"
+          onkeydown="if(event.key==='Enter'){curSearch=this.value.trim();curPage=1;applyFilter();_updateHash();closeSearchDropdowns();}else if(event.key==='Escape'){closeSearchDropdowns();}">
+      </div>
+      <div class="search-dropdown" id="catSearchDropdown"></div>
     </div>
     <button class="home-btn" onclick="goHome()"><span class="home-btn-icon">🏠</span><span class="home-btn-label"> หน้าหลัก</span></button>
     <button class="cart-btn" onclick="toggleCart()">🛒<span class="cart-cnt" id="cartCnt">0</span></button>

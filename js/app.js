@@ -90,10 +90,11 @@ function goTag(tag){
   const si=document.getElementById('catSearch');if(si)si.value='';
   applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');
-  if(b){if(navHistory.length>0)b.classList.add('show');else b.classList.remove('show');  _updateHash();
-}
+  if(backBtnBar){if(navHistory.length>0)backBtnBar.classList.add('show');else backBtnBar.classList.remove('show');}
   const tagLabel=tag==='Hot'?'🔥 สินค้าขายดี':'✨ สินค้าใหม่';
   updateActiveCatBar('all',tagLabel,tag==='Hot'?'🔥':'✨');
+  _scrollTop();
+  _updateHash();
 }
 
 function init(){
@@ -248,9 +249,19 @@ function _applyHashRoute(){
   } else if(st.search){
     updateActiveCatBar('search', 'ค้นหา: ' + st.search, '🔍');
   }
+  _scrollTop(); // F5 → start from top of new page
 }
 window._updateHash = _updateHash;
 window._applyHashRoute = _applyHashRoute;
+
+// === Scroll Helper (Linked Logic Group D — Navigation) ===
+// ทุก navigation function ที่เปลี่ยนหมวด/แท็ก/ค้นหา ต้องเรียก _scrollTop() ที่ท้าย
+// ยกเว้น: goBack (restore scrollY จาก history), goHome (มี window.scrollTo เอง)
+function _scrollTop(){
+  const mc = document.getElementById('mainContent');
+  if(mc) mc.scrollTop = 0;
+  try{ window.scrollTo(0, 0); }catch(e){}
+}
 
 function _pushHistory(){navHistory.push({cat:curCat,sub:curSub,tag:curTag,search:curSearch,page:curPage,scrollY:window.scrollY||window.pageYOffset||0});}
 function goBack(){
@@ -263,7 +274,7 @@ function goBack(){
   const si=document.getElementById('catSearch');if(si)si.value=curSearch;
   applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');
-  if(b){if(navHistory.length>0)b.classList.add('show');else b.classList.remove('show');}
+  if(backBtnBar){if(navHistory.length>0)backBtnBar.classList.add('show');else backBtnBar.classList.remove('show');}
   updateActiveCatBar(curCat,CAT_NAMES[curCat]||curSearch,CAT_EMOJI[curCat]||'🏷️');
   const _sy=p.scrollY||0;setTimeout(()=>window.scrollTo({top:_sy,behavior:'instant'}),80);
 }
@@ -285,6 +296,7 @@ function goCat(catId){
   applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
   updateActiveCatBar(catId,CAT_NAMES[catId],CAT_EMOJI[catId]);
+  _scrollTop();
   _updateHash();
 }
 function goB(brand){
@@ -296,6 +308,7 @@ function goB(brand){
   applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
   updateActiveCatBar('brand',brand,'🏷️');
+  _scrollTop();
   _updateHash();
 }
 function doSearch(){
@@ -324,6 +337,7 @@ function setMobTag(tag){
   document.querySelectorAll('.mob-tag-btn').forEach(b=>{
     if((tag==='Hot'&&b.textContent.includes('ขายดี'))||(tag==='New'&&b.textContent.includes('ใหม่')))b.classList.add('active');
   });
+  _scrollTop();
   _updateHash();
 }
 
@@ -400,11 +414,11 @@ function buildMobCats(){
 }
 function updateSidebarActive(){document.querySelectorAll('#sidebar .sb-btn').forEach(b=>b.classList.remove('active'));}
 function updateMobActive(){document.querySelectorAll('#mobCats .mob-cat-btn').forEach(b=>b.classList.remove('active'));}
-function setTag(tag){curTag=tag;curPage=1;applyFilter();_updateHash();}
+function setTag(tag){curTag=tag;curPage=1;applyFilter();_scrollTop();_updateHash();}
 function setSub(sub){
   curSub=sub;curPage=1;
   document.querySelectorAll('.sub-btn').forEach(b=>b.classList.toggle('active',b.dataset.val===sub));
-  applyFilter();_updateHash();
+  applyFilter();_scrollTop();_updateHash();
 }
 function setView(v){
   viewMode=v;
@@ -1494,6 +1508,156 @@ function showFallbackModal(orderId, timestamp, text, shortText){
   document.getElementById('fbCloseBtn').onclick = function(){ document.body.removeChild(mo); };
 }
 
+// === Search Autocomplete Dropdown ===
+function showSearchSuggestions(input, dropdownId){
+  const q = (input.value || '').trim();
+  const dropdown = document.getElementById(dropdownId);
+  if(!dropdown) return;
+  if(!q){ dropdown.classList.remove('show'); return; }
+  const qLower = q.toLowerCase();
+  const html = [];
+
+  // 1. Match categories (CAT_NAMES + CAT_EMOJI)
+  const matchedCats = [];
+  if(typeof CAT_NAMES !== 'undefined'){
+    for(const k in CAT_NAMES){
+      const name = CAT_NAMES[k] || '';
+      if(name.toLowerCase().includes(qLower)){
+        matchedCats.push({id:k, name:name, emoji:(typeof CAT_EMOJI!=='undefined'?CAT_EMOJI[k]:'')||'📂'});
+      }
+    }
+  }
+  if(matchedCats.length){
+    html.push('<div class="sug-section"><div class="sug-section-hdr">หมวดหมู่</div>');
+    matchedCats.slice(0,3).forEach(function(c){
+      html.push('<div class="sug-item" onmousedown="event.preventDefault()" onclick="selectSug(\'cat\',\''+c.id+'\')"><span class="sug-icon">'+c.emoji+'</span><span class="sug-text">'+esc(c.name)+'</span></div>');
+    });
+    html.push('</div>');
+  }
+
+  // 2. Match brands (distinct from allProducts)
+  const brandSet = new Set();
+  if(typeof allProducts !== 'undefined'){
+    for(let i=0;i<allProducts.length;i++){
+      const b = allProducts[i].brand;
+      if(b && b.toLowerCase().includes(qLower)) brandSet.add(b);
+      if(brandSet.size >= 8) break;
+    }
+  }
+  const brands = Array.from(brandSet).slice(0, 5);
+  if(brands.length){
+    html.push('<div class="sug-section"><div class="sug-section-hdr">แบรนด์</div>');
+    brands.forEach(function(b){
+      const safe = b.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      html.push('<div class="sug-item" onmousedown="event.preventDefault()" onclick="selectSug(\'brand\',\''+safe+'\')"><span class="sug-icon">🏷️</span><span class="sug-text">'+esc(b)+'</span></div>');
+    });
+    html.push('</div>');
+  }
+
+  // 3. Match subcategories
+  const subcatSet = new Set();
+  if(typeof subcatMap !== 'undefined'){
+    for(const cat in subcatMap){
+      const arr = subcatMap[cat] || [];
+      for(let i=0;i<arr.length;i++){
+        if(arr[i].toLowerCase().includes(qLower)) subcatSet.add(arr[i]);
+      }
+    }
+  }
+  const subcats = Array.from(subcatSet).slice(0, 5);
+  if(subcats.length){
+    html.push('<div class="sug-section"><div class="sug-section-hdr">หมวดย่อย</div>');
+    subcats.forEach(function(s){
+      const safe = s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      html.push('<div class="sug-item" onmousedown="event.preventDefault()" onclick="selectSug(\'subcat\',\''+safe+'\')"><span class="sug-icon">📁</span><span class="sug-text">'+esc(s)+'</span></div>');
+    });
+    html.push('</div>');
+  }
+
+  // 4. Match products (top 5 by name)
+  const matchedProducts = [];
+  if(typeof allProducts !== 'undefined'){
+    for(let i=0;i<allProducts.length && matchedProducts.length<5;i++){
+      const p = allProducts[i];
+      if((p.name||'').toLowerCase().includes(qLower) || (p.code||'').includes(q)){
+        matchedProducts.push(p);
+      }
+    }
+  }
+  if(matchedProducts.length){
+    html.push('<div class="sug-section"><div class="sug-section-hdr">สินค้า</div>');
+    matchedProducts.forEach(function(p){
+      const shortName = p.name.length > 38 ? p.name.substring(0,38)+'…' : p.name;
+      html.push('<div class="sug-item" onmousedown="event.preventDefault()" onclick="selectSug(\'product\',\''+p.code+'\')"><span class="sug-icon">📦</span><span class="sug-text">'+esc(shortName)+'</span><span class="sug-meta">'+p.stdPrice+' ฿</span></div>');
+    });
+    html.push('</div>');
+  }
+
+  // 5. Empty state
+  if(!html.length){
+    html.push('<div class="sug-empty">');
+    html.push('ไม่พบคำที่ตรงกับ <strong>"'+esc(q)+'"</strong>');
+    html.push('<small>ลองค้นหาด้วยคำสั้นกว่า หรือใช้คำพ้องอื่น</small>');
+    html.push('<div class="sug-hint">💡 ลองเปิดเมนู ☰ เพื่อดูหมวดหมู่ทั้งหมด</div>');
+    html.push('</div>');
+  }
+
+  dropdown.innerHTML = html.join('');
+  dropdown.classList.add('show');
+}
+
+function selectSug(type, value){
+  closeSearchDropdowns();
+  if(type === 'cat'){
+    goCat(value);
+  } else if(type === 'brand'){
+    goB(value);
+  } else if(type === 'subcat'){
+    // Find which category this subcat belongs to
+    let foundCat = null;
+    if(typeof subcatMap !== 'undefined'){
+      for(const cat in subcatMap){
+        if((subcatMap[cat]||[]).indexOf(value) >= 0){ foundCat = cat; break; }
+      }
+    }
+    if(foundCat){
+      goCat(foundCat);
+      setTimeout(function(){ if(typeof setSub === 'function') setSub(value); }, 80);
+    }
+  } else if(type === 'product'){
+    // Navigate to catalog filtered by product code
+    const p = (typeof allProducts !== 'undefined') ? allProducts.find(function(x){return x.code===value;}) : null;
+    if(!p) return;
+    if(typeof _pushHistory === 'function') _pushHistory();
+    document.getElementById('home').style.display='none';
+    document.getElementById('catalog').style.display='';
+    curCat='all'; curSub='all'; curTag='all'; curSearch=value; curPage=1;
+    const si = document.getElementById('catSearch'); if(si) si.value = value;
+    applyFilter();
+    if(typeof _updateHash === 'function') _updateHash();
+    const backBtnBar = document.getElementById('backBtnBar');
+    if(backBtnBar) backBtnBar.classList.add('show');
+    if(typeof updateActiveCatBar === 'function') updateActiveCatBar('search', 'ค้นหา: '+value, '🔍');
+    _scrollTop();
+  }
+}
+
+function closeSearchDropdowns(){
+  const dds = document.querySelectorAll('.search-dropdown');
+  for(let i=0;i<dds.length;i++) dds[i].classList.remove('show');
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.search-bar-wrap') && !e.target.closest('.pc-search-wrap')){
+    closeSearchDropdowns();
+  }
+});
+
+window.showSearchSuggestions = showSearchSuggestions;
+window.selectSug = selectSug;
+window.closeSearchDropdowns = closeSearchDropdowns;
+
 // === Mobile Side Drawer (Hamburger Menu) ===
 function openMobDrawer(){
   buildMobDrawer();
@@ -1548,7 +1712,10 @@ function closeLineModal(){
 }
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape'){
-    // Close mobile drawer first if open
+    // Close search dropdowns first
+    const openDropdown = document.querySelector('.search-dropdown.show');
+    if(openDropdown){ closeSearchDropdowns(); return; }
+    // Then mobile drawer
     const drawer = document.getElementById('mobDrawer');
     if(drawer && drawer.classList.contains('show')){ closeMobDrawer(); return; }
     const ids = ['lineModalOverlay','lineLoadingOverlay','lineNoAppOverlay','orderHelpOverlay','orderTextOverlay'];
