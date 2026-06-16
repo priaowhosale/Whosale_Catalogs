@@ -95,6 +95,11 @@ body{font-family:"Noto Sans Thai",sans-serif;background:#f4f8fc;color:#0a1628}
 .qty-ctrl button{flex:0 0 34px;height:100%;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;border:none;font-size:1.1rem;font-weight:700;cursor:pointer;transition:opacity .15s}.qty-ctrl button:active{opacity:.75}
 .qty-ctrl button:hover{background:var(--acc2)}
 .qty-ctrl span{flex:1;text-align:center;font-size:.82rem;font-weight:800;color:var(--acc)}
+.qty-ctrl.preorder{border-color:#dc2626;box-shadow:0 1px 4px rgba(220,38,38,.18)}
+.qty-ctrl.preorder button{background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff}
+.qty-ctrl.preorder button:hover{background:#b91c1c}
+.qty-ctrl.preorder input{color:#dc2626}
+.qty-ctrl.preorder span{color:#dc2626}
 
 .p-list-card{background:var(--surf);border:1.5px solid var(--border);border-radius:var(--radius);display:flex;gap:10px;padding:8px;align-items:center;box-shadow:0 1px 4px rgba(32,128,190,.07)}
 .p-list-img{width:60px;height:60px;flex-shrink:0;border-radius:6px;background:#f5f9ff;display:flex;align-items:center;justify-content:center;overflow:hidden}
