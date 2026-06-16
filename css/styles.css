@@ -179,3 +179,25 @@ body{font-family:"Noto Sans Thai",sans-serif;background:#f4f8fc;color:#0a1628}
 .brand-logo-fallback{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;color:#fff;font-size:.55rem;font-weight:800;vertical-align:middle;letter-spacing:-.5px}
 .mob-tag-btn{border-color:var(--acc);color:var(--acc);font-weight:600}
 .mob-tag-btn.active{background:var(--acc);color:#fff}
+
+/* === Mobile Side Drawer (Hamburger Menu) === */
+.mob-hamburger{display:none;background:#f4f8fc;border:1.5px solid var(--border);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:1.1rem;color:var(--acc);flex-shrink:0;font-family:inherit;font-weight:700;line-height:1;align-items:center;justify-content:center;height:32px;transition:all .15s}
+.mob-hamburger:hover{background:#e6f1fb;border-color:var(--acc)}
+.mob-hamburger:active{transform:scale(.95)}
+@media(max-width:600px){.mob-hamburger{display:flex}}
+.mob-drawer-overlay{display:none;position:fixed;inset:0;background:rgba(10,22,40,.5);z-index:299;animation:drawerFadeIn .25s ease}
+.mob-drawer-overlay.show{display:block}
+@keyframes drawerFadeIn{from{opacity:0}to{opacity:1}}
+.mob-drawer{position:fixed;top:0;left:-340px;width:300px;max-width:80vw;height:100vh;background:#fff;z-index:300;box-shadow:4px 0 24px rgba(0,0,0,.18);transition:left .28s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;overflow:hidden}
+.mob-drawer.show{left:0}
+.mob-drawer-hdr{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;flex-shrink:0}
+.mob-drawer-title{font-weight:800;font-size:1.02rem}
+.mob-drawer-close{background:rgba(255,255,255,.22);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:.82rem;font-weight:700;font-family:inherit;transition:background .15s}
+.mob-drawer-close:hover{background:rgba(255,255,255,.36)}
+.mob-drawer-body{padding:8px 0;flex:1;overflow-y:auto}
+.mob-drawer-hdr-section{font-size:.7rem;font-weight:800;color:var(--txt3);padding:10px 16px 4px;text-transform:uppercase;letter-spacing:.5px}
+.mob-drawer-btn{display:block;width:100%;text-align:left;padding:11px 16px;font-size:.88rem;border:none;background:none;cursor:pointer;color:var(--txt2);font-family:inherit;transition:all .12s}
+.mob-drawer-btn:hover{background:#f0f7ff;color:var(--acc)}
+.mob-drawer-btn.active{background:var(--acc);color:#fff;font-weight:700}
+.mob-drawer-btn .cnt{opacity:.75;font-size:.78rem;margin-left:4px}
+.mob-drawer-divider{height:1px;background:var(--border);margin:8px 14px}

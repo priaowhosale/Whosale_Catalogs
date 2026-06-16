@@ -1494,6 +1494,49 @@ function showFallbackModal(orderId, timestamp, text, shortText){
   document.getElementById('fbCloseBtn').onclick = function(){ document.body.removeChild(mo); };
 }
 
+// === Mobile Side Drawer (Hamburger Menu) ===
+function openMobDrawer(){
+  buildMobDrawer();
+  document.getElementById('mobDrawerOverlay').classList.add('show');
+  document.getElementById('mobDrawer').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeMobDrawer(){
+  document.getElementById('mobDrawerOverlay').classList.remove('show');
+  document.getElementById('mobDrawer').classList.remove('show');
+  document.body.style.overflow = '';
+}
+function buildMobDrawer(){
+  const body = document.getElementById('mobDrawerBody');
+  if(!body || typeof RAW_DATA === 'undefined') return;
+  const isHome = document.getElementById('home') && document.getElementById('home').style.display !== 'none';
+  let h = '';
+  // Filters section
+  h += '<div class="mob-drawer-hdr-section">กรอง</div>';
+  h += '<button class="mob-drawer-btn '+(isHome?'active':'')+'" onclick="goHomeFromDrawer()">🏠 หน้าหลัก</button>';
+  h += '<button class="mob-drawer-btn '+(curTag==='Hot'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'Hot\')">🔥 สินค้าขายดี</button>';
+  h += '<button class="mob-drawer-btn '+(curTag==='New'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'New\')">✨ สินค้าใหม่</button>';
+  h += '<div class="mob-drawer-divider"></div>';
+  // Categories section
+  h += '<div class="mob-drawer-hdr-section">หมวดหมู่</div>';
+  h += '<button class="mob-drawer-btn '+(!isHome && curCat==='all' && curTag==='all' && !curSearch ?'active':'')+'" onclick="closeMobDrawer();goCat(\'all\')">🗂 ดูทั้งหมด</button>';
+  for(const k of Object.keys(RAW_DATA)){
+    const active = (!isHome && curCat===k) ? 'active' : '';
+    const emoji = (typeof CAT_EMOJI !== 'undefined' && CAT_EMOJI[k]) ? CAT_EMOJI[k] : '';
+    const name = (typeof CAT_NAMES !== 'undefined' && CAT_NAMES[k]) ? CAT_NAMES[k] : k;
+    const count = (RAW_DATA[k] && RAW_DATA[k].length) ? RAW_DATA[k].length : 0;
+    h += '<button class="mob-drawer-btn '+active+'" onclick="closeMobDrawer();goCat(\''+k+'\')">'+emoji+' '+name+' <span class="cnt">('+count.toLocaleString()+')</span></button>';
+  }
+  body.innerHTML = h;
+}
+function goHomeFromDrawer(){
+  closeMobDrawer();
+  goHome();
+}
+window.openMobDrawer = openMobDrawer;
+window.closeMobDrawer = closeMobDrawer;
+window.goHomeFromDrawer = goHomeFromDrawer;
+
 // === LINE Modal Helpers ===
 function openLineModal(){
   const m = document.getElementById('lineModalOverlay');
@@ -1505,6 +1548,9 @@ function closeLineModal(){
 }
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape'){
+    // Close mobile drawer first if open
+    const drawer = document.getElementById('mobDrawer');
+    if(drawer && drawer.classList.contains('show')){ closeMobDrawer(); return; }
     const ids = ['lineModalOverlay','lineLoadingOverlay','lineNoAppOverlay','orderHelpOverlay','orderTextOverlay'];
     for(let i=0;i<ids.length;i++){
       const el = document.getElementById(ids[i]);

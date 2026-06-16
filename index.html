@@ -130,6 +130,7 @@
 </div>
 <div id="catalog" style="display:none">
   <div class="pc-hdr">
+    <button class="mob-hamburger" onclick="openMobDrawer()" aria-label="เมนูหมวดหมู่" title="หมวดหมู่">☰</button>
     <div onclick="goHome()" style="cursor:pointer;flex-shrink:0;display:flex;align-items:center;transition:opacity .15s" onmouseover="this.style.opacity=0.75" onmouseout="this.style.opacity=1" title="กลับหน้าหลัก"><img src="assets/logo.jpg" alt="Logo (กลับหน้าหลัก)" style="pointer-events:none"></div>
     <span class="pc-hdr-title">VIP Catalog</span>
     <div class="pc-user-badge" id="pcUserBadge" style="display:none;align-items:center;gap:clamp(4px,1.2vw,8px);background:#e6f1fb;border:1.5px solid var(--border);border-radius:50px;padding:3px clamp(6px,2vw,12px) 3px 3px;flex-shrink:0;max-width:30%">
@@ -318,5 +319,14 @@
     </div>
   </div>
 </div>
+<!-- Mobile Side Drawer (Hamburger Menu) -->
+<div class="mob-drawer-overlay" id="mobDrawerOverlay" onclick="closeMobDrawer()"></div>
+<aside class="mob-drawer" id="mobDrawer">
+  <div class="mob-drawer-hdr">
+    <span class="mob-drawer-title">🗂 หมวดหมู่</span>
+    <button class="mob-drawer-close" onclick="closeMobDrawer()" aria-label="ปิด">✕</button>
+  </div>
+  <div class="mob-drawer-body" id="mobDrawerBody"></div>
+</aside>
 </body>
 </html>
