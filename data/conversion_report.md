@@ -1,0 +1,421 @@
+# Conversion Report
+
+**Date:** 2026-06-16 09:17
+**Total:** 3,924 รายการ
+**Auto-fix stock=0:** 0
+**Text URL fallback:** 0
+**Warnings:** 0
+
+## By category
+- **เครื่องสำอาง** (C01): 1,095
+- **ผลิตภัณฑ์ดูแลผิวหน้า** (C02): 863
+- **ผลิตภัณฑ์ดูแลผิวกาย** (C03): 384
+- **ผลิตภัณฑ์ดูแลเส้นผม** (C04): 669
+- **น้ำหอม** (C05): 249
+- **อุปกรณ์เพื่อความงาม** (C06): 266
+- **อาหารเสริม** (C07): 74
+- **คอนซูเมอร์** (C08): 160
+- **แฟชั่น&ไลฟ์สไตล์** (C09): 164
+
+## Brands found (401)
+- 2PORIGINAL ทูพีออริจินัล → 2PORIGINAL
+- 2SOME1 ทูซัมวัน → 2SOME1
+- ABENA เอบีน่า → ABENA
+- ABONNE เอบอนเน่ → ABONNE
+- ACCA BY DR.DSP แอคก้า บาย ดร.ดีเอสพี → ACCA
+- ACNEAID แอคเน่เอด → ACNEAID
+- AIME เอเม่ → AIME
+- ALESE อะลิเซ่ → ALESE
+- ALMA อัลม่า → ALMA
+- AMBULANCE รถพยาบาล → AMBULANCE
+- ANESSA อเนสซ่า → ANESSA
+- ANGEL แองเจิ้ล → ANGEL
+- ARISS อริส → ARISS
+- ARON อาร์รอน → ARON
+- ARRA TOPFACE อาร่า ท็อปเฟซ → ARRA
+- ARUN RUNG 	อรุณรุ่ง → ARUN
+- ASAKA อาซากะ → ASAKA
+- ASEPSO อาเซปโซ → ASEPSO
+- ASHLEY แอชลี่ย์ → ASHLEY
+- AURARICH ออร่าริช → AURARICH
+- BABALAH บาบาร่า → BABALAH
+- BABYBRIGHT เบบี้ไบร์ท → BABYBRIGHT
+- BALLOONBRA บอลลูนบรา → BALLOONBRA
+- BANANABOAT บานาน่าโบ๊ท → BANANABOAT
+- BANKEAWSAIHERB บ้านแก้วใสเฮิร์บ → BANKEAWSAIHERB
+- BARENBLISS แบร์แอนด์บลิส → BARENBLISS
+- BAUSCH&LOMB บอช แอนด์ ลอมบ์ → BAUSCHLOMB
+- BEAUTILAB บิวตี้แลป → BEAUTILAB
+- BEAUTILOX บิวตี้ล็อกซ์ → BEAUTILOX
+- BEAUTYNATURE บิวตี้เนเจอร์ → BEAUTYNATURE
+- BEAUTYTHREE บิวตี้ทรี → BEAUTYTHREE
+- BELIKE บีไลค์ → BELIKE
+- BELL LERINE เบลล์เลอรีน → BELL
+- BENNETT เบนเนท → BENNETT
+- BEQUALA บีควอล่า → BEQUALA
+- BERINA เบอริน่า → BERINA
+- BHAESAJ เภสัช → BHAESAJ
+- BHAESAJCHAKORN เภสัชกร → BHAESAJCHAKORN
+- BIFESTA บีเฟสต้า → BIFESTA
+- BIGEN บีเง็น → BIGEN
+- BIO ไบโอ → BIO
+- BIORE บิโอเร → BIORE
+- BIOSAFETY ไบโอเซฟตี้ → BIOSAFETY
+- BIOVECH ไบโอเวช → BIOVECH
+- BIOWOMAN ไบโอวูเมนส์ → BIOWOMAN
+- BIRTHDAY เบิร์ธเดย์ → BIRTHDAY
+- BKACNE บีเคแอคเน่ → BKACNE
+- BOHKTOH บอกต่อ → BOHKTOH
+- BONWON บอนวอน → BONWON
+- BOOTCHY บูชชี่ → BOOTCHY
+- BOTAP โบต้าพี → BOTAP
+- BOYA โบย่า → BOYA
+- BQCOVER บีคิวโคฟเวอร์ → BQCOVER
+- BROWIT บราวอิท → BROWIT
+- BS บีเอส → BS
+- BSC บีเอสซี → BSC
+- BUALUANG บัวหลวง → BUALUANG
+- BUATHONG บัวทอง → BUATHONG
+- BUTAE บูเต้ → BUTAE
+- BYPHOCA บายโภคา → BYPHOCA
+- CANDC ซีแอนด์ซี → CANDC
+- CAREBEAU แคร์บิว → CAREBEAU
+- CAREFREE  แคร์ฟรี → CAREFREE
+- CARING แคริ่ง → CARING
+- CARISTA คาริสต้า → CARISTA
+- CATHYDOLL เคที่ดอลล์ → CATHYDOLL
+- CELINA เซลีน่า → CELINA
+- CERAVE เซราวี → CERAVE
+- CETAPHIL เซตาฟิล → CETAPHIL
+- CHAONANG เจ้านาง → CHAONANG
+- CHARMISS ชาร์มิส → CHARMISS
+- CHERILON เชอรีล่อน → CHERILON
+- CHY ซีเอชวาย → CHY
+- CITRA ซิตร้า → CITRA
+- CIVIC ซีวิค → CIVIC
+- CKL ซีเคแอล → CKL
+- CLEANANDCLEAR คลีนแอนด์เคลียร์ → CLEANANDCLEAR
+- CLEAR FACE เคลียร์เฟส → CLEAR
+- CLEAR เคลียร์ → CLEAR
+- CLEARNOSE เคลียร์โนส → CLEARNOSE
+- CLINIX คลินิกซ์ → CLINIX
+- COLGATE คอลเกต → COLGATE
+- COLOURED SOFT คัลเลอร์ ซอฟต์ → COLOURED
+- COMFORT DROPS คอมฟอร์ท ดรอป → COMFORT
+- COSLUXE คอสลุคส์ → COSLUXE
+- COSMIC คอสมิค → COSMIC
+- CRUSET ครูเซ็ท → CRUSET
+- CURESYS เคียวร์ซิส → CURESYS
+- CUTEPRESS คิวท์เพรส → CUTEPRESS
+- D.DENT ดี.เด้นท์ → DDENT
+- DARLING ดาร์ลิ่ง → DARLING
+- DAYSTAY เดย์สเตย์ → DAYSTAY
+- DAZZLE ME แดซเซิลมี → DAZZLE
+- DCASH ดีแคช → DCASH
+- DEESAY ดีเซย์ → DEESAY
+- DELEAF เดอลีฟ → DELEAF
+- DENTISTE เดนทิสเต้ → DENTISTE
+- DEPROUD ดีพราวด์ → DEPROUD
+- DERLISE เดอลิเซ่ → DERLISE
+- DERMEDY เดอร์มีดี → DERMEDY
+- DERRA เดอร์ร่า → DERRA
+- DIFFI ดิฟฟี่ → DIFFI
+- DIPSO ดิ๊พโซ่ → DIPSO
+- DOKDAE ดอกเด่ → DOKDAE
+- DOUBLE T ดับเบิ้ล ที → DOUBLE
+- DR. PONG ดอกเตอร์พงศ์ → DR
+- DR.NIKS ดร.นิกส์ → DRNIKS
+- DR.RAY ด็อกเตอร์ เรย์ → DRRAY
+- DREAM ALL DROPS ดรีม ออล ดรอพส์ → DREAM
+- DREAM ALL IN ONE ดรีม ออลอินวัน → DREAM
+- DREAMEYE ดรีมอาย → DREAMEYE
+- DRMONTRI ดรมนตรี → DRMONTRI
+- DRPHLLIPS ดรฟิลลิปส์ → DRPHLLIPS
+- EASTSKIN อีสสกิน → EASTSKIN
+- ELIS เอลิส → ELIS
+- ELIZAHELENA เอลิซ่าเฮลเล็นน่า → ELIZAHELENA
+- ELRACLE เอลราเคิล → ELRACLE
+- EVENNY อีเวนนี่ย์ → EVENNY
+- EVIAN เอเวียง → EVIAN
+- EYELASH อายแลช → EYELASH
+- FAIRYPAI แฟรี่ปาย → FAIRYPAI
+- FARGER ฟาร์เกอร์ → FARGER
+- FEATHER ขนนก → FEATHER
+- FIONA ฟิโอน่า → FIONA
+- FIRST เฟิร์ส → FIRST
+- FREEANDFREE ฟรีแอนด์ฟรี → FREEANDFREE
+- FRIENDLY เฟรนลี่ → FRIENDLY
+- GARNIER การ์นิเย่ → GARNIER
+- GASTBY แกสบี้ → GASTBY
+- GENIVE จีนีวี่ → GENIVE
+- GET&GLOW เก็ตแอนด์โกลว์ → GETGLOW
+- GIFFARINE กิฟฟารีน → GIFFARINE
+- GINAGLAM จีน่าแกลม → GINAGLAM
+- GLAD2GLOW แกลดทูโกลว์ → GLAD2GLOW
+- GLOSSY กลอสซี่ → GLOSSY
+- GM จีเอ็ม → GM
+- GOHAIR โกแฮร์ → GOHAIR
+- GRACE เกรซ → GRACE
+- GRAVICH กราวิช → GRAVICH
+- GREENBIO กรีนไบโอ → GREENBIO
+- HADABIREI ฮาดะบิเรอิ → HADABIREI
+- HADALABO ฮาดะลาโบะ → HADALABO
+- HAEWON แฮวอน → HAEWON
+- HAIR IT แฮร์ อิท → HAIR
+- HAKU ฮากุ → HAKU
+- HANDY HERB แฮนดี้เฮิร์บ → HANDY
+- HAPPY แฮปปี้ → HAPPY
+- HELLO KITTY เฮลโล คิตตี้ → HELLO
+- HERBAL ESSENCES เฮอร์บัล เอสเซ้นส์ → HERBAL
+- HERBAL เฮอร์เบิล → HERBAL
+- HERMANN EXTRA เฮอร์แมน เอ็กซ์ตร้า → HERMANN
+- HERRMANN เฮอร์มันน์ → HERRMANN
+- HIRUSCAR ฮีรูสการ์ → HIRUSCAR
+- HISO ไฮโซ → HISO
+- HONGTHAI หงส์ไทย → HONGTHAI
+- IDO ไอดู → IDO
+- IDOL ไอดอล → IDOL
+- ILENS ไอเลนส์ → ILENS
+- INGON อิงอร → INGON
+- INNBEAUTY อินน์บิวตี้ → INNBEAUTY
+- JABS แจ๊บส์ → JABS
+- JAJA จ๊ะจ๋า → JAJA
+- JAMSAI แจ่มใส → JAMSAI
+- JANUA แจนยัวร์ → JANUA
+- JENA จีน่า → JENA
+- JFORTH เจโฟร์ท → JFORTH
+- JINNAI จินนาย → JINNAI
+- JK X LAB เจเค เอ็กซ์ แลป → JK
+- JMF เจเอ็มเอฟ → JMF
+- JOHNSONS จอห์นสัน → JOHNSONS
+- JOJI โจจิ → JOJI
+- JULASHERB จุฬาเฮิร์บ → JULASHERB
+- JULI จูลี่ → JULI
+- JUNE จูเน่ → JUNE
+- KA เคเอ → KA
+- KARIOOO คาริโอ้ → KARIOOO
+- KARISMA แคริสม่า → KARISMA
+- KAZUMI คาซูมิ → KAZUMI
+- KISS MY BODY คิส มาย บอดี้ → KISS
+- KITTYKAWAII คิตตี้คาวาอิ → KITTYKAWAII
+- KOTA COSMETICS โคทา คอสเมติก → KOTA
+- KUAN IM กวนอิม → KUAN
+- KUMIKO คูมิโกะ → KUMIKO
+- Kissy คิสซี่ → KISSY
+- LA GLACE ลา กลาส → LA
+- LA ROCHE-POSAY ลา โรช-โพเซย์ → LA
+- LACTACYD แลคตาซิด → LACTACYD
+- LAESALUAY แลสลวย → LAESALUAY
+- LALIO ลาลิโอ → LALIO
+- LAURIER ลอรีเอะ → LAURIER
+- LAVIDA ลาวีด้า → LAVIDA
+- LAVOJOY ลาโวจอย → LAVOJOY
+- LEEMARKBEAUTY ลิมาร์คบิวตี้ → LEEMARKBEAUTY
+- LEGANO ลีกาโน่ → LEGANO
+- LEMON ME เลม่อน มี → LEMON
+- LEOPARD เสือดาว → LEOPARD
+- LESKIN เลอสกิน → LESKIN
+- LIBRARY ไลบรารี่ → LIBRARY
+- LIFEFORD ไลฟ์ฟอร์ด → LIFEFORD
+- LIGHT YOU ไลท์ ยู → LIGHT
+- LIP IT ลิป อิท → LIP
+- LIS ลิส → LIS
+- LISTERRINE ลิสเตอรีน → LISTERRINE
+- LOLANE โลแลน → LOLANE
+- LOLENTIS ลอเลนติส → LOLENTIS
+- LOREAL ลอรีอัล → LOREAL
+- LOVE POTION เลิฟ โพชั่น → LOVE
+- LOVELY เลิฟลี่ → LOVELY
+- LOVILLEA ลาวีเลีย → LOVILLEA
+- LUKPAD ลูกปัด → LUKPAD
+- LUX ลักส์ → LUX
+- LUXZY ลักซ์ซี่ → LUXZY
+- LYO ไลโอ → LYO
+- MACHERE มาเชอรี่ → MACHERE
+- MADAMEFIN มาดามฟิน → MADAMEFIN
+- MADAMEORGANIC มาดามออร์แกนิก → MADAMEORGANIC
+- MAELIAB แม่เลียบ → MAELIAB
+- MAESANGDEE แม่แสงดี → MAESANGDEE
+- MAJOR เมเจอร์ → MAJOR
+- MAKE UP HOUSE เมคอัพเฮ้าส์ → MAKE
+- MANSHONG แมนชอง → MANSHONG
+- MAYA มาญ่า → MAYA
+- MAYBELLINE เมย์เบลลีน → MAYBELLINE
+- MAZA มาซ่า → MAZA
+- MEELYUEH เมเย่อร์ → MEELYUEH
+- MEIJI เมจิ → MEIJI
+- MEILIN เมลิน → MEILIN
+- MEILINDA เมลินดา → MEILINDA
+- MENTHOLATUM เมนโทลาทั่ม → MENTHOLATUM
+- MERREZCA เมอร์เรซกา → MERREZCA
+- MIHADA มิฮาดะ → MIHADA
+- MILLE มิลเล่ → MILLE
+- MISECR มิสเซอร์ → MISECR
+- MISSANDKISS มิสแอนด์คิส → MISSANDKISS
+- MISTINE มิสทิน → MISTINE
+- MIZUMI มิซึมิ → MIZUMI
+- MLEN DIARY เอ็ม เลน ไดอารี่ → MLEN
+- MOLLY มอลลี่ → MOLLY
+- MOMIJI โมมิจิ → MOMIJI
+- MONTRA มนตรา → MONTRA
+- MOODS มูดส์ → MOODS
+- MOONAHOUSE มุนอาเฮ้าส์ → MOONAHOUSE
+- MUTELU มูเตลู → MUTELU
+- MY CHOICE มายช้อยส์ → MY
+- MYDA SOAP ไมด้า → MYDA
+- MYUMYU มิวมิว → MYUMYU
+- NAKIZ นาคิส → NAKIZ
+- NAMI นามิ → NAMI
+- NARA นรา → NARA
+- NATCHA ณัชชา → NATCHA
+- NATUREGIFT เนเจอร์กิฟ → NATUREGIFT
+- NEE NI COO BE COLORFUL นี นิ โค บี คัลเลอร์ฟูล → NEE
+- NEECARA นีคาร่า → NEECARA
+- NEM แมลงปอ → NEM
+- NESS เนส → NESS
+- NEUTROGENA นูโทรจีนา → NEUTROGENA
+- NIGAO นิกาโอะ → NIGAO
+- NISIT นิสิต → NISIT
+- NIVEA นีเวีย → NIVEA
+- NOBRAND โนแบรนด์ → NOBRAND
+- NU FORMULA นู ฟอร์มูล่า → NU
+- OBUSE โอบิวซ์ → OBUSE
+- ODBO โอดีบีโอ → ODBO
+- OKHERBAL โอเคเฮอเบิล → OKHERBAL
+- OLAY โอเลย์ → OLAY
+- OLDROCK โอลด์ร๊อค → OLDROCK
+- ONETOUCH วันทัช → ONETOUCH
+- OXECURE อ๊อกซีเคียว → OXECURE
+- P'NING พี่หนิง → PNING
+- PACARE BESSIE พาแคร์ เบซซี่ → PACARE
+- PACHI พาชิ → PACHI
+- PALA พาลา → PALA
+- PANTENE แพนทีน → PANTENE
+- PANY ROMANCE ปานี่ โรแมนซ์ → PANY
+- PAONSEVENEIGHT พาออนเซเว่นเอท → PAONSEVENEIGHT
+- PATUMMAS ปทุมมาศ → PATUMMAS
+- PHYSIOGEL ฟิสิโอเจล → PHYSIOGEL
+- PIMRYPIE พิมรี่พาย → PIMRYPIE
+- PINKHU พิงคึ → PINKHU
+- PINNARA พิณนารา → PINNARA
+- PLANTNERY แพลนท์เนอรี่ → PLANTNERY
+- POK DD  CREAM พอก ดีดี ครีม → POK
+- POLKA พอลก้า → POLKA
+- PONDS พอนด์ส → PONDS
+- PONTINA BY PONTIP พรทิน่า บาย พรทิพย์ → PONTINA
+- POOMPUKSA ภูมิพฤกษา → POOMPUKSA
+- POSH MEDICA พอช เมดิก้า → POSH
+- PRAMY พรามี่ → PRAMY
+- PRECIOUS เพรชเชิส → PRECIOUS
+- PREMENOBU พรีมโนบุ → PREMENOBU
+- PRETTYDOLL พริตตี้ดอล → PRETTYDOLL
+- PRINCESS SKINCARE ปรินเซส สกินแคร์ → PRINCESS
+- PROTEX โพรเทคส์ → PROTEX
+- PROTON โปรทอน → PROTON
+- PROVAMED โปรวาเมด → PROVAMED
+- PURE เพียว → PURE
+- PURECAS เพียวริก้าส์ → PURECAS
+- QEYE คิวอาย → QEYE
+- QIZSKINCARE คิสสกินแคร์ → QIZSKINCARE
+- RADA รดา → RADA
+- RAN รัน → RAN
+- RATCHA รัชชา → RATCHA
+- RAWRA รอว์ร่า → RAWRA
+- RCC อาร์ซีซี → RCC
+- REALELIXI เรียลอิลิคซี่ → REALELIXI
+- REELON รีลอน → REELON
+- REJOICE รีจอยส์ → REJOICE
+- REVLON เรฟลอน → REVLON
+- REXONA เรโซนา → REXONA
+- RIEN ริเอ็น → RIEN
+- ROJUKISS โรจูคิส → ROJUKISS
+- ROYALBEAUTY รอยัลบิวตี้ → ROYALBEAUTY
+- ROYALJELLY รอยัลเจลลี่ → ROYALJELLY
+- ROZE โรเซ → ROZE
+- SASHA ซาช่า → SASHA
+- SASI ศศิ → SASI
+- SCHWARZKOPF ชวาร์สคอฟ → SCHWARZKOPF
+- SCULLY สคัลลี่ → SCULLY
+- SENKA เซนกะ → SENKA
+- SENSODYNE เซ็นโซดายน์ → SENSODYNE
+- SERISE เซริเซ่ → SERISE
+- SEWA เซวา → SEWA
+- SHEENE ชีเน่ → SHEENE
+- SHINING ชายนิ่ง → SHINING
+- SHIROI ชิโรอิ → SHIROI
+- SHISEIDO ชิเซโด้ → SHISEIDO
+- SHOKUBUTSUMONOGATARI โชโกบุสซึโมโนกาตาริ → SHOKUBUTSUMONOGATARI
+- SHOWNAII โซนาอิ → SHOWNAII
+- SIS2SIS ซิสทูซิส → SIS2SIS
+- SISS ซิสส์ → SISS
+- SISTAR ซิสต้าร์ → SISTAR
+- SIVANNA ซีเวนน่า → SIVANNA
+- SK เอสเค → SK
+- SKINDOSE สกินโดส → SKINDOSE
+- SKINOXY สกินอ๊อกซี่ → SKINOXY
+- SKINSHE สกินชี → SKINSHE
+- SKINSISTA สกินซิสต้า → SKINSISTA
+- SKINTIFIC สคินทิฟฟิค → SKINTIFIC
+- SKYNLAB สกินแล็บ → SKYNLAB
+- SMOOTHE สมูทอี → SMOOTHE
+- SMOOTO สมูทโตะ → SMOOTO
+- SNAKE BRAND ตรางู → SNAKE
+- SNOWGIRL สโนว์เกิร์ล → SNOWGIRL
+- SOFCLEANS ซอฟคลีน → SOFCLEANS
+- SOFY โซฟี → SOFY
+- SOLA โซลา → SOLA
+- SOLINGEN โซลินเจน → SOLINGEN
+- SOSOFF โซซอฟ → SOSOFF
+- SPVSUPERVINTER เอสพีวีซุปเปอร์วีอินเตอร์ → SPVSUPERVINTER
+- SRICHAND ศรีจันทร์ → SRICHAND
+- STARLIST สตาร์ลิสต์ → STARLIST
+- SUNFOREST ซันฟอเรสท์ → SUNFOREST
+- SUNSILK ซันซิล → SUNSILK
+- SUPAPORN สุภาภรณ์ → SUPAPORN
+- SUREEPORN สุรีย์พร → SUREEPORN
+- SWEETHEART สวีทฮาร์ท → SWEETHEART
+- TAILONG ไท่หลง → TAILONG
+- TAOYEABLOK เต่าเหยียบโลก → TAOYEABLOK
+- TEPTHAI เทพไทย → TEPTHAI
+- THA BY NONGCHAT ฑา บาย น้องฉัตร → THA
+- THECHARMINGGARDEN เดอะชาร์มมิ่งการ์เด้น → THECHARMINGGARDEN
+- THEINGREDIENTS ดิอินกรีเดียนส์ → THEINGREDIENTS
+- THEORIGINAL ดิออริจินัล → THEORIGINAL
+- THEQUEEN เดอะควีน → THEQUEEN
+- THONGSUK ทองสุข → THONGSUK
+- TINYME ไทนี่มี → TINYME
+- TRESEMME เทรซาเม่ → TRESEMME
+- TRIMAGIC ทรีเมจิก → TRIMAGIC
+- TRUSLEN ทรูสเลน → TRUSLEN
+- Thong Tem Thang ทองเต็มถัง → THONG
+- U LADY ยู เลดี้ → U
+- ULENS ยูเลนส์ → ULENS
+- USTAR ยูสตาร์ → USTAR
+- VARLIS วาริส → VARLIS
+- VASELINE วาสลีน → VASELINE
+- VCARE วีแคร์ → VCARE
+- VEET วีท → VEET
+- VIDA วีด้า → VIDA
+- VIPADA วิภาดา → VIPADA
+- VISTRA วิสทร้า → VISTRA
+- VIVII วีวี่ → VIVII
+- WALLIAS วอลลีเเอส → WALLIAS
+- WE WINK วี วิ้งค์ → WE
+- WELCARE เวลแคร์ → WELCARE
+- WELLA เวลล่า → WELLA
+- WINK วิ้งค์ → WINK
+- WITCHES วิชเชส → WITCHES
+- WOONAE วูเน่ → WOONAE
+- Y.O.U วายโอยู → YOU
+- YAFU ยาฟู → YAFU
+- YANHEE ยันฮี → YANHEE
+- YERPALL เยอเพิล → YERPALL
+- YIZHILIAN อี้จือเหลียน → YIZHILIAN
+- YODRAK ยอดรัก → YODRAK
+- YOKI โยคี → YOKI
+- YOKO โยโกะ → YOKO
+- ZENDORI เซนโดริ → ZENDORI
+- ZHULIAN ซูเลียน → ZHULIAN
+- ZOLUTION INNOVATIVE COSMETIC โซลูชั่น อินโนเวทีฟ คอสเมติค → ZOLUTION
+- ZQUEEN ซีควีน → ZQUEEN
+- แทนใจ → 
