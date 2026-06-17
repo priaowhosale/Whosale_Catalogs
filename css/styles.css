@@ -151,6 +151,8 @@ body{font-family:"Noto Sans Thai",sans-serif;background:#f4f8fc;color:#0a1628}
 .qtab-new{background:linear-gradient(135deg,#00b894,#00cec9);color:#fff}
 .qtab-new:hover{background:linear-gradient(135deg,#00997e,#00b0b5);
   box-shadow:0 5px 16px rgba(0,184,148,.45);transform:translateY(-2px)}
+.qtab-promo{background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff}
+.qtab-promo:hover{background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 4px 14px rgba(139,92,246,.45)}
 .qtab-icon{font-size:1.5rem;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.2))}
 .qtab-label{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 .qtab-title{font-size:.82rem;font-weight:800;line-height:1.2;color:#fff}

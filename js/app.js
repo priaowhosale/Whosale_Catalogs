@@ -143,7 +143,7 @@ function init(){
     // resync ปุ่ม "ใส่ตะกร้า" ของรายการที่อยู่ใน cart — เรียก renderCart() จะ update
   }
 
-  buildSidebar();buildMobCats();applyFilter();
+  buildSidebar();buildMobCats();applyFilter();updateQtabCounts();
   if(cart.length>0)renderCart(); // re-render cart sidebar ให้แสดงของที่ restore
 
   // กัน Enter ใน memberInput → ไม่ trigger Send button โดยไม่ตั้งใจ
@@ -396,6 +396,20 @@ function applyFilter(){
   renderResultCnt();renderSubcats();renderProducts();renderPagination();
 }
 
+function updateQtabCounts(){
+  if(typeof allProducts === 'undefined') return;
+  const hotCount = allProducts.filter(function(p){ return p.tag==='สินค้าขายดี'; }).length;
+  const newCount = allProducts.filter(function(p){ return p.tag==='สินค้าใหม่'; }).length;
+  const promoCount = allProducts.filter(function(p){ return p.promoType; }).length;
+  const fmt = function(n){ return n.toLocaleString('th-TH') + ' รายการ'; };
+  const setSub = function(id, count){
+    const el = document.getElementById(id);
+    if(el) el.textContent = fmt(count);
+  };
+  setSub('qtabHotCount', hotCount);
+  setSub('qtabNewCount', newCount);
+  setSub('qtabPromoCount', promoCount);
+}
 function buildSidebar(){
   const sb=document.getElementById('sidebar');if(!sb)return;
   let h='<div class="sb-hdr">กรองสินค้า</div>';
