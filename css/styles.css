@@ -404,3 +404,22 @@ body{font-family:"Noto Sans Thai",sans-serif;background:#f4f8fc;color:#0a1628}
 /* === Category Card Icons (SVG, replaces emoji) === */
 .cat-card__icon{display:inline-flex;align-items:center;justify-content:center;width:1.2em;height:1.2em;margin-right:4px;color:#25a9e0;vertical-align:-0.2em}
 .cat-card__icon-svg{width:100%;height:100%;stroke:currentColor;fill:none}
+/* === Chip & Sidebar Icons (mob-cat-btn / sb-btn / active-cat-bar) === */
+.chip-icon{display:inline-flex;align-items:center;justify-content:center;width:1em;height:1em;flex-shrink:0;color:#25a9e0;vertical-align:-0.16em;margin-right:3px}
+.chip-icon .cat-svg{width:100%;height:100%;stroke:currentColor;fill:none}
+.mob-cat-btn.active .chip-icon{color:#fff}
+.chip-icon-hot{color:#ef4444}
+.chip-icon-new{color:#a855f7}
+.chip-icon-promo{color:#f59e0b}
+.mob-cat-btn.active .chip-icon-hot,.mob-cat-btn.active .chip-icon-new,.mob-cat-btn.active .chip-icon-promo{color:#fff}
+
+.sb-icon{display:inline-flex;align-items:center;justify-content:center;width:1.15em;height:1.15em;flex-shrink:0;color:#25a9e0;vertical-align:-0.22em;margin-right:6px}
+.sb-icon .cat-svg{width:100%;height:100%;stroke:currentColor;fill:none}
+.sb-btn.active .sb-icon{color:#fff}
+.sb-icon-hot{color:#ef4444}
+.sb-icon-new{color:#a855f7}
+.sb-icon-promo{color:#f59e0b}
+.sb-btn.active .sb-icon-hot,.sb-btn.active .sb-icon-new,.sb-btn.active .sb-icon-promo{color:#fff}
+
+.active-cat-icon{display:inline-flex;align-items:center;justify-content:center;width:1.1em;height:1.1em;color:#fff;vertical-align:-0.18em;margin-right:4px}
+.active-cat-icon .cat-svg{width:100%;height:100%;stroke:currentColor;fill:none}

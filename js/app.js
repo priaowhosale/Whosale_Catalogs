@@ -45,7 +45,8 @@ const SVG_STORAGE = {
   pill:             '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l8 -8a4.94 4.94 0 0 1 7 7l-8 8a4.94 4.94 0 0 1 -7 -7"/><path d="M8.5 8.5l7 7"/></svg>',
   paper_bag:        '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8a2 2 0 0 1 2 2v1.82a5 5 0 0 0 .528 2.236l.944 1.888a5 5 0 0 1 .528 2.236v5.82a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-5.82a5 5 0 0 1 .528 -2.236l1.472 -2.944v-3a2 2 0 0 1 2 -2"/><path d="M12 15a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M6 21a2 2 0 0 0 2 -2v-5.82a5 5 0 0 0 -.528 -2.236l-1.472 -2.944"/><path d="M11 7h2"/></svg>',
   shirt:            '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0"/></svg>',
-  menu:             '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg>'
+  menu:             '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg>',
+  search:           '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M21 21l-6 -6"/></svg>'
 };
 
 // ── 3. Filter config (Hot/New/Promo/All/Home) ──
@@ -54,7 +55,9 @@ const FILTER_CONFIG = {
   hot:   { svg: SVG_STORAGE.flame,            color: ICON_COLORS.hot     },
   new:   { svg: SVG_STORAGE.sparkles,         color: ICON_COLORS.new     },
   promo: { svg: SVG_STORAGE.tag,              color: ICON_COLORS.promo   },
-  all:   { svg: SVG_STORAGE.table_properties, color: ICON_COLORS.primary }
+  all:    { svg: SVG_STORAGE.table_properties, color: ICON_COLORS.primary },
+  search: { svg: SVG_STORAGE.search,           color: ICON_COLORS.primary },
+  brand:  { svg: SVG_STORAGE.tag,              color: ICON_COLORS.primary }
 };
 
 // ── 4. Category config (C01-C09 single source of truth) ──
@@ -170,8 +173,8 @@ function goTag(tag){
   applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');
   if(backBtnBar){if(navHistory.length>0)backBtnBar.classList.add('show');else backBtnBar.classList.remove('show');}
-  const tagLabels = {Hot:'🔥 สินค้าขายดี', New:'✨ สินค้าใหม่', Promo:'💰 สินค้าโปรโมชั่น'};
-  const tagIcons = {Hot:'🔥', New:'✨', Promo:'💰'};
+  const tagLabels = {Hot:'สินค้าขายดี', New:'สินค้าใหม่', Promo:'สินค้าโปรโมชั่น'};
+  const tagIcons = {Hot:FILTER_SVG.hot, New:FILTER_SVG.new, Promo:FILTER_SVG.promo};
   const tagLabel = tagLabels[tag] || tag;
   updateActiveCatBar('all', tagLabel, tagIcons[tag] || '');
   _scrollTop();
@@ -252,12 +255,19 @@ function init(){
 }
 
 function updateActiveCatBar(catId,label,icon){
+  // icon = SVG string (preferred) or emoji string (legacy fallback)
   const bar=document.getElementById('activeCatBar');
   const lbl=document.getElementById('activeCatLabel');
   const ico=document.getElementById('activeCatIcon');
   if(!bar)return;
   if(catId&&catId!=='all'){
-    if(ico)ico.textContent=(icon?icon+' ':'');
+    if(ico){
+      if(icon && icon.indexOf('<svg') >= 0){
+        ico.innerHTML = '<span class="active-cat-icon">'+icon+'</span>';
+      } else {
+        ico.textContent = (icon ? icon + ' ' : '');
+      }
+    }
     if(lbl)lbl.textContent='กำลังดู: '+label;
     bar.classList.add('show');
   } else {bar.classList.remove('show');}
@@ -320,12 +330,12 @@ function _applyHashRoute(){
   const backBtnBar = document.getElementById('backBtnBar');
   if(backBtnBar) backBtnBar.classList.add('show');
   if(st.cat !== 'all'){
-    updateActiveCatBar(st.cat, CAT_NAMES[st.cat] || '', CAT_EMOJI[st.cat] || '');
+    updateActiveCatBar(st.cat, CAT_NAMES[st.cat] || '', CAT_SVG[st.cat] || '');
   } else if(st.tag !== 'all'){
-    const label = st.tag === 'Hot' ? '🔥 สินค้าขายดี' : (st.tag === 'New' ? '✨ สินค้าใหม่' : st.tag);
+    const label = st.tag === 'Hot' ? 'สินค้าขายดี' : (st.tag === 'New' ? 'สินค้าใหม่' : st.tag);
     updateActiveCatBar('filter', label, '');
   } else if(st.search){
-    updateActiveCatBar('search', 'ค้นหา: ' + st.search, '🔍');
+    updateActiveCatBar('search', 'ค้นหา: ' + st.search, FILTER_SVG.search);
   }
   _scrollTop(); // F5 → start from top of new page
 }
@@ -354,7 +364,7 @@ function goBack(){
   applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');
   if(backBtnBar){if(navHistory.length>0)backBtnBar.classList.add('show');else backBtnBar.classList.remove('show');}
-  updateActiveCatBar(curCat,CAT_NAMES[curCat]||curSearch,CAT_EMOJI[curCat]||'🏷️');
+  updateActiveCatBar(curCat,CAT_NAMES[curCat]||curSearch,CAT_SVG[curCat]||FILTER_SVG.brand);
   const _sy=p.scrollY||0;setTimeout(()=>window.scrollTo({top:_sy,behavior:'instant'}),80);
 }
 function goHome(){
@@ -382,7 +392,7 @@ function goCat(catId){
   const si=document.getElementById('catSearch');if(si)si.value='';
   applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
-  updateActiveCatBar(catId,CAT_NAMES[catId],CAT_EMOJI[catId]);
+  updateActiveCatBar(catId,CAT_NAMES[catId],CAT_SVG[catId]);
   _scrollTop();
   _updateHash();
 }
@@ -394,7 +404,7 @@ function goB(brand){
   const si=document.getElementById('catSearch');if(si)si.value=brand;
   applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
-  updateActiveCatBar('brand',brand,'🏷️');
+  updateActiveCatBar('brand',brand,FILTER_SVG.brand);
   _scrollTop();
   _updateHash();
 }
@@ -406,7 +416,7 @@ function doSearch(){
   document.getElementById('catalog').style.display='';
   curCat='all';curSub='all';curTag='all';curSearch=q;curPage=1;
   const si=document.getElementById('catSearch');if(si)si.value=q;
-  applyFilter();updateActiveCatBar('search','ค้นหา: '+q,'🔍');
+  applyFilter();updateActiveCatBar('search','ค้นหา: '+q,FILTER_SVG.search);
   updateSidebarActive();updateMobActive(); // Group D
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
   _scrollTop();
@@ -421,8 +431,8 @@ function setMobTag(tag){
   applyFilter();
   updateSidebarActive();updateMobActive(); // Group D contract: sync active highlight (sidebar/chip/bottom-tab)
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
-  const tagLabels = {Hot:'🔥 สินค้าขายดี', New:'✨ สินค้าใหม่', Promo:'💰 สินค้าโปรโมชั่น'};
-  const tagIcons = {Hot:'🔥', New:'✨', Promo:'💰'};
+  const tagLabels = {Hot:'สินค้าขายดี', New:'สินค้าใหม่', Promo:'สินค้าโปรโมชั่น'};
+  const tagIcons = {Hot:FILTER_SVG.hot, New:FILTER_SVG.new, Promo:FILTER_SVG.promo};
   const label = tagLabels[tag] || tag;
   updateActiveCatBar('filter', label, tagIcons[tag]||'');
   document.querySelectorAll('.mob-cat-btn').forEach(b=>b.classList.remove('active'));
@@ -496,28 +506,36 @@ function updateQtabCounts(){
 }
 function buildSidebar(){
   const sb=document.getElementById('sidebar');if(!sb)return;
+  // ใช้ SVG จาก ICON CONFIG แทน emoji
+  const I = function(svg, variant){
+    return '<span class="sb-icon '+(variant||'')+'">'+svg+'</span>';
+  };
   let h='<div class="sb-hdr">กรองสินค้า</div>';
-  h+='<button class="sb-btn" data-tag="all" onclick="setTag(\'all\')">ทั้งหมด</button>';
-  h+='<button class="sb-btn" data-tag="Hot" onclick="setTag(\'Hot\')">🔥 สินค้าขายดี</button>';
-  h+='<button class="sb-btn" data-tag="New" onclick="setTag(\'New\')">✨ สินค้าใหม่</button>';
-  h+='<button class="sb-btn" data-tag="Promo" onclick="setTag(\'Promo\')">💰 โปรโมชั่น</button>';
+  h+='<button class="sb-btn" data-tag="all" onclick="setTag(\'all\')">'+I(FILTER_SVG.all)+' ทั้งหมด</button>';
+  h+='<button class="sb-btn" data-tag="Hot" onclick="setTag(\'Hot\')">'+I(FILTER_SVG.hot,'sb-icon-hot')+' สินค้าขายดี</button>';
+  h+='<button class="sb-btn" data-tag="New" onclick="setTag(\'New\')">'+I(FILTER_SVG.new,'sb-icon-new')+' สินค้าใหม่</button>';
+  h+='<button class="sb-btn" data-tag="Promo" onclick="setTag(\'Promo\')">'+I(FILTER_SVG.promo,'sb-icon-promo')+' โปรโมชั่น</button>';
   h+='<div class="sb-divider"></div>';
   h+='<div class="sb-hdr">หมวดหมู่</div>';
-  h+='<button class="sb-btn" data-cat="all" onclick="goCat(\'all\')">🗂 ทั้งหมด</button>';
+  h+='<button class="sb-btn" data-cat="all" onclick="goCat(\'all\')">'+I(FILTER_SVG.all)+' ทั้งหมด</button>';
   for(const [k,v] of Object.entries(RAW_DATA)){
-    h+='<button class="sb-btn" data-cat="'+k+'" onclick="goCat(\''+k+'\')">'+(CAT_EMOJI[k]||'')+' '+(CAT_NAMES[k]||k)+' ('+v.length+')</button>';
+    h+='<button class="sb-btn" data-cat="'+k+'" onclick="goCat(\''+k+'\')">'+I(CAT_SVG[k]||'')+' '+(CAT_NAMES[k]||k)+' ('+v.length+')</button>';
   }
   sb.innerHTML=h;
 }
 function buildMobCats(){
   const mb=document.getElementById('mobCats');if(!mb)return;
-  let h='<button class="mob-cat-btn" data-tag="all" onclick="setMobTag(\'all\')">ทั้งหมด</button>';
-  h+='<button class="mob-cat-btn mob-tag-btn" data-tag="Hot" onclick="setMobTag(\'Hot\')">🔥 ขายดี</button>';
-  h+='<button class="mob-cat-btn mob-tag-btn" data-tag="New" onclick="setMobTag(\'New\')">✨ ใหม่</button>';
-  h+='<button class="mob-cat-btn mob-tag-btn" data-tag="Promo" onclick="setMobTag(\'Promo\')">💰 โปรโมชั่น</button>';
+  // ใช้ SVG จาก ICON CONFIG (FILTER_SVG + CAT_SVG) แทน emoji
+  const I = function(svg, variant){
+    return '<span class="chip-icon '+(variant||'')+'">'+svg+'</span>';
+  };
+  let h='<button class="mob-cat-btn" data-tag="all" onclick="setMobTag(\'all\')">'+I(FILTER_SVG.all)+' ทั้งหมด</button>';
+  h+='<button class="mob-cat-btn mob-tag-btn" data-tag="Hot" onclick="setMobTag(\'Hot\')">'+I(FILTER_SVG.hot,'chip-icon-hot')+' ขายดี</button>';
+  h+='<button class="mob-cat-btn mob-tag-btn" data-tag="New" onclick="setMobTag(\'New\')">'+I(FILTER_SVG.new,'chip-icon-new')+' ใหม่</button>';
+  h+='<button class="mob-cat-btn mob-tag-btn" data-tag="Promo" onclick="setMobTag(\'Promo\')">'+I(FILTER_SVG.promo,'chip-icon-promo')+' โปรโมชั่น</button>';
   h+='<span style="width:1px;background:var(--border);align-self:stretch;margin:4px 2px"></span>';
   for(const k of Object.keys(RAW_DATA)){
-    h+='<button class="mob-cat-btn" data-cat="'+k+'" onclick="goCat(\''+k+'\')">'+(CAT_EMOJI[k]||'')+' '+(CAT_NAMES[k]||k)+'</button>';
+    h+='<button class="mob-cat-btn" data-cat="'+k+'" onclick="goCat(\''+k+'\')">'+I(CAT_SVG[k]||'')+' '+(CAT_NAMES[k]||k)+'</button>';
   }
   mb.innerHTML=h;
 }
@@ -1843,7 +1861,7 @@ function selectSug(type, value){
     if(typeof updateMobActive === 'function') updateMobActive();
     const backBtnBar = document.getElementById('backBtnBar');
     if(backBtnBar) backBtnBar.classList.add('show');
-    if(typeof updateActiveCatBar === 'function') updateActiveCatBar('search', 'ค้นหา: '+value, '🔍');
+    if(typeof updateActiveCatBar === 'function') updateActiveCatBar('search', 'ค้นหา: '+value, FILTER_SVG.search);
     _scrollTop();
   }
 }

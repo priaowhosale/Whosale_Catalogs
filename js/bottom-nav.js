@@ -206,7 +206,9 @@
   // SECTION 6: Active State Manager
   // ============================================================
   function updateBottomTabActive(){
-    var tabs = document.querySelectorAll('.bottom-tab-bar .tab-item');
+    var bar = document.querySelector('.bottom-tab-bar');
+    if(!bar) return;
+    var tabs = bar.querySelectorAll('.tab-item');
     if(!tabs.length) return;
     var active = '';
     // Modal override takes priority (cart/account)
