@@ -3,10 +3,89 @@
 let RAW_DATA = {}; // populated by loadCatalogData() before init() runs
 
 
-const CAT_NAMES={C01:'เครื่องสำอาง',C02:'ผลิตภัณฑ์ดูแลผิวหน้า',C03:'ผลิตภัณฑ์ดูแลผิวกาย',
-  C04:'ผลิตภัณฑ์ดูแลเส้นผม',C05:'น้ำหอม',C06:'อุปกรณ์เพื่อความงาม',
-  C07:'อาหารเสริม',C08:'คอนซูเมอร์',C09:'แฟชั่น&ไลฟ์สไตล์'};
-const CAT_EMOJI={C01:'💄',C02:'🧴',C03:'🛁',C04:'💆',C05:'🌸',C06:'🛍️',C07:'💊',C08:'🛒',C09:'👜'};
+// ============================================================
+// SECTION: ICON & COLOR CONFIGURATION
+// ============================================================
+// 📌 อยากเปลี่ยน icon ในหมวด/สี? แก้ตรงนี้ที่เดียว!
+//   1. ICON_COLORS    — color tokens (ใช้ใน CSS + class variant)
+//   2. SVG_STORAGE    — refs to !@Don't Push/Storage_SVG/*.svg (minified)
+//   3. FILTER_CONFIG  — Hot/New/Promo/All/Home
+//   4. CATEGORY_CONFIG — C01-C09 (single source of truth)
+//   5. Backward-compat shortcuts (CAT_NAMES/EMOJI/SVG/FILTER_SVG)
+//   6. Helper functions
+//
+// ★ เพิ่ม icon ใหม่:
+//   1. วาง .svg ใน Storage_SVG/
+//   2. เพิ่ม entry ใน SVG_STORAGE ด้านล่าง
+//   3. ใส่ใน FILTER_CONFIG หรือ CATEGORY_CONFIG ตามต้องการ
+// ============================================================
+
+// ── 1. Color tokens ──
+const ICON_COLORS = {
+  primary: '#25a9e0',   // Priao Blue (default)
+  hot:     '#ef4444',   // ขายดี — red
+  new:     '#a855f7',   // ใหม่ — purple
+  promo:   '#f59e0b',   // โปรโมชั่น — amber
+  active:  '#ffffff'    // active state — white
+};
+
+// ── 2. SVG Storage references (minified from Storage_SVG/*.svg) ──
+const SVG_STORAGE = {
+  home:             '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l-2 0l9 -9l9 9l-2 0"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/><path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6"/></svg>',
+  flame:            '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235"/></svg>',
+  sparkles:         '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2m0 -12a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2m-7 12a6 6 0 0 1 6 -6a6 6 0 0 1 -6 -6a6 6 0 0 1 -6 6a6 6 0 0 1 6 6"/></svg>',
+  tag:              '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.859 6h-2.834a2.025 2.025 0 0 0 -2.025 2.025v2.834c0 .537 .213 1.052 .593 1.432l6.116 6.116a2.025 2.025 0 0 0 2.864 0l2.834 -2.834a2.025 2.025 0 0 0 0 -2.864l-6.117 -6.116a2.025 2.025 0 0 0 -1.431 -.593z"/><path d="M17.5 4.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/></svg>',
+  table_properties: '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M21 9H3"/><path d="M21 15H3"/></svg>',
+  palette:          '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 0 1 0 -18c4.97 0 9 3.582 9 8c0 1.06 -.474 2.078 -1.318 2.828c-.844 .75 -1.989 1.172 -3.182 1.172h-2.5a2 2 0 0 0 -1 3.75a1.3 1.3 0 0 1 -1 2.25"/><path d="M7.5 10.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M11.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M15.5 10.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/></svg>',
+  mood_smile_beam:  '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 0 -18a9 9 0 0 1 0 18"/><path d="M10 10c-.5 -1 -2.5 -1 -3 0"/><path d="M17 10c-.5 -1 -2.5 -1 -3 0"/><path d="M14.5 15a3.5 3.5 0 0 1 -5 0"/></svg>',
+  man:              '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M15 8c1.628 0 3.2 .787 4.707 2.293a1 1 0 0 1 -1.414 1.414c-.848 -.848 -1.662 -1.369 -2.444 -1.587l-.849 5.944v4.936a1 1 0 0 1 -2 0v-4h-2v4a1 1 0 0 1 -2 0v-4.929l-.85 -5.951c-.781 .218 -1.595 .739 -2.443 1.587a1 1 0 1 1 -1.414 -1.414c1.506 -1.506 3.08 -2.293 4.707 -2.293z"/><path d="M12 1a3 3 0 1 1 -3 3l.005 -.176a3 3 0 0 1 2.995 -2.824"/></svg>',
+  woman:            '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 16v5"/><path d="M14 16v5"/><path d="M8 16h8l-2 -7h-4l-2 7"/><path d="M5 11c1.667 -1.333 3.333 -2 5 -2"/><path d="M19 11c-1.667 -1.333 -3.333 -2 -5 -2"/><path d="M10 4a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/></svg>',
+  spray:            '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v7a2 2 0 0 1 -2 2h-4a2 2 0 0 1 -2 -2l0 -7"/><path d="M6 10v-4a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v4"/><path d="M15 7h.01"/><path d="M18 9h.01"/><path d="M18 5h.01"/><path d="M21 3h.01"/><path d="M21 7h.01"/><path d="M21 11h.01"/><path d="M10 7h1"/></svg>',
+  scissors:         '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M3 17a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M8.6 8.6l10.4 10.4"/><path d="M8.6 15.4l10.4 -10.4"/></svg>',
+  pill:             '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l8 -8a4.94 4.94 0 0 1 7 7l-8 8a4.94 4.94 0 0 1 -7 -7"/><path d="M8.5 8.5l7 7"/></svg>',
+  paper_bag:        '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8a2 2 0 0 1 2 2v1.82a5 5 0 0 0 .528 2.236l.944 1.888a5 5 0 0 1 .528 2.236v5.82a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-5.82a5 5 0 0 1 .528 -2.236l1.472 -2.944v-3a2 2 0 0 1 2 -2"/><path d="M12 15a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M6 21a2 2 0 0 0 2 -2v-5.82a5 5 0 0 0 -.528 -2.236l-1.472 -2.944"/><path d="M11 7h2"/></svg>',
+  shirt:            '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0"/></svg>',
+  menu:             '<svg class="cat-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg>'
+};
+
+// ── 3. Filter config (Hot/New/Promo/All/Home) ──
+const FILTER_CONFIG = {
+  home:  { svg: SVG_STORAGE.home,             color: ICON_COLORS.primary },
+  hot:   { svg: SVG_STORAGE.flame,            color: ICON_COLORS.hot     },
+  new:   { svg: SVG_STORAGE.sparkles,         color: ICON_COLORS.new     },
+  promo: { svg: SVG_STORAGE.tag,              color: ICON_COLORS.promo   },
+  all:   { svg: SVG_STORAGE.table_properties, color: ICON_COLORS.primary }
+};
+
+// ── 4. Category config (C01-C09 single source of truth) ──
+const CATEGORY_CONFIG = {
+  C01: { name: 'เครื่องสำอาง',           emoji: '💄', svg: SVG_STORAGE.palette,         color: ICON_COLORS.primary },
+  C02: { name: 'ผลิตภัณฑ์ดูแลผิวหน้า',    emoji: '🧴', svg: SVG_STORAGE.mood_smile_beam, color: ICON_COLORS.primary },
+  C03: { name: 'ผลิตภัณฑ์ดูแลผิวกาย',     emoji: '🛁', svg: SVG_STORAGE.man,             color: ICON_COLORS.primary },
+  C04: { name: 'ผลิตภัณฑ์ดูแลเส้นผม',     emoji: '💆', svg: SVG_STORAGE.woman,           color: ICON_COLORS.primary },
+  C05: { name: 'น้ำหอม',                emoji: '🌸', svg: SVG_STORAGE.spray,           color: ICON_COLORS.primary },
+  C06: { name: 'อุปกรณ์เพื่อความงาม',     emoji: '🛍️', svg: SVG_STORAGE.scissors,        color: ICON_COLORS.primary },
+  C07: { name: 'อาหารเสริม',            emoji: '💊', svg: SVG_STORAGE.pill,            color: ICON_COLORS.primary },
+  C08: { name: 'คอนซูเมอร์',            emoji: '🛒', svg: SVG_STORAGE.paper_bag,       color: ICON_COLORS.primary },
+  C09: { name: 'แฟชั่น&ไลฟ์สไตล์',       emoji: '👜', svg: SVG_STORAGE.shirt,           color: ICON_COLORS.primary }
+};
+
+// ── 5. Backward-compat shortcuts (อย่าลบ — ใช้ใน code เดิม) ──
+const CAT_NAMES = Object.fromEntries(Object.entries(CATEGORY_CONFIG).map(function(e){return [e[0], e[1].name];}));
+const CAT_EMOJI = Object.fromEntries(Object.entries(CATEGORY_CONFIG).map(function(e){return [e[0], e[1].emoji];}));
+const CAT_SVG   = Object.fromEntries(Object.entries(CATEGORY_CONFIG).map(function(e){return [e[0], e[1].svg];}));
+const FILTER_SVG = Object.fromEntries(Object.entries(FILTER_CONFIG).map(function(e){return [e[0], e[1].svg];}));
+
+// ── 6. Helper functions ──
+function getCategoryIcon(catId){ var c = CATEGORY_CONFIG[catId]; return c ? c.svg : ''; }
+function getCategoryName(catId){ var c = CATEGORY_CONFIG[catId]; return c ? c.name : catId; }
+function getCategoryColor(catId){ var c = CATEGORY_CONFIG[catId]; return c ? c.color : ICON_COLORS.primary; }
+function getFilterIcon(key){ var f = FILTER_CONFIG[key]; return f ? f.svg : ''; }
+
+// ============================================================
+// END ICON & COLOR CONFIGURATION
+// ============================================================
+
 const PER_PAGE=40;
 const CART_LS_KEY='priao_cart_v1';
 const CART_LS_TTL_MS=24*60*60*1000; // 24 ชม. — ตะกร้าเก่ากว่านี้จะถือว่าหมดอายุ
@@ -1815,20 +1894,20 @@ function buildMobDrawer(){
   let h = '';
   // Filters section
   h += '<div class="mob-drawer-hdr-section">กรอง</div>';
-  h += '<button class="mob-drawer-btn '+(isHome?'active':'')+'" onclick="goHomeFromDrawer()">🏠 หน้าหลัก</button>';
-  h += '<button class="mob-drawer-btn '+(curTag==='Hot'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'Hot\')">🔥 สินค้าขายดี</button>';
-  h += '<button class="mob-drawer-btn '+(curTag==='New'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'New\')">✨ สินค้าใหม่</button>';
-  h += '<button class="mob-drawer-btn '+(curTag==='Promo'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'Promo\')">💰 สินค้าโปรโมชั่น</button>';
+  h += '<button class="mob-drawer-btn '+(isHome?'active':'')+'" onclick="goHomeFromDrawer()"><span class="drawer-icon">'+FILTER_SVG.home+'</span> หน้าหลัก</button>';
+  h += '<button class="mob-drawer-btn '+(curTag==='Hot'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'Hot\')"><span class="drawer-icon drawer-icon-hot">'+FILTER_SVG.hot+'</span> สินค้าขายดี</button>';
+  h += '<button class="mob-drawer-btn '+(curTag==='New'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'New\')"><span class="drawer-icon drawer-icon-new">'+FILTER_SVG.new+'</span> สินค้าใหม่</button>';
+  h += '<button class="mob-drawer-btn '+(curTag==='Promo'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'Promo\')"><span class="drawer-icon drawer-icon-promo">'+FILTER_SVG.promo+'</span> สินค้าโปรโมชั่น</button>';
   h += '<div class="mob-drawer-divider"></div>';
   // Categories section
   h += '<div class="mob-drawer-hdr-section">หมวดหมู่</div>';
-  h += '<button class="mob-drawer-btn '+(!isHome && curCat==='all' && curTag==='all' && !curSearch ?'active':'')+'" onclick="closeMobDrawer();goCat(\'all\')">🗂 ดูทั้งหมด</button>';
+  h += '<button class="mob-drawer-btn '+(!isHome && curCat==='all' && curTag==='all' && !curSearch ?'active':'')+'" onclick="closeMobDrawer();goCat(\'all\')"><span class="drawer-icon">'+FILTER_SVG.all+'</span> ดูทั้งหมด</button>';
   for(const k of Object.keys(RAW_DATA)){
     const active = (!isHome && curCat===k) ? 'active' : '';
-    const emoji = (typeof CAT_EMOJI !== 'undefined' && CAT_EMOJI[k]) ? CAT_EMOJI[k] : '';
+    const iconSvg = (typeof CAT_SVG !== 'undefined' && CAT_SVG[k]) ? CAT_SVG[k] : '';
     const name = (typeof CAT_NAMES !== 'undefined' && CAT_NAMES[k]) ? CAT_NAMES[k] : k;
     const count = (RAW_DATA[k] && RAW_DATA[k].length) ? RAW_DATA[k].length : 0;
-    h += '<button class="mob-drawer-btn '+active+'" onclick="closeMobDrawer();goCat(\''+k+'\')">'+emoji+' '+name+' <span class="cnt">('+count.toLocaleString()+')</span></button>';
+    h += '<button class="mob-drawer-btn '+active+'" onclick="closeMobDrawer();goCat(\''+k+'\')"><span class="drawer-icon">'+iconSvg+'</span> '+name+' <span class="cnt">('+count.toLocaleString()+')</span></button>';
   }
   body.innerHTML = h;
 }
