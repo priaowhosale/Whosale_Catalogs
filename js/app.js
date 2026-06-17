@@ -267,9 +267,20 @@ window._applyHashRoute = _applyHashRoute;
 // ทุก navigation function ที่เปลี่ยนหมวด/แท็ก/ค้นหา ต้องเรียก _scrollTop() ที่ท้าย
 // ยกเว้น: goBack (restore scrollY จาก history), goHome (มี window.scrollTo เอง)
 function _clearTabOverride(){
-  // เคลียร์ override ของ cart/account เมื่อ user navigate ผ่าน drawer/links
-  if(typeof _bottomTabOverride !== 'undefined' && _bottomTabOverride){
-    _bottomTabOverride = null;
+  // เคลียร์ override ของ cart/account + ปิด modal/panel ที่เปิดอยู่
+  if(typeof _bottomTabOverride === 'undefined' || !_bottomTabOverride) return;
+  const prev = _bottomTabOverride;
+  _bottomTabOverride = null; // set FIRST to break recursion
+  if(prev === 'cart'){
+    const cp = document.getElementById('cartPanel');
+    if(cp && cp.classList.contains('open')){
+      cp.classList.remove('open');
+      const ov = document.getElementById('overlay');
+      if(ov) ov.classList.remove('show');
+    }
+  } else if(prev === 'account'){
+    const am = document.getElementById('accountModalOverlay');
+    if(am) am.style.display = 'none';
   }
 }
 function _scrollTop(){
@@ -295,6 +306,10 @@ function goBack(){
 }
 function goHome(){
   navHistory=[];
+  // Clear any modal/panel override first (cart, account)
+  if(typeof _clearTabOverride === 'function') _clearTabOverride();
+  // Reset filter state (so trend/products doesn't think we're filtering)
+  curCat = 'all'; curSub = 'all'; curTag = 'all'; curSearch = ''; curPage = 1;
   const hb=document.getElementById('backBtnBar');if(hb)hb.classList.remove('show');
   updateActiveCatBar('all','','');
   document.getElementById('catalog').style.display='none';
@@ -304,6 +319,7 @@ function goHome(){
   // Group D: sync active highlights (sidebar/chip/bottom-tab)
   if(typeof updateSidebarActive === 'function') updateSidebarActive();
   if(typeof updateMobActive === 'function') updateMobActive();
+  if(typeof updateBottomTabActive === 'function') updateBottomTabActive(); // explicit double-call for safety
 }
 function goCat(catId){
   _pushHistory();
