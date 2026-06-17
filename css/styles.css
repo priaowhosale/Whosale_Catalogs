@@ -303,8 +303,55 @@ body{font-family:"Noto Sans Thai",sans-serif;background:#f4f8fc;color:#0a1628}
 }
 
 /* ============================================================ */
-/* === LARGE DESKTOP (≥1440px) — wider, more cols === */
+/* === WIDE DESKTOP RESPONSIVE — ใช้ทั้งจอ === */
 /* ============================================================ */
+
+/* 1440-1919px: 5 cols, gap medium */
 @media(min-width:1440px){
-  .wrap,.pc-body{max-width:1440px;margin:0 auto}
+  .prod-grid{gap:.875rem}
 }
+
+/* 1920px+ (Full HD) — 6 cols */
+@media(min-width:1920px){
+  .prod-grid{grid-template-columns:repeat(6,1fr);gap:1rem}
+  .pc-main{padding:1rem 1.25rem}
+  .p-name{font-size:.84rem}
+  .p-price{font-size:1rem}
+}
+
+/* 2560px+ (2K/QHD) — 7 cols */
+@media(min-width:2560px){
+  .prod-grid{grid-template-columns:repeat(7,1fr);gap:1.125rem}
+  .pc-sidebar{width:240px}
+  .pc-main{padding:1.25rem 1.5rem}
+}
+
+/* 3200px+ (Ultra-wide) — 8 cols max */
+@media(min-width:3200px){
+  .prod-grid{grid-template-columns:repeat(8,1fr);gap:1.25rem}
+}
+
+/* ============================================================ */
+/* === Bottom Tab Bar (Mobile/Tablet ≤1024px) === */
+/* ============================================================ */
+.bottom-tab-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);box-shadow:0 -2px 12px rgba(32,128,190,.10);z-index:250;padding:.25rem 0;padding-bottom:max(.25rem,env(safe-area-inset-bottom))}
+@media(max-width:1024px){.bottom-tab-bar{display:flex}}
+.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;cursor:pointer;padding:.5rem .25rem;font-family:inherit;color:var(--txt3);position:relative;min-height:3.25rem;transition:color .15s}
+.tab-item:hover{color:var(--acc)}
+.tab-item:active{transform:scale(.95)}
+.tab-item.active{color:var(--acc)}
+.tab-item.active .tab-label{font-weight:800}
+.tab-item.active .tab-icon{transform:translateY(-2px);filter:drop-shadow(0 2px 4px rgba(32,128,190,.3))}
+.tab-icon{font-size:1.4rem;line-height:1;transition:transform .2s}
+.tab-label{font-size:.68rem;letter-spacing:-.2px;white-space:nowrap}
+.tab-badge{position:absolute;top:.25rem;right:calc(50% - 1.5rem);background:#dc2626;color:#fff;font-size:.6rem;font-weight:800;min-width:1.1rem;height:1.1rem;padding:0 .25rem;border-radius:.55rem;display:flex;align-items:center;justify-content:center;border:2px solid #fff;line-height:1}
+
+/* Hide cart FAB on mobile/tablet (replaced by bottom tab cart) */
+@media(max-width:1024px){.cart-fab{display:none !important}}
+
+/* Add bottom padding to content so last item not hidden behind tab bar */
+@media(max-width:1024px){
+  .pc-main{padding-bottom:5rem !important}
+  #home{padding-bottom:5rem}
+}
+

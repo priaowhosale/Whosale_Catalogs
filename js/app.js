@@ -171,6 +171,9 @@ function init(){
   _applyHashRoute();
   // Listen for browser back/forward navigation
   window.addEventListener('hashchange', _applyHashRoute);
+  // Initialize bottom tab state (Mobile/Tablet)
+  if(typeof updateBottomTabActive === 'function') updateBottomTabActive();
+  if(typeof updateBottomTabCartBadge === 'function') updateBottomTabCartBadge();
 }
 
 function updateActiveCatBar(catId,label,icon){
@@ -321,6 +324,7 @@ function doSearch(){
   const si=document.getElementById('catSearch');if(si)si.value=q;
   applyFilter();updateActiveCatBar('search','ค้นหา: '+q,'🔍');
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
+  _scrollTop();
   _updateHash();
 }
 function setMobTag(tag){
@@ -390,30 +394,60 @@ function applyFilter(){
 function buildSidebar(){
   const sb=document.getElementById('sidebar');if(!sb)return;
   let h='<div class="sb-hdr">กรองสินค้า</div>';
-  h+='<button class="sb-btn active" onclick="setTag(\'all\')">ทั้งหมด</button>';
-  h+='<button class="sb-btn" onclick="setTag(\'Hot\')">🔥 สินค้าขายดี</button>';
-  h+='<button class="sb-btn" onclick="setTag(\'New\')">✨ สินค้าใหม่</button>';
+  h+='<button class="sb-btn" data-tag="all" onclick="setTag(\'all\')">ทั้งหมด</button>';
+  h+='<button class="sb-btn" data-tag="Hot" onclick="setTag(\'Hot\')">🔥 สินค้าขายดี</button>';
+  h+='<button class="sb-btn" data-tag="New" onclick="setTag(\'New\')">✨ สินค้าใหม่</button>';
   h+='<div class="sb-divider"></div>';
   h+='<div class="sb-hdr">หมวดหมู่</div>';
-  h+='<button class="sb-btn" onclick="goCat(\'all\')">🗂 ทั้งหมด</button>';
+  h+='<button class="sb-btn" data-cat="all" onclick="goCat(\'all\')">🗂 ทั้งหมด</button>';
   for(const [k,v] of Object.entries(RAW_DATA)){
-    h+='<button class="sb-btn" onclick="goCat(\''+k+'\')">'+(CAT_EMOJI[k]||'')+' '+(CAT_NAMES[k]||k)+' ('+v.length+')</button>';
+    h+='<button class="sb-btn" data-cat="'+k+'" onclick="goCat(\''+k+'\')">'+(CAT_EMOJI[k]||'')+' '+(CAT_NAMES[k]||k)+' ('+v.length+')</button>';
   }
   sb.innerHTML=h;
 }
 function buildMobCats(){
   const mb=document.getElementById('mobCats');if(!mb)return;
-  let h='<button class="mob-cat-btn active" onclick="setMobTag(\'all\')">ทั้งหมด</button>';
-  h+='<button class="mob-cat-btn mob-tag-btn" onclick="setMobTag(\'Hot\')">🔥 ขายดี</button>';
-  h+='<button class="mob-cat-btn mob-tag-btn" onclick="setMobTag(\'New\')">✨ ใหม่</button>';
+  let h='<button class="mob-cat-btn" data-tag="all" onclick="setMobTag(\'all\')">ทั้งหมด</button>';
+  h+='<button class="mob-cat-btn mob-tag-btn" data-tag="Hot" onclick="setMobTag(\'Hot\')">🔥 ขายดี</button>';
+  h+='<button class="mob-cat-btn mob-tag-btn" data-tag="New" onclick="setMobTag(\'New\')">✨ ใหม่</button>';
   h+='<span style="width:1px;background:var(--border);align-self:stretch;margin:4px 2px"></span>';
   for(const k of Object.keys(RAW_DATA)){
-    h+='<button class="mob-cat-btn" onclick="goCat(\''+k+'\')">'+(CAT_EMOJI[k]||'')+' '+(CAT_NAMES[k]||k)+'</button>';
+    h+='<button class="mob-cat-btn" data-cat="'+k+'" onclick="goCat(\''+k+'\')">'+(CAT_EMOJI[k]||'')+' '+(CAT_NAMES[k]||k)+'</button>';
   }
   mb.innerHTML=h;
 }
-function updateSidebarActive(){document.querySelectorAll('#sidebar .sb-btn').forEach(b=>b.classList.remove('active'));}
-function updateMobActive(){document.querySelectorAll('#mobCats .mob-cat-btn').forEach(b=>b.classList.remove('active'));}
+function updateSidebarActive(){
+  // Also sync bottom tab (Group D2 paired)
+  if(typeof updateBottomTabActive === 'function') updateBottomTabActive();
+  const btns = document.querySelectorAll('#sidebar .sb-btn');
+  btns.forEach(function(b){
+    let isActive = false;
+    const dc = b.dataset.cat, dt = b.dataset.tag;
+    if(curCat !== 'all'){
+      isActive = (dc === curCat); // ตรงกับหมวดที่เลือก
+    } else if(curTag !== 'all'){
+      isActive = (dt === curTag); // ตรงกับ tag ที่เลือก (Hot/New)
+    } else if(!curSearch){
+      isActive = (dt === 'all'); // ทั้งหมด (default state)
+    }
+    b.classList.toggle('active', isActive);
+  });
+}
+function updateMobActive(){
+  const btns = document.querySelectorAll('#mobCats .mob-cat-btn');
+  btns.forEach(function(b){
+    let isActive = false;
+    const dc = b.dataset.cat, dt = b.dataset.tag;
+    if(curCat !== 'all'){
+      isActive = (dc === curCat);
+    } else if(curTag !== 'all'){
+      isActive = (dt === curTag);
+    } else if(!curSearch){
+      isActive = (dt === 'all');
+    }
+    b.classList.toggle('active', isActive);
+  });
+}
 function setTag(tag){curTag=tag;curPage=1;applyFilter();_scrollTop();_updateHash();}
 function setSub(sub){
   curSub=sub;curPage=1;
@@ -697,6 +731,7 @@ function changeQty(code,delta){
 }
 function renderCart(){
   saveCart(); // persist cart ทุกครั้งที่มี render — ป้องกัน cart หายตอนสลับแอป
+  if(typeof updateBottomTabCartBadge === 'function') updateBottomTabCartBadge();
   const cnt=cart.reduce((s,c)=>s+c.qty,0);
   document.getElementById('cartCnt').textContent=cnt;
   const fab=document.getElementById('cartFabCnt');
@@ -1509,6 +1544,33 @@ function showFallbackModal(orderId, timestamp, text, shortText){
 }
 
 // === Search Autocomplete Dropdown ===
+// === Debounce for search input (P1+P2 fix) ===
+let _catSearchTimer = null;
+let _searchSugTimer = null;
+function onCatSearchInput(input){
+  // Debounce both applyFilter and suggestions
+  clearTimeout(_catSearchTimer);
+  _catSearchTimer = setTimeout(function(){
+    curSearch = input.value.trim();
+    curPage = 1;
+    applyFilter();
+    _updateHash();
+  }, 200);
+  // Suggestions debounced separately (faster)
+  clearTimeout(_searchSugTimer);
+  _searchSugTimer = setTimeout(function(){
+    showSearchSuggestions(input, 'catSearchDropdown');
+  }, 120);
+}
+function onHomeSearchInput(input){
+  clearTimeout(_searchSugTimer);
+  _searchSugTimer = setTimeout(function(){
+    showSearchSuggestions(input, 'homeSearchDropdown');
+  }, 120);
+}
+window.onCatSearchInput = onCatSearchInput;
+window.onHomeSearchInput = onHomeSearchInput;
+
 function showSearchSuggestions(input, dropdownId){
   const q = (input.value || '').trim();
   const dropdown = document.getElementById(dropdownId);
@@ -1530,7 +1592,8 @@ function showSearchSuggestions(input, dropdownId){
   if(matchedCats.length){
     html.push('<div class="sug-section"><div class="sug-section-hdr">หมวดหมู่</div>');
     matchedCats.slice(0,3).forEach(function(c){
-      html.push('<div class="sug-item" onmousedown="event.preventDefault()" onclick="selectSug(\'cat\',\''+c.id+'\')"><span class="sug-icon">'+c.emoji+'</span><span class="sug-text">'+esc(c.name)+'</span></div>');
+      const safeCatId = String(c.id||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      html.push('<div class="sug-item" onmousedown="event.preventDefault()" onclick="selectSug(\'cat\',\''+safeCatId+'\')"><span class="sug-icon">'+c.emoji+'</span><span class="sug-text">'+esc(c.name)+'</span></div>');
     });
     html.push('</div>');
   }
@@ -1588,7 +1651,8 @@ function showSearchSuggestions(input, dropdownId){
     html.push('<div class="sug-section"><div class="sug-section-hdr">สินค้า</div>');
     matchedProducts.forEach(function(p){
       const shortName = p.name.length > 38 ? p.name.substring(0,38)+'…' : p.name;
-      html.push('<div class="sug-item" onmousedown="event.preventDefault()" onclick="selectSug(\'product\',\''+p.code+'\')"><span class="sug-icon">📦</span><span class="sug-text">'+esc(shortName)+'</span><span class="sug-meta">'+p.stdPrice+' ฿</span></div>');
+      const safeCode = String(p.code||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      html.push('<div class="sug-item" onmousedown="event.preventDefault()" onclick="selectSug(\'product\',\''+safeCode+'\')"><span class="sug-icon">📦</span><span class="sug-text">'+esc(shortName)+'</span><span class="sug-meta">'+p.stdPrice+' ฿</span></div>');
     });
     html.push('</div>');
   }
@@ -1635,6 +1699,8 @@ function selectSug(type, value){
     const si = document.getElementById('catSearch'); if(si) si.value = value;
     applyFilter();
     if(typeof _updateHash === 'function') _updateHash();
+    if(typeof updateSidebarActive === 'function') updateSidebarActive();
+    if(typeof updateMobActive === 'function') updateMobActive();
     const backBtnBar = document.getElementById('backBtnBar');
     if(backBtnBar) backBtnBar.classList.add('show');
     if(typeof updateActiveCatBar === 'function') updateActiveCatBar('search', 'ค้นหา: '+value, '🔍');
@@ -1657,6 +1723,89 @@ document.addEventListener('click', function(e){
 window.showSearchSuggestions = showSearchSuggestions;
 window.selectSug = selectSug;
 window.closeSearchDropdowns = closeSearchDropdowns;
+
+// === Bottom Tab Bar (Mobile/Tablet) ===
+function bottomTabClick(tab){
+  if(tab === 'home'){
+    goHome();
+  } else if(tab === 'products'){
+    // Show catalog with all products (no filter)
+    if(typeof goCat === 'function') goCat('all');
+  } else if(tab === 'trend'){
+    // Show Hot trends
+    if(typeof setMobTag === 'function') setMobTag('Hot');
+  } else if(tab === 'cart'){
+    if(typeof toggleCart === 'function') toggleCart();
+  } else if(tab === 'account'){
+    showAccountModal();
+  }
+}
+function updateBottomTabActive(){
+  const tabs = document.querySelectorAll('.bottom-tab-bar .tab-item');
+  if(!tabs.length) return;
+  const homeEl = document.getElementById('home');
+  const isHome = homeEl && homeEl.style.display !== 'none';
+  let active = '';
+  if(isHome){
+    active = 'home';
+  } else if(curTag === 'Hot' || curTag === 'New'){
+    active = 'trend';
+  } else {
+    active = 'products';
+  }
+  tabs.forEach(function(t){
+    t.classList.toggle('active', t.dataset.tab === active);
+  });
+}
+function updateBottomTabCartBadge(){
+  const badge = document.getElementById('bottomTabCartBadge');
+  if(!badge || typeof cart === 'undefined') return;
+  const count = cart.reduce(function(s,c){ return s + (c.qty||0); }, 0);
+  if(count > 0){
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+function showAccountModal(){
+  // Update profile info if LIFF logged in
+  if(typeof liffProfile !== 'undefined' && liffProfile){
+    const nameEl = document.getElementById('accountUserName');
+    const statusEl = document.getElementById('accountUserStatus');
+    const profileArea = document.getElementById('accountProfileArea');
+    if(nameEl) nameEl.textContent = liffProfile.displayName || 'ผู้ใช้งาน';
+    if(statusEl) statusEl.textContent = '✓ Login ผ่าน LINE แล้ว';
+    if(profileArea && liffProfile.pictureUrl){
+      const avatar = profileArea.querySelector('div');
+      if(avatar){
+        avatar.innerHTML = '<img src="' + liffProfile.pictureUrl + '" style="width:60px;height:60px;border-radius:50%;object-fit:cover" alt="">';
+        avatar.style.background = 'transparent';
+      }
+    }
+  }
+  // Update cart info
+  const cartInfoEl = document.getElementById('accountCartInfo');
+  if(cartInfoEl && typeof cart !== 'undefined'){
+    if(cart.length > 0){
+      const totalQty = cart.reduce(function(s,c){ return s+(c.qty||0); }, 0);
+      cartInfoEl.textContent = cart.length + ' รายการ · ' + totalQty + ' ชิ้น';
+    } else {
+      cartInfoEl.textContent = 'ตรวจรายการสินค้าก่อนสั่ง';
+    }
+  }
+  const m = document.getElementById('accountModalOverlay');
+  if(m){ m.style.display = 'flex'; }
+}
+function closeAccountModal(){
+  const m = document.getElementById('accountModalOverlay');
+  if(m){ m.style.display = 'none'; }
+}
+window.bottomTabClick = bottomTabClick;
+window.updateBottomTabActive = updateBottomTabActive;
+window.updateBottomTabCartBadge = updateBottomTabCartBadge;
+window.showAccountModal = showAccountModal;
+window.closeAccountModal = closeAccountModal;
 
 // === Mobile Side Drawer (Hamburger Menu) ===
 function openMobDrawer(){
@@ -1718,7 +1867,7 @@ document.addEventListener('keydown', function(e){
     // Then mobile drawer
     const drawer = document.getElementById('mobDrawer');
     if(drawer && drawer.classList.contains('show')){ closeMobDrawer(); return; }
-    const ids = ['lineModalOverlay','lineLoadingOverlay','lineNoAppOverlay','orderHelpOverlay','orderTextOverlay'];
+    const ids = ['lineModalOverlay','lineLoadingOverlay','lineNoAppOverlay','orderHelpOverlay','orderTextOverlay','accountModalOverlay'];
     for(let i=0;i<ids.length;i++){
       const el = document.getElementById(ids[i]);
       if(el && el.style.display === 'flex'){ el.style.display = 'none'; }
