@@ -176,6 +176,10 @@ function init(){
   // Initialize bottom tab state (Mobile/Tablet)
   if(typeof updateBottomTabActive === 'function') updateBottomTabActive();
   if(typeof updateBottomTabCartBadge === 'function') updateBottomTabCartBadge();
+  // Initial indicator position (after layout)
+  if(typeof updateIndicatorPosition === 'function'){
+    setTimeout(updateIndicatorPosition, 100);
+  }
 }
 
 function updateActiveCatBar(catId,label,icon){
@@ -297,6 +301,9 @@ function goHome(){
   document.getElementById('home').style.display='';
   window.scrollTo(0,0);
   try{ history.replaceState(null,'',window.location.pathname+window.location.search); }catch(e){}
+  // Group D: sync active highlights (sidebar/chip/bottom-tab)
+  if(typeof updateSidebarActive === 'function') updateSidebarActive();
+  if(typeof updateMobActive === 'function') updateMobActive();
 }
 function goCat(catId){
   _pushHistory();
@@ -1758,6 +1765,24 @@ window.selectSug = selectSug;
 window.closeSearchDropdowns = closeSearchDropdowns;
 
 // === Bottom Tab Bar (Mobile/Tablet) ===
+function updateIndicatorPosition(){
+  const bar = document.querySelector('.bottom-tab-bar');
+  if(!bar) return;
+  const activeTab = bar.querySelector('.tab-item.active');
+  const indicator = bar.querySelector('.indicator');
+  if(!activeTab || !indicator) return;
+  const barRect = bar.getBoundingClientRect();
+  const tabRect = activeTab.getBoundingClientRect();
+  const tabCenter = tabRect.left - barRect.left + tabRect.width / 2;
+  const indicatorWidth = indicator.offsetWidth || 65;
+  indicator.style.left = (tabCenter - indicatorWidth / 2) + 'px';
+}
+window.updateIndicatorPosition = updateIndicatorPosition;
+// Reposition on window resize
+window.addEventListener('resize', function(){
+  if(typeof updateIndicatorPosition === 'function') updateIndicatorPosition();
+});
+
 let _bottomTabOverride = null; // 'cart' | 'account' | null — for non-nav tabs
 function bottomTabClick(tab){
   if(tab === 'home'){
@@ -1812,9 +1837,11 @@ function updateBottomTabActive(){
     t.classList.toggle('active', isActive);
     if(isActive) activeIndex = idx;
   });
-  // Move indicator to active tab position via CSS variable
-  const bar = document.querySelector('.bottom-tab-bar');
-  if(bar) bar.style.setProperty('--active-index', activeIndex);
+  // Move indicator to active tab position (px-based for smooth transition)
+  if(typeof updateIndicatorPosition === 'function'){
+    // Wait one frame for layout to settle
+    requestAnimationFrame(updateIndicatorPosition);
+  }
 }
 function updateBottomTabCartBadge(){
   const badge = document.getElementById('bottomTabCartBadge');
