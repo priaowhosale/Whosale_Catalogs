@@ -262,6 +262,12 @@ window._applyHashRoute = _applyHashRoute;
 // === Scroll Helper (Linked Logic Group D — Navigation) ===
 // ทุก navigation function ที่เปลี่ยนหมวด/แท็ก/ค้นหา ต้องเรียก _scrollTop() ที่ท้าย
 // ยกเว้น: goBack (restore scrollY จาก history), goHome (มี window.scrollTo เอง)
+function _clearTabOverride(){
+  // เคลียร์ override ของ cart/account เมื่อ user navigate ผ่าน drawer/links
+  if(typeof _bottomTabOverride !== 'undefined' && _bottomTabOverride){
+    _bottomTabOverride = null;
+  }
+}
 function _scrollTop(){
   const mc = document.getElementById('mainContent');
   if(mc) mc.scrollTop = 0;
@@ -325,6 +331,7 @@ function doSearch(){
   curCat='all';curSub='all';curTag='all';curSearch=q;curPage=1;
   const si=document.getElementById('catSearch');if(si)si.value=q;
   applyFilter();updateActiveCatBar('search','ค้นหา: '+q,'🔍');
+  updateSidebarActive();updateMobActive(); // Group D
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
   _scrollTop();
   _updateHash();
@@ -336,6 +343,7 @@ function setMobTag(tag){
   const si=document.getElementById('catSearch');if(si)si.value='';
   curSearch='';
   applyFilter();
+  updateSidebarActive();updateMobActive(); // Group D contract: sync active highlight (sidebar/chip/bottom-tab)
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
   const tagLabels = {Hot:'🔥 สินค้าขายดี', New:'✨ สินค้าใหม่', Promo:'💰 สินค้าโปรโมชั่น'};
   const tagIcons = {Hot:'🔥', New:'✨', Promo:'💰'};
@@ -438,6 +446,8 @@ function buildMobCats(){
   mb.innerHTML=h;
 }
 function updateSidebarActive(){
+  // Clear cart/account override on any navigation
+  if(typeof _clearTabOverride === 'function') _clearTabOverride();
   // Also sync bottom tab (Group D2 paired)
   if(typeof updateBottomTabActive === 'function') updateBottomTabActive();
   const btns = document.querySelectorAll('#sidebar .sb-btn');
@@ -469,11 +479,13 @@ function updateMobActive(){
     b.classList.toggle('active', isActive);
   });
 }
-function setTag(tag){curTag=tag;curPage=1;applyFilter();_scrollTop();_updateHash();}
+function setTag(tag){curTag=tag;curPage=1;applyFilter();updateSidebarActive();updateMobActive();_scrollTop();_updateHash();}
 function setSub(sub){
   curSub=sub;curPage=1;
   document.querySelectorAll('.sub-btn').forEach(b=>b.classList.toggle('active',b.dataset.val===sub));
-  applyFilter();_scrollTop();_updateHash();
+  applyFilter();
+  updateSidebarActive();updateMobActive(); // Group D
+  _scrollTop();_updateHash();
 }
 function setView(v){
   viewMode=v;
