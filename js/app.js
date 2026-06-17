@@ -1794,9 +1794,15 @@ function updateBottomTabActive(){
     else if(curTag === 'Hot' || curTag === 'New' || curTag === 'Promo') active = 'trend';
     else active = 'products';
   }
-  tabs.forEach(function(t){
-    t.classList.toggle('active', t.dataset.tab === active);
+  let activeIndex = 0;
+  tabs.forEach(function(t, idx){
+    const isActive = t.dataset.tab === active;
+    t.classList.toggle('active', isActive);
+    if(isActive) activeIndex = idx;
   });
+  // Move indicator to active tab position via CSS variable
+  const bar = document.querySelector('.bottom-tab-bar');
+  if(bar) bar.style.setProperty('--active-index', activeIndex);
 }
 function updateBottomTabCartBadge(){
   const badge = document.getElementById('bottomTabCartBadge');
