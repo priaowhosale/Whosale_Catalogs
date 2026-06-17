@@ -16,6 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/bottom-nav.css">
 </head>
 <body>
 <div class="loading" id="loading">
@@ -199,10 +200,10 @@
   <div class="cart-footer">
     <div class="cart-total" id="cartTotal">รวม: 0 บาท</div>
     <p style="font-size:.72rem;color:#dc2626;font-weight:700;margin-bottom:6px;line-height:1.5">⚠️ ราคาสินค้าและสต็อกสินค้าบางรายการอาจมีการเปลี่ยนแปลง</p>
-    <input id="memberInput" class="member-input" type="text" placeholder="หมายเลข VIP Member หรือชื่อร้าน (ระบุก่อนส่งออเดอร์)" autocomplete="off">
     <button type="button" class="cart-send" id="cartSendBtn" onclick="window.sendOrderSafe && window.sendOrderSafe()">💬 ส่งออเดอร์ไปที่ Line OA เปรียว คอสเมติกส์</button>
   </div>
 </div>
+<script src="js/bottom-nav.js"></script>
 <script src="js/app.js"></script>
 <!-- LINE Chat Modal -->
 <div class="line-modal-overlay" id="lineModalOverlay" onclick="closeLineModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;z-index:3000;padding:16px">
@@ -349,6 +350,7 @@
 </aside>
 <!-- Bottom Tab Bar (Mobile/Tablet ≤1024px) -->
 <nav class="bottom-tab-bar" id="bottomTabBar" aria-label="Main navigation">
+  <svg class="bar-bg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" aria-hidden="true"><path d="" fill="#121212"/></svg>
   <button class="tab-item" data-tab="home" onclick="bottomTabClick('home')">
     <span class="tab-bubble"><span class="tab-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z"/></svg></span></span>
     <span class="tab-label">หน้าหลัก</span>
@@ -384,6 +386,11 @@
       <div style="width:60px;height:60px;border-radius:50%;background:#e6f1fb;display:inline-flex;align-items:center;justify-content:center;font-size:1.8rem;margin-bottom:10px">👤</div>
       <div id="accountUserName" style="font-weight:700;color:#0a1628;font-size:1rem;margin-bottom:4px">ผู้ใช้งานทั่วไป</div>
       <small id="accountUserStatus" style="color:#6B7280;font-size:.78rem">ยังไม่ได้ login ผ่าน LINE</small>
+    </div>
+    <div style="padding:14px 18px;border-bottom:1px solid #eee;background:#fafafa">
+      <label for="accountVipInput" style="display:block;font-weight:700;color:#0a1628;font-size:.85rem;margin-bottom:6px">🏷️ หมายเลข VIP Member / ชื่อร้าน</label>
+      <input id="accountVipInput" type="text" placeholder="กรอกแล้วบันทึก — ใช้ตอนส่งออเดอร์" autocomplete="off" style="width:100%;padding:10px 12px;border:1.5px solid #d0d7de;border-radius:8px;font-family:inherit;font-size:.9rem;box-sizing:border-box">
+      <small id="accountVipStatus" style="display:block;margin-top:4px;font-size:.72rem;color:#6B7280">ระบบจำให้อัตโนมัติ — ไม่ต้องกรอกซ้ำครั้งหน้า</small>
     </div>
     <div style="padding:14px 18px;display:flex;flex-direction:column;gap:8px">
       <button type="button" onclick="closeAccountModal();if(typeof openLineModal==='function')openLineModal();" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:9px;border:1.5px solid #06c755;background:#f0fbf3;cursor:pointer;font-family:inherit;text-align:left;width:100%">

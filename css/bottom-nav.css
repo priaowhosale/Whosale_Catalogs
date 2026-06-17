@@ -1,0 +1,60 @@
+/* ============================================================
+ * Bottom Navigation Bar — Standalone Module CSS
+ * ============================================================
+ * Mobile/Tablet (≤1024px) — 5 tabs: หน้าหลัก/สินค้า/เทรนด์/ตะกร้า/บัญชี
+ *
+ * Design: Inline SVG <path> background with seamless cutout
+ *   - Bar bg + cutout drawn as one shape (no overlay artifacts)
+ *   - Priao Blue indicator (58×58 #25a9e0) sits inside the cutout
+ *   - Active icon shifts (--bubble-shift-x) to align with indicator at edge tabs
+ *
+ * Geometry constants (must match bottom-nav.js):
+ *   bar height:  70px        cutout mouth: 104px
+ *   indicator:   58×58       cutout depth: 65px
+ *   corner radius: 16px      icon lift: -6px
+ *
+ * Color tokens:
+ *   bar:        #121212
+ *   active:     #25a9e0  (Priao Blue — brand)
+ *   icon idle:  #666666  / icon active: #fff
+ *   trend (special): #FFD700 gold
+ * ============================================================ */
+
+/* === Bar Container === */
+.bottom-tab-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:transparent;z-index:250;padding:0;height:70px;margin:0 .75rem;margin-bottom:max(.75rem,env(safe-area-inset-bottom));overflow:visible}
+@media(max-width:1024px){.bottom-tab-bar{display:flex}}
+
+/* === SVG Background (path drawn dynamically by JS) === */
+.bar-bg{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;overflow:visible;filter:drop-shadow(0 8px 24px rgba(0,0,0,.22))}
+.bar-bg path{transition:none}
+
+/* === Tab Item === */
+.tab-item{flex:1;height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;color:#666666;position:relative;z-index:2;transition:color .5s}
+.tab-item:hover{color:#a3a3a3}
+.tab-item:active{transform:scale(.96)}
+.tab-item.active{color:#fff;z-index:10}
+
+/* === Tab Icon Bubble (lifts on active to sit in cutout) === */
+.tab-bubble{display:inline-flex;align-items:center;justify-content:center;transition:transform .5s cubic-bezier(.4,0,.2,1);background:transparent}
+.tab-bubble{--bubble-shift-x:0px}
+.tab-item.active .tab-bubble{transform:translate(var(--bubble-shift-x),-6px)}
+
+/* === Icon SVG === */
+.tab-icon{line-height:1;display:inline-flex;align-items:center;justify-content:center;font-size:1.4rem}
+.tab-icon svg{width:24px;height:24px;display:block;stroke:currentColor;transition:all .5s}
+.tab-item.active .tab-icon svg{stroke-width:2;width:26px;height:26px;stroke:#fff}
+
+/* Trend tab — gold star (default) / white (active) */
+.tab-item[data-tab="trend"] .tab-icon svg{stroke:#FFD700;fill:none;filter:drop-shadow(0 1px 2px rgba(255,165,0,.4))}
+.tab-item[data-tab="trend"].active .tab-icon svg{stroke:#fff;fill:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.25))}
+
+/* === Tab Label === */
+.tab-label{font-size:.66rem;letter-spacing:-.2px;white-space:nowrap;transition:all .5s;font-weight:500;color:inherit;position:absolute;bottom:8px}
+.tab-item.active .tab-label{opacity:0;transform:translateY(-.5rem);font-weight:700}
+
+/* === Cart Badge (count) === */
+.tab-badge{position:absolute;top:8px;right:calc(50% - 24px);background:#ef4444;color:#fff;font-size:.72rem;font-weight:900;min-width:22px;height:22px;padding:0 5px;border-radius:11px;display:flex;align-items:center;justify-content:center;border:2px solid #121212;line-height:1;z-index:11;letter-spacing:.2px}
+.tab-item.active .tab-badge{border-color:#25a9e0;top:0px;right:calc(50% - 24px)}
+
+/* === Indicator (orange circle — sits inside SVG cutout, moves via JS px) === */
+.indicator{position:absolute;top:0px;left:0;width:58px;height:58px;background:#25a9e0;border-radius:50%;box-shadow:0 4px 12px rgba(37,169,224,.4);pointer-events:none;z-index:5;transition:left .5s cubic-bezier(.4,0,.2,1);will-change:left}

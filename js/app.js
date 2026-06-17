@@ -146,17 +146,7 @@ function init(){
   buildSidebar();buildMobCats();applyFilter();updateQtabCounts();
   if(cart.length>0)renderCart(); // re-render cart sidebar ให้แสดงของที่ restore
 
-  // กัน Enter ใน memberInput → ไม่ trigger Send button โดยไม่ตั้งใจ
-  const memInpEl = document.getElementById('memberInput');
-  if(memInpEl){
-    memInpEl.addEventListener('keydown', function(e){
-      if(e.key === 'Enter'){
-        e.preventDefault();
-        e.stopPropagation();
-        memInpEl.blur(); // unfocus → ไม่ trigger button ถัดไป
-      }
-    });
-  }
+  // VIP input init → ย้ายไป js/bottom-nav.js (auto-init on DOMContentLoaded)
 
   // LINE FAB → เปิด Mini Modal ของเรา (QR + Browser link + Copy)
   const lineFabEl = document.getElementById('lineFab');
@@ -266,23 +256,7 @@ window._applyHashRoute = _applyHashRoute;
 // === Scroll Helper (Linked Logic Group D — Navigation) ===
 // ทุก navigation function ที่เปลี่ยนหมวด/แท็ก/ค้นหา ต้องเรียก _scrollTop() ที่ท้าย
 // ยกเว้น: goBack (restore scrollY จาก history), goHome (มี window.scrollTo เอง)
-function _clearTabOverride(){
-  // เคลียร์ override ของ cart/account + ปิด modal/panel ที่เปิดอยู่
-  if(typeof _bottomTabOverride === 'undefined' || !_bottomTabOverride) return;
-  const prev = _bottomTabOverride;
-  _bottomTabOverride = null; // set FIRST to break recursion
-  if(prev === 'cart'){
-    const cp = document.getElementById('cartPanel');
-    if(cp && cp.classList.contains('open')){
-      cp.classList.remove('open');
-      const ov = document.getElementById('overlay');
-      if(ov) ov.classList.remove('show');
-    }
-  } else if(prev === 'account'){
-    const am = document.getElementById('accountModalOverlay');
-    if(am) am.style.display = 'none';
-  }
-}
+// _closeCartPanel / _closeAccountModal / _clearTabOverride → ย้ายไป js/bottom-nav.js
 function _scrollTop(){
   const mc = document.getElementById('mainContent');
   if(mc) mc.scrollTop = 0;
@@ -1009,8 +983,15 @@ async function initLiff(){
         badge.style.display = 'flex';
         if(liffProfile.pictureUrl) avatar.src = liffProfile.pictureUrl;
         name.textContent = liffProfile.displayName || 'VIP';
-        const memInput = document.getElementById('memberInput');
-        if(memInput && !memInput.value) memInput.value = liffProfile.displayName || '';
+        // LIFF login เสร็จ — fill account VIP input ถ้ายังว่าง (ไม่เขียนทับ localStorage)
+        const acctVip = document.getElementById('accountVipInput');
+        if(acctVip && !acctVip.value){
+          const saved = (function(){ try { return localStorage.getItem('priao_vip_member') || ''; } catch(e){ return ''; } })();
+          if(!saved){
+            acctVip.value = liffProfile.displayName || '';
+            try { localStorage.setItem('priao_vip_member', acctVip.value); } catch(e){}
+          }
+        }
       }
     } else if(liffInClient){
       liff.login();
@@ -1781,137 +1762,15 @@ window.selectSug = selectSug;
 window.closeSearchDropdowns = closeSearchDropdowns;
 
 // === Bottom Tab Bar (Mobile/Tablet) ===
-function updateIndicatorPosition(){
-  const bar = document.querySelector('.bottom-tab-bar');
-  if(!bar) return;
-  const activeTab = bar.querySelector('.tab-item.active');
-  const indicator = bar.querySelector('.indicator');
-  if(!activeTab || !indicator) return;
-  const barRect = bar.getBoundingClientRect();
-  const tabRect = activeTab.getBoundingClientRect();
-  const tabCenter = tabRect.left - barRect.left + tabRect.width / 2;
-  const indicatorWidth = indicator.offsetWidth || 65;
-  indicator.style.left = (tabCenter - indicatorWidth / 2) + 'px';
-}
-window.updateIndicatorPosition = updateIndicatorPosition;
-// Reposition on window resize
-window.addEventListener('resize', function(){
-  if(typeof updateIndicatorPosition === 'function') updateIndicatorPosition();
-});
-
-let _bottomTabOverride = null; // 'cart' | 'account' | null — for non-nav tabs
-function bottomTabClick(tab){
-  if(tab === 'home'){
-    _bottomTabOverride = null;
-    goHome();
-  } else if(tab === 'products'){
-    _bottomTabOverride = null;
-    if(typeof goCat === 'function') goCat('all');
-  } else if(tab === 'trend'){
-    _bottomTabOverride = null;
-    if(typeof setMobTag === 'function') setMobTag('Hot');
-  } else if(tab === 'cart'){
-    _bottomTabOverride = 'cart';
-    if(typeof toggleCart === 'function') toggleCart();
-    // Cart might toggle (open/close) — verify after
-    setTimeout(function(){
-      const cp = document.getElementById('cartPanel');
-      if(!cp || !cp.classList.contains('open')) _bottomTabOverride = null;
-      updateBottomTabActive();
-    }, 50);
-  } else if(tab === 'account'){
-    _bottomTabOverride = 'account';
-    showAccountModal();
-  }
-  updateBottomTabActive();
-}
-function updateBottomTabActive(){
-  const tabs = document.querySelectorAll('.bottom-tab-bar .tab-item');
-  if(!tabs.length) return;
-  let active = '';
-  // Override for modal tabs (cart/account)
-  if(_bottomTabOverride === 'cart'){
-    const cp = document.getElementById('cartPanel');
-    if(cp && cp.classList.contains('open')) active = 'cart';
-    else _bottomTabOverride = null;
-  } else if(_bottomTabOverride === 'account'){
-    const am = document.getElementById('accountModalOverlay');
-    if(am && am.style.display === 'flex') active = 'account';
-    else _bottomTabOverride = null;
-  }
-  // Default: based on current view state
-  if(!active){
-    const homeEl = document.getElementById('home');
-    const isHome = homeEl && homeEl.style.display !== 'none';
-    if(isHome) active = 'home';
-    else if(curTag === 'Hot' || curTag === 'New' || curTag === 'Promo') active = 'trend';
-    else active = 'products';
-  }
-  let activeIndex = 0;
-  tabs.forEach(function(t, idx){
-    const isActive = t.dataset.tab === active;
-    t.classList.toggle('active', isActive);
-    if(isActive) activeIndex = idx;
-  });
-  // Move indicator to active tab position (px-based for smooth transition)
-  if(typeof updateIndicatorPosition === 'function'){
-    // Wait one frame for layout to settle
-    requestAnimationFrame(updateIndicatorPosition);
-  }
-}
-function updateBottomTabCartBadge(){
-  const badge = document.getElementById('bottomTabCartBadge');
-  if(!badge || typeof cart === 'undefined') return;
-  const count = cart.reduce(function(s,c){ return s + (c.qty||0); }, 0);
-  if(count > 0){
-    badge.textContent = count > 99 ? '99+' : String(count);
-    badge.style.display = 'flex';
-  } else {
-    badge.style.display = 'none';
-  }
-}
-function showAccountModal(){
-  // Update profile info if LIFF logged in
-  if(typeof liffProfile !== 'undefined' && liffProfile){
-    const nameEl = document.getElementById('accountUserName');
-    const statusEl = document.getElementById('accountUserStatus');
-    const profileArea = document.getElementById('accountProfileArea');
-    if(nameEl) nameEl.textContent = liffProfile.displayName || 'ผู้ใช้งาน';
-    if(statusEl) statusEl.textContent = '✓ Login ผ่าน LINE แล้ว';
-    if(profileArea && liffProfile.pictureUrl){
-      const avatar = profileArea.querySelector('div');
-      if(avatar){
-        avatar.innerHTML = '<img src="' + liffProfile.pictureUrl + '" style="width:60px;height:60px;border-radius:50%;object-fit:cover" alt="">';
-        avatar.style.background = 'transparent';
-      }
-    }
-  }
-  // Update cart info
-  const cartInfoEl = document.getElementById('accountCartInfo');
-  if(cartInfoEl && typeof cart !== 'undefined'){
-    if(cart.length > 0){
-      const totalQty = cart.reduce(function(s,c){ return s+(c.qty||0); }, 0);
-      cartInfoEl.textContent = cart.length + ' รายการ · ' + totalQty + ' ชิ้น';
-    } else {
-      cartInfoEl.textContent = 'ตรวจรายการสินค้าก่อนสั่ง';
-    }
-  }
-  const m = document.getElementById('accountModalOverlay');
-  if(m){ m.style.display = 'flex'; }
-}
-function closeAccountModal(){
-  const m = document.getElementById('accountModalOverlay');
-  if(m){ m.style.display = 'none'; }
-  if(typeof _bottomTabOverride !== 'undefined'){
-    _bottomTabOverride = null;
-    if(typeof updateBottomTabActive === 'function') updateBottomTabActive();
-  }
-}
-window.bottomTabClick = bottomTabClick;
-window.updateBottomTabActive = updateBottomTabActive;
-window.updateBottomTabCartBadge = updateBottomTabCartBadge;
-window.showAccountModal = showAccountModal;
-window.closeAccountModal = closeAccountModal;
+// ============================================================
+// Bottom Navigation Bar logic → js/bottom-nav.js
+//   Functions accessible via window.*:
+//     bottomTabClick, updateBottomTabActive, updateBottomTabCartBadge,
+//     showAccountModal, closeAccountModal, updateIndicatorPosition,
+//     _clearTabOverride, _closeCartPanel, _closeAccountModal
+//   Group D contract preserved: updateSidebarActive() still calls
+//   _clearTabOverride() + updateBottomTabActive() via global typeof check
+// ============================================================
 
 // === Mobile Side Drawer (Hamburger Menu) ===
 function openMobDrawer(){
@@ -2103,8 +1962,11 @@ async function sendOrder(){
   // Generate order metadata
   const orderId = genOrderId();
   const timestamp = getTimestampTH();
-  const memberInput = document.getElementById('memberInput');
-  const memberFromInput = memberInput ? (memberInput.value || '').trim() : '';
+  // อ่าน VIP จาก Account input (priority 1) แล้ว fallback localStorage (priority 2)
+  const acctVip = document.getElementById('accountVipInput');
+  const liveVip = acctVip ? (acctVip.value || '').trim() : '';
+  const savedVip = (function(){ try { return (localStorage.getItem('priao_vip_member') || '').trim(); } catch(e){ return ''; } })();
+  const memberFromInput = liveVip || savedVip;
   const customerName = (liffProfile && liffProfile.displayName) || memberFromInput || '';
   const total = cart.reduce((s,c) => s + (c.price * c.qty), 0);
 
