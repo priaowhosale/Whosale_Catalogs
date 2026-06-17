@@ -91,8 +91,10 @@ function goTag(tag){
   applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');
   if(backBtnBar){if(navHistory.length>0)backBtnBar.classList.add('show');else backBtnBar.classList.remove('show');}
-  const tagLabel=tag==='Hot'?'🔥 สินค้าขายดี':'✨ สินค้าใหม่';
-  updateActiveCatBar('all',tagLabel,tag==='Hot'?'🔥':'✨');
+  const tagLabels = {Hot:'🔥 สินค้าขายดี', New:'✨ สินค้าใหม่', Promo:'💰 สินค้าโปรโมชั่น'};
+  const tagIcons = {Hot:'🔥', New:'✨', Promo:'💰'};
+  const tagLabel = tagLabels[tag] || tag;
+  updateActiveCatBar('all', tagLabel, tagIcons[tag] || '');
   _scrollTop();
   _updateHash();
 }
@@ -335,11 +337,13 @@ function setMobTag(tag){
   curSearch='';
   applyFilter();
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
-  const label=tag==='Hot'?'🔥 สินค้าขายดี':'✨ สินค้าใหม่';
-  updateActiveCatBar('filter',label,'');
+  const tagLabels = {Hot:'🔥 สินค้าขายดี', New:'✨ สินค้าใหม่', Promo:'💰 สินค้าโปรโมชั่น'};
+  const tagIcons = {Hot:'🔥', New:'✨', Promo:'💰'};
+  const label = tagLabels[tag] || tag;
+  updateActiveCatBar('filter', label, tagIcons[tag]||'');
   document.querySelectorAll('.mob-cat-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.mob-tag-btn').forEach(b=>{
-    if((tag==='Hot'&&b.textContent.includes('ขายดี'))||(tag==='New'&&b.textContent.includes('ใหม่')))b.classList.add('active');
+    if((tag==='Hot'&&b.textContent.includes('ขายดี'))||(tag==='New'&&b.textContent.includes('ใหม่'))||(tag==='Promo'&&b.textContent.includes('โปรโมชั่น')))b.classList.add('active');
   });
   _scrollTop();
   _updateHash();
@@ -384,6 +388,7 @@ function applyFilter(){
     if(curSub!=='all'&&p.subCat!==curSub)return false;
     if(curTag==='Hot'&&p.tag!=='สินค้าขายดี')return false;
     if(curTag==='New'&&p.tag!=='สินค้าใหม่')return false;
+    if(curTag==='Promo'&&!p.promoType)return false; // กรองสินค้าที่มี promo (sale/bundle/flash)
     if(words.length>0){if(!matchProduct(p,words))return false;}
     return true;
   });
@@ -397,6 +402,7 @@ function buildSidebar(){
   h+='<button class="sb-btn" data-tag="all" onclick="setTag(\'all\')">ทั้งหมด</button>';
   h+='<button class="sb-btn" data-tag="Hot" onclick="setTag(\'Hot\')">🔥 สินค้าขายดี</button>';
   h+='<button class="sb-btn" data-tag="New" onclick="setTag(\'New\')">✨ สินค้าใหม่</button>';
+  h+='<button class="sb-btn" data-tag="Promo" onclick="setTag(\'Promo\')">💰 โปรโมชั่น</button>';
   h+='<div class="sb-divider"></div>';
   h+='<div class="sb-hdr">หมวดหมู่</div>';
   h+='<button class="sb-btn" data-cat="all" onclick="goCat(\'all\')">🗂 ทั้งหมด</button>';
@@ -410,6 +416,7 @@ function buildMobCats(){
   let h='<button class="mob-cat-btn" data-tag="all" onclick="setMobTag(\'all\')">ทั้งหมด</button>';
   h+='<button class="mob-cat-btn mob-tag-btn" data-tag="Hot" onclick="setMobTag(\'Hot\')">🔥 ขายดี</button>';
   h+='<button class="mob-cat-btn mob-tag-btn" data-tag="New" onclick="setMobTag(\'New\')">✨ ใหม่</button>';
+  h+='<button class="mob-cat-btn mob-tag-btn" data-tag="Promo" onclick="setMobTag(\'Promo\')">💰 โปรโมชั่น</button>';
   h+='<span style="width:1px;background:var(--border);align-self:stretch;margin:4px 2px"></span>';
   for(const k of Object.keys(RAW_DATA)){
     h+='<button class="mob-cat-btn" data-cat="'+k+'" onclick="goCat(\''+k+'\')">'+(CAT_EMOJI[k]||'')+' '+(CAT_NAMES[k]||k)+'</button>';
@@ -1748,7 +1755,7 @@ function updateBottomTabActive(){
   let active = '';
   if(isHome){
     active = 'home';
-  } else if(curTag === 'Hot' || curTag === 'New'){
+  } else if(curTag === 'Hot' || curTag === 'New' || curTag === 'Promo'){
     active = 'trend';
   } else {
     active = 'products';
@@ -1829,6 +1836,7 @@ function buildMobDrawer(){
   h += '<button class="mob-drawer-btn '+(isHome?'active':'')+'" onclick="goHomeFromDrawer()">🏠 หน้าหลัก</button>';
   h += '<button class="mob-drawer-btn '+(curTag==='Hot'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'Hot\')">🔥 สินค้าขายดี</button>';
   h += '<button class="mob-drawer-btn '+(curTag==='New'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'New\')">✨ สินค้าใหม่</button>';
+  h += '<button class="mob-drawer-btn '+(curTag==='Promo'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'Promo\')">💰 สินค้าโปรโมชั่น</button>';
   h += '<div class="mob-drawer-divider"></div>';
   // Categories section
   h += '<div class="mob-drawer-hdr-section">หมวดหมู่</div>';
