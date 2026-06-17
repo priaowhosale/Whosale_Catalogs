@@ -335,32 +335,32 @@ body{font-family:"Noto Sans Thai",sans-serif;background:#f4f8fc;color:#0a1628}
 /* ============================================================ */
 /* === Bottom Tab Bar (Mobile/Tablet ≤1024px) — Floating Bubble === */
 /* ============================================================ */
-/* === Bottom Tab Bar — Floating Bubble with Notch (Indicator + box-shadow) === */
-.bottom-tab-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#1a1d29;z-index:250;padding:0;height:4.25rem;margin:0 .75rem;margin-bottom:max(.75rem,env(safe-area-inset-bottom));border-radius:1.25rem;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:visible;--active-index:0}
+/* === Bottom Tab Bar — Notched Floating (matches reference CSS exactly) === */
+.bottom-tab-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#1a1d29;z-index:250;padding:0;height:70px;margin:0 .75rem;margin-bottom:max(.75rem,env(safe-area-inset-bottom));border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:visible;--active-index:0}
 @media(max-width:1024px){.bottom-tab-bar{display:flex}}
-.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;cursor:pointer;padding:.5rem .25rem;font-family:inherit;color:#94a3b8;position:relative;z-index:1;transition:color .35s}
+.tab-item{flex:1;height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;color:#94a3b8;position:relative;z-index:1;transition:color .35s}
 .tab-item:hover{color:#cbd5e1}
 .tab-item:active{transform:scale(.96)}
-.tab-item.active{color:#fff;z-index:5}
-.tab-bubble{display:inline-flex;align-items:center;justify-content:center;transition:transform .5s cubic-bezier(.4,0,.2,1);background:transparent;height:1.7rem}
-.tab-item.active .tab-bubble{transform:translateY(-1.5rem)}
+.tab-item.active{color:#fff;z-index:10}
+.tab-bubble{display:inline-flex;align-items:center;justify-content:center;transition:transform .5s cubic-bezier(.4,0,.2,1);background:transparent}
+.tab-item.active .tab-bubble{transform:translateY(-28px)}
 .tab-icon{line-height:1;display:inline-flex;align-items:center;justify-content:center;font-size:1.4rem}
-.tab-icon svg{width:1.5rem;height:1.5rem;display:block;stroke:currentColor;transition:all .25s}
-.tab-item.active .tab-icon svg{stroke-width:2;width:1.6rem;height:1.6rem;stroke:#fff}
+.tab-icon svg{width:24px;height:24px;display:block;stroke:currentColor;transition:all .25s}
+.tab-item.active .tab-icon svg{stroke-width:2;width:26px;height:26px;stroke:#fff}
 /* Trend tab — gold star (default) / white (active) */
 .tab-item[data-tab="trend"] .tab-icon svg{stroke:#FFD700;fill:none;filter:drop-shadow(0 1px 2px rgba(255,165,0,.4))}
 .tab-item[data-tab="trend"].active .tab-icon svg{stroke:#fff;fill:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.25))}
-.tab-label{font-size:.66rem;letter-spacing:-.2px;white-space:nowrap;transition:all .35s;font-weight:500;color:inherit}
+.tab-label{font-size:.66rem;letter-spacing:-.2px;white-space:nowrap;transition:all .35s;font-weight:500;color:inherit;position:absolute;bottom:8px}
 .tab-item.active .tab-label{opacity:0;transform:translateY(-.5rem);font-weight:700}
-.tab-badge{position:absolute;top:.25rem;right:calc(50% - 1.5rem);background:#ef4444;color:#fff;font-size:.6rem;font-weight:800;min-width:1.1rem;height:1.1rem;padding:0 .25rem;border-radius:.55rem;display:flex;align-items:center;justify-content:center;border:2px solid #1a1d29;line-height:1;z-index:6}
-.tab-item.active .tab-badge{border-color:#ff5a1f;top:-1.75rem;right:calc(50% - 1.5rem)}
+.tab-badge{position:absolute;top:8px;right:calc(50% - 24px);background:#ef4444;color:#fff;font-size:.6rem;font-weight:800;min-width:18px;height:18px;padding:0 4px;border-radius:9px;display:flex;align-items:center;justify-content:center;border:2px solid #1a1d29;line-height:1;z-index:11}
+.tab-item.active .tab-badge{border-color:#ff5a1f;top:-22px;right:calc(50% - 24px)}
 
-/* === The Indicator (moving orange circle + notch curves) === */
-.indicator{position:absolute;top:-1.5rem;left:calc(20% * var(--active-index) + 10% - 1.6rem);width:3.25rem;height:3.25rem;background:linear-gradient(135deg,#ff7a45,#ff5a1f);border-radius:50%;box-shadow:0 6px 16px rgba(255,90,31,.45);pointer-events:none;z-index:0;transition:left .5s cubic-bezier(.4,0,.2,1)}
-/* Left curve notch */
-.indicator::before{content:'';position:absolute;top:1.5rem;left:-1.4rem;width:1.5rem;height:1.5rem;background:transparent;border-top-right-radius:1.25rem;box-shadow:5px -5px 0 5px #1a1d29}
+/* === The Indicator (moving orange circle + notch curves — EXACT match to reference) === */
+.indicator{position:absolute;top:-30px;left:calc(20% * var(--active-index) + 10% - 32.5px);width:65px;height:65px;background:linear-gradient(135deg,#ff7a45,#ff5a1f);border-radius:50%;box-shadow:0 6px 16px rgba(255,90,31,.4);pointer-events:none;z-index:5;transition:left .5s cubic-bezier(.4,0,.2,1)}
+/* Left curve notch — concave dip via box-shadow trick */
+.indicator::before{content:'';position:absolute;top:30px;left:-24px;width:25px;height:25px;background:transparent;border-top-right-radius:20px;box-shadow:5px -5px 0 5px #1a1d29}
 /* Right curve notch */
-.indicator::after{content:'';position:absolute;top:1.5rem;right:-1.4rem;width:1.5rem;height:1.5rem;background:transparent;border-top-left-radius:1.25rem;box-shadow:-5px -5px 0 5px #1a1d29}
+.indicator::after{content:'';position:absolute;top:30px;right:-24px;width:25px;height:25px;background:transparent;border-top-left-radius:20px;box-shadow:-5px -5px 0 5px #1a1d29}
 
 /* Hide cart FAB on mobile/tablet (replaced by bottom tab cart) */
 @media(max-width:1024px){.cart-fab{display:none !important}}
