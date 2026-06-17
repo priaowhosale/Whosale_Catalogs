@@ -590,7 +590,16 @@ function renderPagination(){
   if(curPage<total)h+='<button class="pg-btn" onclick="goPage('+(curPage+1)+')">›</button>';
   pg.innerHTML=h;
 }
-function goPage(n){curPage=n;renderProducts();renderPagination();document.getElementById('mainContent').scrollTop=0;_updateHash();}
+function goPage(n){
+  // Bounds guard — กัน URL hash หรือ external call ใส่ page เกิน
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  n = Math.max(1, Math.min(totalPages, parseInt(n,10) || 1));
+  curPage = n;
+  renderProducts(); renderPagination();
+  const mc = document.getElementById('mainContent');
+  if(mc) mc.scrollTop = 0;
+  _updateHash();
+}
 
 function addCartN(code){
   const inp=document.getElementById('qin-'+code);
@@ -762,16 +771,22 @@ function changeQty(code,delta){
 function renderCart(){
   saveCart(); // persist cart ทุกครั้งที่มี render — ป้องกัน cart หายตอนสลับแอป
   if(typeof updateBottomTabCartBadge === 'function') updateBottomTabCartBadge();
-  const cnt=cart.reduce((s,c)=>s+c.qty,0);
-  document.getElementById('cartCnt').textContent=cnt;
+  // Badges นับตาม SKU (cart.length) ไม่ใช่ qty sum
+  const skuCount = cart.length;
+  // Header cart badge — hide when 0 (เหมือน FAB)
+  const cartCntEl=document.getElementById('cartCnt');
+  if(cartCntEl){
+    cartCntEl.textContent=skuCount;
+    cartCntEl.style.display=skuCount>0?'flex':'none';
+  }
   const fab=document.getElementById('cartFabCnt');
   const fabLabel=document.getElementById('cartFabLabel');
   const fabBtn=document.getElementById('cartFab');
   if(fab){
-    fab.textContent=cnt;
-    fab.style.display=cnt>0?'flex':'none';
-    if(fabLabel)fabLabel.style.display=cnt>0?'none':'inline';
-    if(fabBtn&&cnt>0){fabBtn.classList.remove('pop');void fabBtn.offsetWidth;fabBtn.classList.add('pop');}
+    fab.textContent=skuCount;
+    fab.style.display=skuCount>0?'flex':'none';
+    if(fabLabel)fabLabel.style.display=skuCount>0?'none':'inline';
+    if(fabBtn&&skuCount>0){fabBtn.classList.remove('pop');void fabBtn.offsetWidth;fabBtn.classList.add('pop');}
   }
   // Show/hide ปุ่มล้างตะกร้า
   const clearBtn = document.getElementById('cartClearBtn');
@@ -936,6 +951,15 @@ function closeCart(){document.getElementById('cartPanel').classList.remove('open
 // 1. ใส่ LIFF ID ของคุณตรงนี้ (ได้จาก LINE Developers Console)
 const LIFF_ID = '2010211018-V4JAFUOl'; // Priao VIP Catalog
 const LINE_OA_URL = 'https://lin.ee/mDhRNMT'; // LINE OA ของเปรียว (Add Friend short URL)
+// Sync LINE FAB href จาก const ตอน DOM ready (single source of truth)
+(function syncLineFabHref(){
+  function apply(){
+    const fab = document.getElementById('lineFab');
+    if(fab && fab.tagName === 'A') fab.href = LINE_OA_URL;
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply);
+  else apply();
+})();
 const LINE_OA_ID = 'evp5054h';                              // LINE OA Basic ID (จาก page.line.me/<id>)
 const LINE_OA_DEEPLINK = 'line://ti/p/%40' + LINE_OA_ID;    // PC App deep link (Windows/Mac)
 const ORDER_BACKUP_KEY = 'priao_last_order_backup';         // localStorage key สำหรับ order backup

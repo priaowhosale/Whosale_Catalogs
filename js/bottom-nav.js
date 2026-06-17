@@ -235,7 +235,8 @@
   function updateBottomTabCartBadge(){
     var badge = document.getElementById('bottomTabCartBadge');
     if(!badge || typeof cart === 'undefined') return;
-    var count = cart.reduce(function(s,c){ return s + (c.qty||0); }, 0);
+    // นับตาม SKU (cart.length) ไม่ใช่ qty sum
+    var count = cart.length;
     if(count > 0){
       badge.textContent = count > 99 ? '99+' : String(count);
       badge.style.display = 'flex';

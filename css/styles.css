@@ -254,7 +254,7 @@ body{font-family:"Noto Sans Thai",sans-serif;background:#f4f8fc;color:#0a1628}
   .cart-panel .cart-footer{padding-bottom:calc(5.5rem + env(safe-area-inset-bottom))}
 
   /* Cart action buttons */
-  .cart-send-btn,.cart-clear-btn{min-height:2.75rem;font-size:.92rem;padding:.625rem 1rem}
+  .cart-send,#cartClearBtn{min-height:2.75rem;font-size:.92rem;padding:.625rem 1rem}
 
   /* Search input */
   .pc-search input{font-size:.95rem;padding:.375rem 0}
@@ -375,3 +375,14 @@ body{font-family:"Noto Sans Thai",sans-serif;background:#f4f8fc;color:#0a1628}
   .pc-search input{font-size:.92rem}
 }
 
+/* ============================================================ */
+/* === Heroicons Outline Helper (PC Mode icons) === */
+/* ============================================================ */
+.hi-svg{width:1em;height:1em;display:inline-block;vertical-align:-0.15em;stroke:currentColor;fill:none;flex-shrink:0;stroke-linecap:round;stroke-linejoin:round}
+.home-btn-icon{display:inline-flex;align-items:center;justify-content:center;color:#25a9e0}
+.home-btn-icon .hi-svg{width:1.5em;height:1.5em;stroke-width:1.9}
+.cart-btn .hi-svg{width:1.1em;height:1.1em;color:#fff;margin-right:2px}
+.cart-fab .hi-svg{width:1.5em;height:1.5em;color:#fff;stroke-width:1.9;margin-right:4px}
+.qtab-icon .hi-svg{width:1.7rem;height:1.7rem;color:#fff;stroke-width:1.7}
+.sec-title-icon{display:inline-flex;align-items:center;justify-content:center;color:#25a9e0;margin-right:4px}
+.sec-title-icon .hi-svg{width:1.1em;height:1.1em;vertical-align:-0.18em}
