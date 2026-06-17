@@ -919,7 +919,7 @@ window.copySkuFromCart = function(ev, code){
 };
 
 function toggleCart(){document.getElementById('cartPanel').classList.toggle('open');document.getElementById('overlay').classList.toggle('show');}
-function closeCart(){document.getElementById('cartPanel').classList.remove('open');document.getElementById('overlay').classList.remove('show');}
+function closeCart(){document.getElementById('cartPanel').classList.remove('open');document.getElementById('overlay').classList.remove('show');if(typeof _bottomTabOverride !== 'undefined'){_bottomTabOverride = null; if(typeof updateBottomTabActive === 'function') updateBottomTabActive();}}
 
 // ============================================================
 // LIFF INTEGRATION — เปรียว VIP Catalog
@@ -1746,33 +1746,53 @@ window.selectSug = selectSug;
 window.closeSearchDropdowns = closeSearchDropdowns;
 
 // === Bottom Tab Bar (Mobile/Tablet) ===
+let _bottomTabOverride = null; // 'cart' | 'account' | null — for non-nav tabs
 function bottomTabClick(tab){
   if(tab === 'home'){
+    _bottomTabOverride = null;
     goHome();
   } else if(tab === 'products'){
-    // Show catalog with all products (no filter)
+    _bottomTabOverride = null;
     if(typeof goCat === 'function') goCat('all');
   } else if(tab === 'trend'){
-    // Show Hot trends
+    _bottomTabOverride = null;
     if(typeof setMobTag === 'function') setMobTag('Hot');
   } else if(tab === 'cart'){
+    _bottomTabOverride = 'cart';
     if(typeof toggleCart === 'function') toggleCart();
+    // Cart might toggle (open/close) — verify after
+    setTimeout(function(){
+      const cp = document.getElementById('cartPanel');
+      if(!cp || !cp.classList.contains('open')) _bottomTabOverride = null;
+      updateBottomTabActive();
+    }, 50);
   } else if(tab === 'account'){
+    _bottomTabOverride = 'account';
     showAccountModal();
   }
+  updateBottomTabActive();
 }
 function updateBottomTabActive(){
   const tabs = document.querySelectorAll('.bottom-tab-bar .tab-item');
   if(!tabs.length) return;
-  const homeEl = document.getElementById('home');
-  const isHome = homeEl && homeEl.style.display !== 'none';
   let active = '';
-  if(isHome){
-    active = 'home';
-  } else if(curTag === 'Hot' || curTag === 'New' || curTag === 'Promo'){
-    active = 'trend';
-  } else {
-    active = 'products';
+  // Override for modal tabs (cart/account)
+  if(_bottomTabOverride === 'cart'){
+    const cp = document.getElementById('cartPanel');
+    if(cp && cp.classList.contains('open')) active = 'cart';
+    else _bottomTabOverride = null;
+  } else if(_bottomTabOverride === 'account'){
+    const am = document.getElementById('accountModalOverlay');
+    if(am && am.style.display === 'flex') active = 'account';
+    else _bottomTabOverride = null;
+  }
+  // Default: based on current view state
+  if(!active){
+    const homeEl = document.getElementById('home');
+    const isHome = homeEl && homeEl.style.display !== 'none';
+    if(isHome) active = 'home';
+    else if(curTag === 'Hot' || curTag === 'New' || curTag === 'Promo') active = 'trend';
+    else active = 'products';
   }
   tabs.forEach(function(t){
     t.classList.toggle('active', t.dataset.tab === active);
@@ -1821,6 +1841,10 @@ function showAccountModal(){
 function closeAccountModal(){
   const m = document.getElementById('accountModalOverlay');
   if(m){ m.style.display = 'none'; }
+  if(typeof _bottomTabOverride !== 'undefined'){
+    _bottomTabOverride = null;
+    if(typeof updateBottomTabActive === 'function') updateBottomTabActive();
+  }
 }
 window.bottomTabClick = bottomTabClick;
 window.updateBottomTabActive = updateBottomTabActive;
