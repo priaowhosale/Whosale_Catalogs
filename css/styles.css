@@ -29,7 +29,7 @@ body{font-family:"Noto Sans Thai",sans-serif;background:#f4f8fc;color:#0a1628}
 .pc-hdr img{height:clamp(30px,8vw,108px);flex-shrink:0}
 /* Auto-responsive header — element หายตามลำดับเมื่อจอแคบลง */
 @media(max-width:700px){.pc-hdr-title{display:none}}
-@media(max-width:640px){.cart-btn{display:none}}
+@media(max-width:1024px){.cart-btn{display:none}}
 @media(max-width:500px){.home-btn .home-btn-label{display:none}.home-btn .home-btn-icon{font-size:1.1rem}}
 .pc-search{flex:1;min-width:0;max-width:300px;background:#f4f8fc;border:1.5px solid var(--border);border-radius:50px;display:flex;align-items:center;padding:5px 12px;gap:6px}
 .pc-search input{flex:1;min-width:0;border:none;outline:none;background:transparent;color:#1a1a1a;font-size:clamp(.72rem,2.2vw,.85rem);font-family:inherit}
@@ -248,8 +248,7 @@ body{font-family:"Noto Sans Thai",sans-serif;background:#f4f8fc;color:#0a1628}
   .mob-cat-btn{padding:.5rem .875rem;font-size:.78rem;min-height:2.25rem}
 
   /* Cart panel — full width on mobile */
-  .cart-panel{width:100vw;max-width:100vw;right:-100vw}
-  .cart-panel.show{right:0}
+  .cart-panel{width:100vw;max-width:100vw;right:-100vw;top:0;bottom:calc(3.5rem + env(safe-area-inset-bottom));height:auto}
 
   /* Cart action buttons */
   .cart-send-btn,.cart-clear-btn{min-height:2.75rem;font-size:.92rem;padding:.625rem 1rem}
@@ -353,5 +352,30 @@ body{font-family:"Noto Sans Thai",sans-serif;background:#f4f8fc;color:#0a1628}
 @media(max-width:1024px){
   .pc-main{padding-bottom:5rem !important}
   #home{padding-bottom:5rem}
+}
+
+/* === Cart Panel — adjust for Bottom Tab Bar (Tablet ≤1024px) === */
+@media(min-width:641px) and (max-width:1024px){
+  .cart-panel{
+    bottom: calc(3.5rem + env(safe-area-inset-bottom));
+    height: auto;
+  }
+}
+
+/* ============================================================ */
+/* === Mobile/Tablet Header Cleanup (≤1024px) === */
+/* Hide elements ที่มีใน Bottom Tab Bar แล้ว → search bar ยาวขึ้น */
+/* ============================================================ */
+@media(max-width:1024px){
+  /* Hide: home button (→ "หน้าหลัก" tab) */
+  .home-btn{display:none !important}
+
+  /* Hide: pc user badge (LINE avatar+name) — มีใน "บัญชี" tab */
+  .pc-user-badge{display:none !important}
+
+  /* Expand search input to use freed space */
+  .pc-search-wrap{max-width:none !important;flex:1}
+  .pc-search{max-width:none !important}
+  .pc-search input{font-size:.92rem}
 }
 
