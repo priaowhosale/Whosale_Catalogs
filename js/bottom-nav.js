@@ -175,19 +175,20 @@
   // SECTION 5: Tab Click Handler
   // ============================================================
   function bottomTabClick(tab){
+    var api = window.AppAPI;  // (Group J) — Pub/Sub: avoid direct app.js coupling
     if(tab === 'home'){
       _clearTabOverride();
-      if(typeof goHome === 'function') goHome();
+      if(api) api.goHome();
     } else if(tab === 'products'){
       _clearTabOverride();
-      if(typeof goCat === 'function') goCat('all');
+      if(api) api.goCat('all');
     } else if(tab === 'trend'){
       _clearTabOverride();
-      if(typeof setMobTag === 'function') setMobTag('Hot');
+      if(api) api.setMobTag('Hot');
     } else if(tab === 'cart'){
       _closeAccountModal();                                       // prevent stacking
       _bottomTabOverride = 'cart';
-      if(typeof toggleCart === 'function') toggleCart();
+      if(api) api.toggleCart();
       // Cart might toggle (open/close) — verify after
       setTimeout(function(){
         var cp = document.getElementById('cartPanel');
@@ -225,9 +226,13 @@
     if(!active){
       var homeEl = document.getElementById('home');
       var isHome = homeEl && homeEl.style.display !== 'none';
-      if(isHome) active = 'home';
-      else if(typeof curTag !== 'undefined' && (curTag === 'Hot' || curTag === 'New' || curTag === 'Promo')) active = 'trend';
-      else active = 'products';
+      if(isHome) {
+        active = 'home';
+      } else {
+        var ct = window.AppAPI ? window.AppAPI.getCurTag() : '';
+        if(ct === 'Hot' || ct === 'New' || ct === 'Promo') active = 'trend';
+        else active = 'products';
+      }
     }
     tabs.forEach(function(t){ t.classList.toggle('active', t.dataset.tab === active); });
     // Reposition indicator + cutout (next frame so layout settles)
@@ -236,9 +241,12 @@
 
   function updateBottomTabCartBadge(){
     var badge = document.getElementById('bottomTabCartBadge');
-    if(!badge || typeof cart === 'undefined') return;
+    if(!badge) return;
+    // (Group J) อ่าน cart ผ่าน AppAPI — ตัด direct coupling
+    var cartArr = (window.AppAPI && window.AppAPI.getCart) ? window.AppAPI.getCart() : [];
+    if(!Array.isArray(cartArr)) cartArr = [];
     // นับตาม SKU (cart.length) ไม่ใช่ qty sum
-    var count = cart.length;
+    var count = cartArr.length;
     if(count > 0){
       badge.textContent = count > 99 ? '99+' : String(count);
       badge.style.display = 'flex';
@@ -251,32 +259,36 @@
   // SECTION 7: Account Modal (with VIP Member + LIFF info)
   // ============================================================
   function showAccountModal(){
-    // Sync VIP input from localStorage (in case modified elsewhere)
+    var api = window.AppAPI;  // (Group J) Pub/Sub
+    // Sync VIP input from localStorage (key อ่านผ่าน API — Single Source of Truth)
     var vipEl = document.getElementById('accountVipInput');
+    var vipKey = (api && api.getVipLsKey) ? api.getVipLsKey() : 'priao_vip_member';
     if(vipEl){
-      try { vipEl.value = localStorage.getItem('priao_vip_member') || vipEl.value || ''; } catch(e){}
+      try { vipEl.value = localStorage.getItem(vipKey) || vipEl.value || ''; } catch(e){}
     }
     // Update LIFF profile info if logged in
-    if(typeof liffProfile !== 'undefined' && liffProfile){
+    var prof = api && api.getLiffProfile ? api.getLiffProfile() : null;
+    if(prof){
       var nameEl = document.getElementById('accountUserName');
       var statusEl = document.getElementById('accountUserStatus');
       var profileArea = document.getElementById('accountProfileArea');
-      if(nameEl) nameEl.textContent = liffProfile.displayName || 'ผู้ใช้งาน';
+      if(nameEl) nameEl.textContent = prof.displayName || 'ผู้ใช้งาน';
       if(statusEl) statusEl.textContent = '✓ Login ผ่าน LINE แล้ว';
-      if(profileArea && liffProfile.pictureUrl){
+      if(profileArea && prof.pictureUrl){
         var avatar = profileArea.querySelector('div');
         if(avatar){
-          avatar.innerHTML = '<img src="' + liffProfile.pictureUrl + '" style="width:60px;height:60px;border-radius:50%;object-fit:cover" alt="">';
+          avatar.innerHTML = '<img src="' + prof.pictureUrl + '" style="width:60px;height:60px;border-radius:50%;object-fit:cover" alt="">';
           avatar.style.background = 'transparent';
         }
       }
     }
     // Update cart summary
     var cartInfoEl = document.getElementById('accountCartInfo');
-    if(cartInfoEl && typeof cart !== 'undefined'){
-      if(cart.length > 0){
-        var totalQty = cart.reduce(function(s,c){ return s+(c.qty||0); }, 0);
-        cartInfoEl.textContent = cart.length + ' รายการ · ' + totalQty + ' ชิ้น';
+    var cartArr = api && api.getCart ? api.getCart() : [];
+    if(cartInfoEl){
+      if(cartArr && cartArr.length > 0){
+        var totalQty = cartArr.reduce(function(s,c){ return s+(c.qty||0); }, 0);
+        cartInfoEl.textContent = cartArr.length + ' รายการ · ' + totalQty + ' ชิ้น';
       } else {
         cartInfoEl.textContent = 'ตรวจรายการสินค้าก่อนสั่ง';
       }
@@ -298,11 +310,13 @@
   function _initAccountVip(){
     var acctVipEl = document.getElementById('accountVipInput');
     if(!acctVipEl) return;
+    // (Group J) อ่าน VIP_LS_KEY ผ่าน AppAPI — Single Source of Truth
+    function _vipKey(){ return (window.AppAPI && window.AppAPI.getVipLsKey) ? window.AppAPI.getVipLsKey() : 'priao_vip_member'; }
     // Load saved value
-    try { acctVipEl.value = localStorage.getItem('priao_vip_member') || ''; } catch(e){}
+    try { acctVipEl.value = localStorage.getItem(_vipKey()) || ''; } catch(e){}
     // Auto-save on change
     acctVipEl.addEventListener('input', function(){
-      try { localStorage.setItem('priao_vip_member', (acctVipEl.value || '').trim()); } catch(e){}
+      try { localStorage.setItem(_vipKey(), (acctVipEl.value || '').trim()); } catch(e){}
       var status = document.getElementById('accountVipStatus');
       if(status){
         status.textContent = '✓ บันทึกแล้ว';
@@ -321,8 +335,20 @@
   }
 
   // ============================================================
-  // SECTION 9: Event Listeners
+  // SECTION 9: Event Listeners (incl. AppAPI Pub/Sub — Group J)
   // ============================================================
+  // Subscribe to app state changes — auto-refresh UI
+  document.addEventListener('app:cart-change', function(){
+    updateBottomTabCartBadge();
+  });
+  document.addEventListener('app:nav-change', function(){
+    updateBottomTabActive();
+  });
+  document.addEventListener('app:liff-ready', function(){
+    // Refresh profile area next time account modal opens
+    // (showAccountModal reads fresh value via AppAPI.getLiffProfile each call)
+  });
+
   // Resize — redraw bar path + reposition indicator
   window.addEventListener('resize', function(){
     if(_barPathCurrentX !== null){

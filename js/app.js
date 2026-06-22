@@ -1,6 +1,41 @@
 
+/* ============================================================
+ * Priao VIP Catalog — Main App
+ * IIFE-wrapped for encapsulation (Group K — Module G post-Pattern A)
+ * Public API: window.AppAPI + explicit window.* exports at bottom
+ * ============================================================ */
+(function(){
 'use strict';
 let RAW_DATA = {}; // populated by loadCatalogData() before init() runs
+// === Suggested Retail Price Overlay (data/suggested_retail.json) ===
+// Source: ERP ISCode → Price_Prod.Shop (ราคาแนะนำขายต่อให้ผู้บริโภคปลายทาง)
+// Loaded separately from main JSON, merged into product.suggestedRetail after init
+let SUGGESTED_RETAIL_MAP = {}; // { barcode: price } — populated by loadSuggestedRetail()
+
+// ============================================================
+// 📚 window.* — Shared Cross-File State + Public API
+// ============================================================
+// **State flags (cross-frame):**
+//   window.__catalogModeObserverInstalled — guard ป้องกัน observer ติดตั้งซ้ำ
+//   window._sendingInProgress             — lock ป้องกัน sendOrder ซ้ำ (race condition guard)
+//
+// **Order backup chain (5-layer):**
+//   window._lastOrderText  — full order text (clipboard restore)
+//   window._lastOrderInfo  — order metadata {orderId, total, itemCount, ...}
+//
+// **Debug + error tracking:**
+//   window.__lastErrors    — capped array of last N errors (cap = ERROR_LOG_CAP = 50)
+//
+// **Public function exports (called from HTML onclick / external scripts):**
+//   window._applyHashRoute — URL hash router (called on hashchange)
+//   window._updateHash     — push current state to URL hash
+//   ...(see "window.* = ..." exports at bottom of file)
+//
+// **Rules:**
+//   1. ห้าม assign window.* แบบไม่ผ่าน mediator function (state mutation invisible)
+//   2. Private state ใช้ prefix `_` (single underscore) สำหรับ shared, `__` สำหรับ true private
+//   3. ทุก array-typed state ต้องมี cap (กัน memory leak)
+// ============================================================
 
 
 // ============================================================
@@ -80,11 +115,6 @@ const CAT_SVG   = Object.fromEntries(Object.entries(CATEGORY_CONFIG).map(functio
 const FILTER_SVG = Object.fromEntries(Object.entries(FILTER_CONFIG).map(function(e){return [e[0], e[1].svg];}));
 
 // ── 6. Helper functions ──
-function getCategoryIcon(catId){ var c = CATEGORY_CONFIG[catId]; return c ? c.svg : ''; }
-function getCategoryName(catId){ var c = CATEGORY_CONFIG[catId]; return c ? c.name : catId; }
-function getCategoryColor(catId){ var c = CATEGORY_CONFIG[catId]; return c ? c.color : ICON_COLORS.primary; }
-function getFilterIcon(key){ var f = FILTER_CONFIG[key]; return f ? f.svg : ''; }
-
 // ============================================================
 // END ICON & COLOR CONFIGURATION
 // ============================================================
@@ -92,12 +122,41 @@ function getFilterIcon(key){ var f = FILTER_CONFIG[key]; return f ? f.svg : ''; 
 const PER_PAGE=40;
 const CART_LS_KEY='priao_cart_v1';
 const CART_LS_TTL_MS=24*60*60*1000; // 24 ชม. — ตะกร้าเก่ากว่านี้จะถือว่าหมดอายุ
+const VIP_LS_KEY='priao_vip_member'; // localStorage key สำหรับ VIP member name (Group E SoT)
 let allProducts=[],filtered=[],cart=[];
 
 // ============================================================
 // Cart Persistence (localStorage)
 // แก้ปัญหา: ลูกค้าสลับ LINE chat กลับมา cart หายเป็น 0
 // ============================================================
+/**
+ * Get the effective unit price for a cart item, considering promo + threshold.
+ *
+ * @param {Object} cartItem - cart entry {code, name, price, qty, ...}
+ * @returns {number} - actual price per unit user pays
+ *
+ * Rules:
+ *   - Flash promo (min=1): ALWAYS use promoPrice (any qty)
+ *   - Step price (min=6): use promoPrice IFF cart qty >= minQty (else stdPrice)
+ *   - No promo: use stored c.price (= stdPrice)
+ */
+function effectiveUnitPrice(cartItem){
+  if(!cartItem) return 0;
+  const prod = (typeof allProducts !== 'undefined')
+    ? allProducts.find(function(p){ return p.code === cartItem.code; })
+    : null;
+  if(!prod || !prod.promoType || !prod.promoPrice) return cartItem.price;
+  const minQty = prod.promoMinQty || 0;
+  // Flash (min=1) or qty meets threshold → use promoPrice
+  if(minQty > 0 && cartItem.qty >= minQty) return prod.promoPrice;
+  return cartItem.price;
+}
+
+/** Effective subtotal for cart item (qty × effective unit price) */
+function effectiveSubtotal(cartItem){
+  return (cartItem.qty || 0) * effectiveUnitPrice(cartItem);
+}
+
 function saveCart(){
   try{
     const payload={ts:Date.now(),items:cart};
@@ -154,31 +213,18 @@ function brandInitials(name){
   const en=name.match(/^[A-Z0-9&]+/);
   return en?en[0].substring(0,2):name.substring(0,2).toUpperCase();
 }
-function brandLogoTag(brand){
-  if(!brand)return '';
-  const url=(BRAND_LOGOS&&BRAND_LOGOS[brand])||'';
-  if(url){
-    return '<img class="brand-logo" src="'+url+'" alt="">'
-  }
-  return '<span class="brand-logo-fallback" style="background:'+brandColor(brand)+'">'+brandInitials(brand)+'</span>';
-}
-
-
 function goTag(tag){
   _pushHistory();
   document.getElementById('home').style.display='none';
   document.getElementById('catalog').style.display='';
-  curCat='all';curSub='all';curTag=tag;curSearch='';curPage=1;
   const si=document.getElementById('catSearch');if(si)si.value='';
-  applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');
   if(backBtnBar){if(navHistory.length>0)backBtnBar.classList.add('show');else backBtnBar.classList.remove('show');}
   const tagLabels = {Hot:'สินค้าขายดี', New:'สินค้าใหม่', Promo:'สินค้าโปรโมชั่น'};
   const tagIcons = {Hot:FILTER_SVG.hot, New:FILTER_SVG.new, Promo:FILTER_SVG.promo};
   const tagLabel = tagLabels[tag] || tag;
   updateActiveCatBar('all', tagLabel, tagIcons[tag] || '');
-  _scrollTop();
-  _updateHash();
+  setNavState({cat:'all', sub:'all', tag:tag, search:'', page:1});
 }
 
 function init(){
@@ -190,21 +236,30 @@ function init(){
     for(const raw of arr){
       if(!raw[0])continue;
       if(!raw[4]||raw[4]<=0)continue;
-      // promo fields (index 11-13 — optional, default empty)
-      const promoTypeRaw = String(raw[11] || '').toLowerCase().trim();
-      const promoType = ['sale','bundle','flash'].indexOf(promoTypeRaw) >= 0 ? promoTypeRaw : '';
+      // Promo fields (cols 11-14 — optional, only when raw.length > 11)
+      // NEW SCHEMA 2026-06-19:
+      //   raw[11] = promo_type: "step_price" | "flash" | ""
+      //   raw[12] = promo_label: trimmed ribbon text
+      //   raw[13] = promo_price: ราคาพิเศษเมื่อเข้าเงื่อนไข
+      //   raw[14] = promo_min_qty: 6 (step_price) | 1 (flash)
+      const promoTypeRaw = String(raw[11] || '').toLowerCase().trim().replace(/\s+/g,'_');
+      const promoType = ['step_price','flash'].indexOf(promoTypeRaw) >= 0 ? promoTypeRaw : '';
+      const _barcode = String(raw[0]);
       const p={
-        code:String(raw[0]),name:raw[1]||'',
+        code:_barcode,name:raw[1]||'',
         cat:cat+' '+(CAT_NAMES[cat]||''),catId:cat,
         subCat:raw[2]||'',status:'',tag:raw[3]||'',
         stdPrice:Number(raw[4])||0,retailPrice:0,
         packQty:Number(raw[8])||1,baseUnit:raw[9]||'',
         stock:Number(raw[5])||0,imageUrl:raw[6]||'',
         brand:raw[7]||'',excelOrder:Number(raw[10])||0,
-        // promo (optional fields 11-13)
+        // promo (cols 11-14) — empty/0 when no promo
         promoType: promoType,
-        promoLabel: String(raw[12] || ''),
-        originalPrice: Number(raw[13]) || 0,
+        promoLabel: String(raw[12] || '').trim(),
+        promoPrice: Number(raw[13]) || 0,
+        promoMinQty: Number(raw[14]) || 0,
+        // suggested retail (overlay from ERP Price_Prod.Shop)
+        suggestedRetail: Number(SUGGESTED_RETAIL_MAP[_barcode]) || 0,
       };
       products.push(p);
       if(p.subCat)smap[cat].add(p.subCat);
@@ -346,13 +401,42 @@ window._applyHashRoute = _applyHashRoute;
 // ทุก navigation function ที่เปลี่ยนหมวด/แท็ก/ค้นหา ต้องเรียก _scrollTop() ที่ท้าย
 // ยกเว้น: goBack (restore scrollY จาก history), goHome (มี window.scrollTo เอง)
 // _closeCartPanel / _closeAccountModal / _clearTabOverride → ย้ายไป js/bottom-nav.js
+/**
+ * Centralized nav state mutation — enforces Group D contract.
+ * Sets state vars + runs standard update chain (applyFilter → updateSidebar 
+ * → updateMob → _scrollTop → _updateHash).
+ * @param {Object} updates  - { cat?, sub?, tag?, search?, page? }
+ * @param {Object} [options] - { skipFilter?, skipScroll?, skipHash? }
+ */
+function setNavState(updates, options){
+  updates = updates || {};
+  options = options || {};
+  if(updates.cat    !== undefined) curCat    = updates.cat;
+  if(updates.sub    !== undefined) curSub    = updates.sub;
+  if(updates.tag    !== undefined) curTag    = updates.tag;
+  if(updates.search !== undefined) curSearch = updates.search;
+  if(updates.page   !== undefined) curPage   = updates.page;
+  if(!options.skipFilter) applyFilter();
+  if(typeof updateSidebarActive === 'function') updateSidebarActive();
+  if(typeof updateMobActive     === 'function') updateMobActive();
+  if(!options.skipScroll) _scrollTop();
+  if(!options.skipHash)   _updateHash();
+
+  _emit('nav-change', { cat: curCat, sub: curSub, tag: curTag, search: curSearch, page: curPage });
+}
+
 function _scrollTop(){
   const mc = document.getElementById('mainContent');
   if(mc) mc.scrollTop = 0;
   try{ window.scrollTo(0, 0); }catch(e){}
 }
 
-function _pushHistory(){navHistory.push({cat:curCat,sub:curSub,tag:curTag,search:curSearch,page:curPage,scrollY:window.scrollY||window.pageYOffset||0});}
+function _pushHistory(){
+  // ใช้ mainContent.scrollTop เป็นหลัก (body locked อยู่ภายใต้ catalog-mode)
+  const mc = document.getElementById('mainContent');
+  const scrollY = mc ? mc.scrollTop : (window.scrollY || window.pageYOffset || 0);
+  navHistory.push({cat:curCat,sub:curSub,tag:curTag,search:curSearch,page:curPage,scrollY:scrollY});
+}
 function goBack(){
   if(!navHistory.length){goHome();return;}
   const p=navHistory.pop();
@@ -365,7 +449,13 @@ function goBack(){
   const backBtnBar=document.getElementById('backBtnBar');
   if(backBtnBar){if(navHistory.length>0)backBtnBar.classList.add('show');else backBtnBar.classList.remove('show');}
   updateActiveCatBar(curCat,CAT_NAMES[curCat]||curSearch,CAT_SVG[curCat]||FILTER_SVG.brand);
-  const _sy=p.scrollY||0;setTimeout(()=>window.scrollTo({top:_sy,behavior:'instant'}),80);
+  const _sy=p.scrollY||0;
+  setTimeout(function(){
+    // ใช้ mainContent.scrollTop (body locked ใน catalog-mode)
+    const mc=document.getElementById('mainContent');
+    if(mc) mc.scrollTop=_sy;
+    else try{ window.scrollTo({top:_sy,behavior:'instant'}); }catch(e){}
+  }, 80);
 }
 function goHome(){
   navHistory=[];
@@ -388,25 +478,19 @@ function goCat(catId){
   _pushHistory();
   document.getElementById('home').style.display='none';
   document.getElementById('catalog').style.display='';
-  curCat=catId;curSub='all';curTag='all';curSearch='';curPage=1;
   const si=document.getElementById('catSearch');if(si)si.value='';
-  applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
   updateActiveCatBar(catId,CAT_NAMES[catId],CAT_SVG[catId]);
-  _scrollTop();
-  _updateHash();
+  setNavState({cat:catId, sub:'all', tag:'all', search:'', page:1});
 }
 function goB(brand){
   _pushHistory();
   document.getElementById('home').style.display='none';
   document.getElementById('catalog').style.display='';
-  curCat='all';curSub='all';curTag='all';curSearch=brand;curPage=1;
   const si=document.getElementById('catSearch');if(si)si.value=brand;
-  applyFilter();updateSidebarActive();updateMobActive();
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
   updateActiveCatBar('brand',brand,FILTER_SVG.brand);
-  _scrollTop();
-  _updateHash();
+  setNavState({cat:'all', sub:'all', tag:'all', search:brand, page:1});
 }
 function doSearch(){
   const q=(document.getElementById('homeSearch').value||'').trim();
@@ -414,22 +498,15 @@ function doSearch(){
   _pushHistory();
   document.getElementById('home').style.display='none';
   document.getElementById('catalog').style.display='';
-  curCat='all';curSub='all';curTag='all';curSearch=q;curPage=1;
   const si=document.getElementById('catSearch');if(si)si.value=q;
-  applyFilter();updateActiveCatBar('search','ค้นหา: '+q,FILTER_SVG.search);
-  updateSidebarActive();updateMobActive(); // Group D
+  updateActiveCatBar('search','ค้นหา: '+q,FILTER_SVG.search);
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
-  _scrollTop();
-  _updateHash();
+  setNavState({cat:'all', sub:'all', tag:'all', search:q, page:1});
 }
 function setMobTag(tag){
-  curTag=tag;curCat='all';curSub='all';curPage=1;
   document.getElementById('home').style.display='none';
   document.getElementById('catalog').style.display='';
   const si=document.getElementById('catSearch');if(si)si.value='';
-  curSearch='';
-  applyFilter();
-  updateSidebarActive();updateMobActive(); // Group D contract: sync active highlight (sidebar/chip/bottom-tab)
   const backBtnBar=document.getElementById('backBtnBar');if(backBtnBar)backBtnBar.classList.add('show');
   const tagLabels = {Hot:'สินค้าขายดี', New:'สินค้าใหม่', Promo:'สินค้าโปรโมชั่น'};
   const tagIcons = {Hot:FILTER_SVG.hot, New:FILTER_SVG.new, Promo:FILTER_SVG.promo};
@@ -439,8 +516,7 @@ function setMobTag(tag){
   document.querySelectorAll('.mob-tag-btn').forEach(b=>{
     if((tag==='Hot'&&b.textContent.includes('ขายดี'))||(tag==='New'&&b.textContent.includes('ใหม่'))||(tag==='Promo'&&b.textContent.includes('โปรโมชั่น')))b.classList.add('active');
   });
-  _scrollTop();
-  _updateHash();
+  setNavState({cat:'all', sub:'all', tag:tag, search:'', page:1});
 }
 
 
@@ -465,18 +541,36 @@ function normalizeQ(s){
 }
 
 function matchProduct(p, words){
+  // 2-tier matching:
+  //   Tier 1: substring match — ทำงานทันที ไม่ต้องรอ tokens
+  //   Tier 2: prefix match ผ่าน SEARCH_TOKENS — ต้องรอ lazy-load (ดู applyFilter)
+  //           ใช้สำหรับ Thai compound word เช่น "สีย้อม" → match "สีย้อมผม"
   const haystack = (p.name+' '+p.code+' '+(p.brand||'')+' '+(p.subCat||'')).toLowerCase();
   return words.every(function(w){
-    // exact include
+    // Tier 1: exact include (always available)
     if(haystack.includes(w)) return true;
-    // prefix match ใน tokens
-    if(!SEARCH_TOKENS) return false; return SEARCH_TOKENS.some(function(t){ return t.startsWith(w) && haystack.includes(t); });
+    // Tier 2: prefix match via SEARCH_TOKENS (lazy-loaded — see applyFilter)
+    if(!SEARCH_TOKENS) return false;
+    return SEARCH_TOKENS.some(function(t){ return t.startsWith(w) && haystack.includes(t); });
   });
 }
 
 function applyFilter(){
   const q=normalizeQ(curSearch);
   const words=q?q.split(' ').filter(function(w){return w.length>0;}):[];
+
+  // Lazy-load search tokens on first search (idempotent — returns cached promise)
+  // เมื่อโหลดเสร็จ → re-apply ถ้า user ยังค้นหาคำเดิม (race-safe)
+  if(words.length > 0 && !SEARCH_TOKENS){
+    const _searchAtCall = curSearch;
+    ensureSearchTokens().then(function(){
+      // Re-render เฉพาะกรณีที่ user ยังค้นหาคำเดิม (กัน stale callback)
+      if(curSearch === _searchAtCall){
+        applyFilter(); // recursion ปลอดภัย — SEARCH_TOKENS โหลดแล้ว guard ข้างบนจะ skip
+      }
+    });
+  }
+
   filtered=allProducts.filter(function(p){
     if(curCat!=='all'&&!q&&p.catId!==curCat)return false;
     if(curSub!=='all'&&p.subCat!==curSub)return false;
@@ -573,13 +667,18 @@ function updateMobActive(){
     b.classList.toggle('active', isActive);
   });
 }
-function setTag(tag){curTag=tag;curPage=1;applyFilter();updateSidebarActive();updateMobActive();_scrollTop();_updateHash();}
+function setTag(tag){ setNavState({tag:tag, page:1}); }
 function setSub(sub){
-  curSub=sub;curPage=1;
-  document.querySelectorAll('.sub-btn').forEach(b=>b.classList.toggle('active',b.dataset.val===sub));
-  applyFilter();
-  updateSidebarActive();updateMobActive(); // Group D
-  _scrollTop();_updateHash();
+  document.querySelectorAll('.sub-btn,.sub-dd-item').forEach(b=>b.classList.toggle('active',b.dataset.val===sub));
+  // Auto-close mobile dropdown after selection
+  const bar=document.getElementById('subcatBar');
+  if(bar && bar.classList.contains('show-mobile-dropdown')){
+    bar.classList.remove('show-mobile-dropdown');
+    const trigger=bar.querySelector('.sub-mobile-trigger');
+    if(trigger) trigger.setAttribute('aria-expanded','false');
+    document.removeEventListener('click', _closeSubDropdownOutside);
+  }
+  setNavState({sub:sub, page:1});
 }
 function setView(v){
   viewMode=v;
@@ -591,14 +690,82 @@ function setView(v){
 function renderResultCnt(){const el=document.getElementById('resultCnt');if(el)el.textContent='แสดง '+filtered.length.toLocaleString('th-TH')+' รายการ';}
 function renderSubcats(){
   const bar=document.getElementById('subcatBar');if(!bar)return;
-  if(curCat==='all'||curSearch){bar.innerHTML='';return;}
+  if(curCat==='all'||curSearch){bar.innerHTML='';bar.classList.remove('show-mobile-dropdown');return;}
   const subs=subcatMap[curCat]||[];
-  if(!subs.length){bar.innerHTML='';return;}
+  if(!subs.length){bar.innerHTML='';bar.classList.remove('show-mobile-dropdown');return;}
+
+  function esc(s){ return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+  // 1. "ทั้งหมด" chip (always visible)
   let h='<button class="sub-btn '+(curSub==='all'?'active':'')+'" data-val="all" onclick="setSub(\'all\')">ทั้งหมด</button>';
+
+  // 2. Mobile dropdown — trigger + floating menu (Pattern B)
+  const triggerLabel = (curSub && curSub !== 'all') ? curSub : 'เลือกหมวดย่อย';
+  h+='<div class="sub-dd-anchor">';
+  h+='  <button class="sub-mobile-trigger" type="button" onclick="event.stopPropagation();toggleSubDropdown()" aria-haspopup="listbox" aria-expanded="false">';
+  h+='    <span class="sub-mobile-label">'+triggerLabel+'</span>';
+  h+='    <svg class="sub-mobile-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+  h+='  </button>';
+  h+='  <div class="sub-dd-menu" role="listbox">';
+  // "ทั้งหมด" item (active when curSub === 'all')
+  h+='    <button class="sub-dd-item '+(curSub==='all'?'active':'')+'" role="option" data-val="all" onclick="event.stopPropagation();setSub(\'all\')"><svg class="sub-dd-check" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="sub-dd-text">ทั้งหมด</span></button>';
+  // Each subcategory item
   for(const s of subs){
-    h+='<button class="sub-btn '+(curSub===s?'active':'')+'" data-val="'+s+'" onclick="setSub(\''+s.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')">'+s+'</button>';
+    const isActive = (curSub === s);
+    h+='    <button class="sub-dd-item '+(isActive?'active':'')+'" role="option" data-val="'+s+'" onclick="event.stopPropagation();setSub(\''+esc(s)+'\')"><svg class="sub-dd-check" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="sub-dd-text">'+s+'</span></button>';
   }
+  h+='  </div>';
+  h+='</div>';
+
+  // 3. Desktop chip wrap (hidden on mobile)
+  h+='<div class="sub-chips-wrap">';
+  for(const s of subs){
+    h+='<button class="sub-btn '+(curSub===s?'active':'')+'" data-val="'+s+'" onclick="setSub(\''+esc(s)+'\')">'+s+'</button>';
+  }
+  h+='</div>';
+
   bar.innerHTML=h;
+}
+
+/** Toggle the mobile subcategory dropdown (Pattern B — Floating menu) */
+function toggleSubDropdown(){
+  const bar=document.getElementById('subcatBar');
+  if(!bar) return;
+  const isOpen=bar.classList.toggle('show-mobile-dropdown');
+  const trigger=bar.querySelector('.sub-mobile-trigger');
+  if(trigger) trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  // Outside-click listener (lazy attach when open)
+  if(isOpen){
+    // Defer attach to next tick — skip current click event
+    setTimeout(function(){ document.addEventListener('click', _closeSubDropdownOutside); }, 0);
+    // Also close on scroll (UX improvement)
+    document.getElementById('mainContent')?.addEventListener('scroll', _closeSubDropdownOnScroll, {passive:true, once:true});
+  } else {
+    document.removeEventListener('click', _closeSubDropdownOutside);
+    document.getElementById('mainContent')?.removeEventListener('scroll', _closeSubDropdownOnScroll);
+  }
+}
+
+/** Outside-click handler — close dropdown if click outside subcat-bar */
+function _closeSubDropdownOutside(e){
+  const bar=document.getElementById('subcatBar');
+  if(!bar) return;
+  if(bar.contains(e.target)) return; // click inside — keep open
+  bar.classList.remove('show-mobile-dropdown');
+  const trigger=bar.querySelector('.sub-mobile-trigger');
+  if(trigger) trigger.setAttribute('aria-expanded','false');
+  document.removeEventListener('click', _closeSubDropdownOutside);
+}
+
+/** Scroll-handler — close dropdown when user scrolls catalog */
+function _closeSubDropdownOnScroll(){
+  const bar=document.getElementById('subcatBar');
+  if(bar && bar.classList.contains('show-mobile-dropdown')){
+    bar.classList.remove('show-mobile-dropdown');
+    const trigger=bar.querySelector('.sub-mobile-trigger');
+    if(trigger) trigger.setAttribute('aria-expanded','false');
+    document.removeEventListener('click', _closeSubDropdownOutside);
+  }
 }
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function badge(p){
@@ -607,14 +774,46 @@ function badge(p){
   return '';
 }
 function imgTag(p){
-  if(p.imageUrl)return '<img src="'+p.imageUrl+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
-  return '<div class="p-img-ph">🧴</div>';
+  // Promo ribbon overlay on image — flash gets red ribbon, step_price gets blue chip
+  let ribbon = '';
+  if(p.promoType === 'flash'){
+    ribbon = '<span class="p-ribbon p-ribbon-flash">⚡ FLASH SALE</span>';
+  } else if(p.promoType === 'step_price'){
+    ribbon = '<span class="p-ribbon p-ribbon-step">🏷 ซื้อ '+(p.promoMinQty||6)+'+</span>';
+  }
+  if(p.imageUrl) return ribbon+'<img src="'+p.imageUrl+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
+  return ribbon+'<div class="p-img-ph">🧴</div>';
 }
 function priceRow(p){
+  // Flash: show ~~stdPrice~~ promoPrice (immediate discount, qty>=1)
+  if(p.promoType === 'flash' && p.promoPrice > 0){
+    return '<span class="p-price p-price-promo">'+p.promoPrice.toLocaleString('th-TH')+' บาท</span>'
+         + '<span class="p-price-strike">'+p.stdPrice.toLocaleString('th-TH')+'</span>';
+  }
   const ws=p.stdPrice>0?p.stdPrice.toLocaleString('th-TH')+' บาท':'-';
   return '<span class="p-price">'+ws+'</span>';
 }
-function packInfo(p){return p.baseUnit||'';}
+function promoHintHTML(p){
+  // Step price: show hint "ซื้อ 6+ ลดเหลือ 222"
+  if(p.promoType === 'step_price' && p.promoPrice > 0 && p.promoMinQty > 0){
+    return '<span class="p-promo-hint" title="ราคาพิเศษเมื่อสั่ง '+p.promoMinQty+' ชิ้นขึ้นไป">ซื้อ '+p.promoMinQty+'+ ลดเหลือ '+p.promoPrice.toLocaleString('th-TH')+'</span>';
+  }
+  return '';
+}
+// ── Unit & Suggested Retail helpers ──
+function unitSuffix(p){
+  // แสดง "×N" ติดท้ายชื่อสินค้า (ไม่มีชื่อหน่วย — เช่น "×1", "×3")
+  const n = Number(p.packQty || 1);
+  if(!n) return '';
+  return ' ×' + n;
+}
+function suggestRetailHTML(p){
+  // Source: ERP ISCode Price_Prod.Shop (ราคาแนะนำขายต่อให้ผู้บริโภคปลายทาง)
+  // Loaded from data/suggested_retail.json overlay (separate from Excel)
+  const sr = Number(p.suggestedRetail || 0);
+  if(sr <= 0) return '';
+  return '<span class="p-suggest" title="ราคาแนะนำขายต่อให้ผู้บริโภคปลายทาง (จาก ERP Price_Prod.Shop)">แนะนำขาย '+sr.toLocaleString('th-TH')+'</span>';
+}
 function stockInfo(p){
   if(p.stock>0)return '<span class="stock-in">✓ '+p.stock+'</span>';
   return '<span class="stock-empty">สินค้าหมดชั่วคราว</span>';
@@ -648,10 +847,11 @@ function renderProducts(){
         +'<div class="p-img">'+imgTag(p)+'</div>'
         +'<div class="p-body">'
         +'<span class="p-code">#'+p.code+'</span>'
-        +'<div class="p-name">'+esc(p.name)+'</div>'
+        +'<div class="p-name">'+esc(p.name)+'<span class="p-unit-suffix">'+esc(unitSuffix(p))+'</span></div>'
         +'<div class="p-brand">'+esc(p.brand)+'</div>'
         +'<div class="p-price-row">'+priceRow(p)+(badge(p)?'<span class="p-badge-inline">'+badge(p)+'</span>':'')+'</div>'
-        +'<div class="p-stock-row">'+(packInfo(p)?'<span style="font-size:.65rem;color:#4B5563;font-weight:600">'+packInfo(p)+'</span>':'<span></span>')+stockInfo(p)+'</div>'
+        +(promoHintHTML(p)?'<div class="p-promo-row">'+promoHintHTML(p)+'</div>':'')
+        +'<div class="p-stock-row">'+(suggestRetailHTML(p)||'<span></span>')+stockInfo(p)+'</div>'
         +cardBtn(p)
         +'</div></div>';
     }
@@ -663,10 +863,11 @@ function renderProducts(){
         +'<div class="p-list-img">'+imgTag(p)+'</div>'
         +'<div class="p-list-body">'
         +'<span class="p-code">#'+p.code+'</span>'
-        +'<div class="p-list-name">'+esc(p.name)+'</div>'
+        +'<div class="p-list-name">'+esc(p.name)+'<span class="p-unit-suffix">'+esc(unitSuffix(p))+'</span></div>'
         +'<div class="p-brand">'+esc(p.brand)+'</div>'
         +'<div class="p-price-row">'+priceRow(p)+(badge(p)?'<span class="p-badge-inline">'+badge(p)+'</span>':'')+'</div>'
-        +'<div style="display:flex;gap:8px">'+stockInfo(p)+'</div>'
+        +(promoHintHTML(p)?'<div class="p-promo-row">'+promoHintHTML(p)+'</div>':'')
+        +'<div style="display:flex;gap:8px;align-items:center">'+(suggestRetailHTML(p)||'')+stockInfo(p)+'</div>'
         +'</div>'
         +'<button class="add-btn" style="width:auto;padding:6px 10px" onclick="addCart(\''+p.code+'\')">+</button>'
         +'</div>';
@@ -685,56 +886,55 @@ function renderPagination(){
   for(let i=s;i<=e;i++)h+='<button class="pg-btn'+(i===curPage?' active':'')+'" onclick="goPage('+i+')">'+i+'</button>';
   if(e<total)h+='<span style="padding:4px">…</span><button class="pg-btn" onclick="goPage('+total+')">'+total+'</button>';
   if(curPage<total)h+='<button class="pg-btn" onclick="goPage('+(curPage+1)+')">›</button>';
+  // Page jump input — กรอกเลขหน้าเพื่อกระโดดเร็ว (validate + error tooltip)
+  h+='<span class="pg-jump"><input class="pg-input" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="ใส่เลขหน้าที่จะไป" maxlength="6" aria-label="กรอกเลขหน้าเพื่อข้ามไป" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();pgJump(this)}"><button class="pg-btn pg-go" onclick="pgJump(this.previousElementSibling)" aria-label="ไปยังหน้าที่กรอก">ไป</button><span class="pg-error" id="pgError"></span></span>';
   pg.innerHTML=h;
 }
+
+// Page jump — validate input then goPage; show inline error tooltip
+function pgJump(inp){
+  if(!inp) inp = document.querySelector('.pg-input');
+  if(!inp) return;
+  const errEl = document.getElementById('pgError');
+  const total = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const val = (inp.value || '').trim();
+  function showErr(msg){
+    inp.classList.remove('error');
+    void inp.offsetWidth; // restart shake animation
+    inp.classList.add('error');
+    if(errEl){
+      errEl.textContent = msg;
+      errEl.classList.add('show');
+      clearTimeout(errEl._timer);
+      errEl._timer = setTimeout(function(){
+        errEl.classList.remove('show');
+        inp.classList.remove('error');
+      }, 2500);
+    }
+    inp.focus();
+    inp.select();
+  }
+  if(!val){ showErr('กรุณากรอกหมายเลขหน้า'); return; }
+  if(!/^\d+$/.test(val)){ showErr('กรอกเป็นตัวเลขเท่านั้น'); return; }
+  const n = parseInt(val, 10);
+  if(n < 1 || n > total){ showErr('หน้า ' + n + ' ไม่มี (มีถึง ' + total + ')'); return; }
+  if(n === curPage){ showErr('อยู่ที่หน้า ' + n + ' แล้ว'); return; }
+  // Valid — clear input + jump
+  inp.value = '';
+  if(errEl){ errEl.classList.remove('show'); }
+  inp.classList.remove('error');
+  goPage(n);
+}
+window.pgJump = pgJump;
 function goPage(n){
   // Bounds guard — กัน URL hash หรือ external call ใส่ page เกิน
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   n = Math.max(1, Math.min(totalPages, parseInt(n,10) || 1));
   curPage = n;
   renderProducts(); renderPagination();
   const mc = document.getElementById('mainContent');
   if(mc) mc.scrollTop = 0;
   _updateHash();
-}
-
-function addCartN(code){
-  const inp=document.getElementById('qin-'+code);
-  const n=Math.max(1,Math.min(999,parseInt(inp?inp.value:1)||1));
-  const p=allProducts.find(x=>x.code===code);if(!p)return;
-  const inCart = cart.findIndex(c=>c.code===code) >= 0;
-  const isOOS = p.tag === 'สินค้าหมดชั่วคราว' || p.stock <= 0;
-  if(isOOS && !inCart){
-    showPreorderConfirm(p, function(){ _doAddCartN(code, n); });
-    return;
-  }
-  _doAddCartN(code, n);
-}
-function _doAddCartN(code, n){
-  const p=allProducts.find(x=>x.code===code);if(!p)return;
-  const idx=cart.findIndex(c=>c.code===code);
-  if(idx>=0)cart[idx].qty+=n;
-  else cart.push({code:p.code,name:p.name,price:p.stdPrice,packQty:p.packQty,baseUnit:p.baseUnit,qty:n});
-  renderCart();updateCardBtn(code);
-}
-function addCartQty(code){
-  const inp=document.getElementById('qi-'+code);
-  const qty=inp?Math.max(1,parseInt(inp.value)||1):1;
-  const p=allProducts.find(x=>x.code===code);if(!p)return;
-  const inCart = cart.findIndex(c=>c.code===code) >= 0;
-  const isOOS = p.tag === 'สินค้าหมดชั่วคราว' || p.stock <= 0;
-  if(isOOS && !inCart){
-    showPreorderConfirm(p, function(){ _doAddCartQty(code, qty); });
-    return;
-  }
-  _doAddCartQty(code, qty);
-}
-function _doAddCartQty(code, qty){
-  const p=allProducts.find(x=>x.code===code);if(!p)return;
-  const idx=cart.findIndex(c=>c.code===code);
-  if(idx>=0)cart[idx].qty+=qty;
-  else cart.push({code:p.code,name:p.name,price:p.stdPrice,packQty:p.packQty,baseUnit:p.baseUnit,qty:qty});
-  renderCart();updateCardBtn(code);
 }
 function setCartQty(code,val){
   const qty=Math.max(1,Math.min(999,parseInt(val)||1));
@@ -866,6 +1066,7 @@ function changeQty(code,delta){
   updateCardBtn(code); // sync ปุ่ม card บน catalog
 }
 function renderCart(){
+  _emit('cart-change', { count: cart.length, totalQty: cart.reduce(function(s,c){return s+(c.qty||0);},0) });
   saveCart(); // persist cart ทุกครั้งที่มี render — ป้องกัน cart หายตอนสลับแอป
   if(typeof updateBottomTabCartBadge === 'function') updateBottomTabCartBadge();
   // Badges นับตาม SKU (cart.length) ไม่ใช่ qty sum
@@ -898,15 +1099,18 @@ function renderCart(){
       const imgUrl = (prod && prod.imageUrl) ? prod.imageUrl : '';
       const pType = prod ? (prod.promoType || '') : '';
       const pLabel = prod ? (prod.promoLabel || '') : '';
-      const origPrice = prod ? (prod.originalPrice || 0) : 0;
+      const pPromoPrice = prod ? (prod.promoPrice || 0) : 0;
+      const pMinQty = prod ? (prod.promoMinQty || 0) : 0;
       // out-of-stock = preorder (สำคัญสุด)
       const isOutOfStock = prod && (prod.tag === 'สินค้าหมดชั่วคราว' || prod.stock <= 0);
-      const hasStrike = !isOutOfStock && origPrice > c.price && origPrice > 0;
+      // promo applied = qty meets threshold AND has promoPrice (smaller than stdPrice)
+      const promoApplied = !isOutOfStock && pPromoPrice > 0 && pMinQty > 0 && c.qty >= pMinQty;
+      // strike-through stdPrice when promo applied
+      const hasStrike = promoApplied && pPromoPrice < c.price;
       const themeMap = {
-        sale:     { c1:'#F59E0B', bg:'#FFFAEB', emoji:'🔥', txt:'SALE — ลดพิเศษ' },
-        bundle:   { c1:'#2080BE', bg:'#F0F7FF', emoji:'🎁', txt:'โปรโมชั่น' },
-        flash:    { c1:'#DC2626', bg:'#FEF2F2', emoji:'⚡', txt:'FLASH SALE' },
-        preorder: { c1:'#6B7280', bg:'#F3F4F6', emoji:'📦', txt:'สั่งจอง — สินค้าหมดชั่วคราว (รอสั่ง)' }
+        step_price: { c1:'#2080BE', bg:'#F0F7FF', emoji:'🏷', txt:'ซื้อ 6+ ราคาพิเศษ' },
+        flash:      { c1:'#DC2626', bg:'#FEF2F2', emoji:'⚡', txt:'FLASH SALE' },
+        preorder:   { c1:'#6B7280', bg:'#F3F4F6', emoji:'📦', txt:'สั่งจอง — สินค้าหมดชั่วคราว (รอสั่ง)' }
       };
       const effectiveType = isOutOfStock ? 'preorder' : pType;
       const theme = themeMap[effectiveType] || null;
@@ -930,8 +1134,8 @@ function renderCart(){
           + '<span style="font-weight:700;min-width:18px;text-align:center">'+c.qty+'</span>'
           + '<button onclick="changeQty(\''+c.code+'\',1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer;background:#fff">+</button>'
           + '<span style="flex:1;text-align:right;font-weight:700;color:'+theme.c1+';font-size:.85rem">'
-          + (hasStrike ? '<span style="text-decoration:line-through;color:#999;font-weight:400;font-size:.72rem">'+origPrice.toLocaleString('th-TH')+'</span> ' : '')
-          + (c.price*c.qty).toLocaleString('th-TH')+' บาท</span>'
+          + ''
+          + effectiveSubtotal(c).toLocaleString('th-TH')+' บาท</span>'
           + '<button onclick="removeCart(\''+c.code+'\')" style="color:#dc2626;background:none;border:none;cursor:pointer;font-size:.95rem">✕</button>'
           + '</div></div></div></div>';
       } else {
@@ -947,14 +1151,14 @@ function renderCart(){
           +'<button onclick="changeQty(\''+c.code+'\',-1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer">−</button>'
           +'<span style="font-weight:700;min-width:18px;text-align:center">'+c.qty+'</span>'
           +'<button onclick="changeQty(\''+c.code+'\',1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer">+</button>'
-          +'<span style="flex:1;text-align:right;font-weight:700;color:var(--acc);font-size:.85rem">'+(c.price*c.qty).toLocaleString('th-TH')+' บาท</span>'
+          +'<span style="flex:1;text-align:right;font-weight:700;color:var(--acc);font-size:.85rem">'+effectiveSubtotal(c).toLocaleString('th-TH')+' บาท</span>'
           +'<button onclick="removeCart(\''+c.code+'\')" style="color:#dc2626;background:none;border:none;cursor:pointer;font-size:.95rem">✕</button>'
           +'</div></div></div>';
       }
     }
     items.innerHTML=h;
   }
-  const total=cart.reduce((s,c)=>s+(c.price*c.qty),0);
+  const total=cart.reduce((s,c)=>s+effectiveSubtotal(c),0);
   const totalQtyCart=cart.reduce((s,c)=>s+(c.qty||0),0);
   document.getElementById('cartTotal').textContent = cart.length
     ? (cart.length + ' รายการ · ' + totalQtyCart + ' ชิ้น · รวม ' + total.toLocaleString('th-TH') + ' บาท')
@@ -1096,6 +1300,7 @@ async function initLiff(){
     liffInClient = liff.isInClient();
     if(liff.isLoggedIn()){
       liffProfile = await liff.getProfile();
+      _emit('liff-ready', { profile: liffProfile });
       // แสดง user badge บน header
       const badge = document.getElementById('pcUserBadge');
       const avatar = document.getElementById('pcUserAvatar');
@@ -1107,10 +1312,10 @@ async function initLiff(){
         // LIFF login เสร็จ — fill account VIP input ถ้ายังว่าง (ไม่เขียนทับ localStorage)
         const acctVip = document.getElementById('accountVipInput');
         if(acctVip && !acctVip.value){
-          const saved = (function(){ try { return localStorage.getItem('priao_vip_member') || ''; } catch(e){ return ''; } })();
+          const saved = (function(){ try { return localStorage.getItem(VIP_LS_KEY) || ''; } catch(e){ return ''; } })();
           if(!saved){
             acctVip.value = liffProfile.displayName || '';
-            try { localStorage.setItem('priao_vip_member', acctVip.value); } catch(e){}
+            try { localStorage.setItem(VIP_LS_KEY, acctVip.value); } catch(e){}
           }
         }
       }
@@ -1119,7 +1324,7 @@ async function initLiff(){
     }
   } catch(err){
     console.error('[LIFF] init failed:', err);
-    window.__lastErrors && window.__lastErrors.push({
+    _logError({
       type:'liff-init',
       msg:'liff.init failed: '+(err && err.message ? err.message : String(err)),
       time:new Date().toLocaleTimeString()
@@ -1149,15 +1354,6 @@ function getTimestampTH(){
 }
 
 // Helper: ทำให้ image URL ปลอดภัย (HTTPS + fallback ถ้าไม่มี)
-function safeImageUrl(url){
-  if(!url) return 'https://placehold.co/100x100/2080be/ffffff?text=Priao';
-  // force HTTPS
-  let u = url.replace(/^http:\/\//i, 'https://');
-  // ถ้าไม่ใช่ valid HTTPS URL → ใช้ placeholder
-  if(!/^https:\/\//i.test(u)) return 'https://placehold.co/100x100/2080be/ffffff?text=Priao';
-  return u;
-}
-
 // เฉพาะ SKU (barcode ล้วน 1 บรรทัด/SKU ไม่มี # ไม่มีจำนวน)
 // (buildSkuText + buildListText removed — dead since Format C migration)
 
@@ -1187,8 +1383,10 @@ function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
   const totalQty = cartItems.reduce(function(s, c){ return s + (c.qty || 0); }, 0);
   const totalSavings = cartItems.reduce(function(s, c){
     const prod = allProducts.find(function(p){ return p.code === c.code; });
-    if(prod && prod.originalPrice && prod.originalPrice > c.price){
-      return s + (prod.originalPrice - c.price) * c.qty;
+    // Promo applied savings: qty meets threshold → (stdPrice - promoPrice) × qty
+    if(prod && prod.promoPrice && prod.promoMinQty && c.qty >= prod.promoMinQty){
+      const savePerUnit = (prod.stdPrice || c.price) - prod.promoPrice;
+      if(savePerUnit > 0) return s + savePerUnit * c.qty;
     }
     return s;
   }, 0);
@@ -1198,17 +1396,19 @@ function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
   //      8851001 ×2 = 240 (🔥 SALE — ลด 30% · เดิม 60)
   function fmtLine(c, idx){
     const prod = allProducts.find(function(p){ return p.code === c.code; });
-    const lineTotal = c.price * c.qty;
+    const lineTotal = effectiveSubtotal(c);
     let promoTag = '';
     if(prod && prod.promoType){
       const parts = [];
-      // ใช้ promoLabel ที่มีทั้ง emoji + คำอธิบาย เช่น "🔥 SALE — ลด 30%"
+      // promoLabel เช่น "🏷 ซื้อ 6+ ราคาพิเศษ" หรือ "⚡ FLASH SALE"
       const label = (prod.promoLabel || '').trim();
       if(label) parts.push(label);
-      // แสดงราคาเดิมถ้ามี (เพื่อเปรียบเทียบ)
-      const orig = prod.originalPrice || 0;
-      if(orig > c.price && orig > 0){
-        parts.push('เดิม ' + orig.toLocaleString('th-TH'));
+      // แสดง promoPrice + threshold สำหรับ context (เช่น "ราคาพิเศษ 222")
+      const pp = prod.promoPrice || 0;
+      if(pp > 0 && prod.promoMinQty && c.qty >= prod.promoMinQty){
+        parts.push('ลดเหลือ ' + pp.toLocaleString('th-TH') + '/ชิ้น');
+      } else if(pp > 0 && prod.promoMinQty){
+        parts.push('ซื้อ ' + prod.promoMinQty + '+ ได้ราคา ' + pp.toLocaleString('th-TH'));
       }
       if(parts.length > 0) promoTag = ' (' + parts.join(' · ') + ')';
     }
@@ -1312,16 +1512,8 @@ async function quickSendPC(orderId, timestamp, customerName, fullText, total){
   const itemCount = cart.length;
   const totalQty = cart.reduce(function(s,c){ return s + (c.qty || 0); }, 0);
 
-  // 1. Confirm popup
-  const ok = confirm(
-    'ส่งออเดอร์ #' + orderId + ' ?\n\n' +
-    itemCount + ' รายการ · ' + totalQty + ' ชิ้น\n' +
-    'ยอดรวม: ' + total.toLocaleString('th-TH') + ' บาท\n\n' +
-    '✓ ตกลง = คัดลอกออเดอร์ + เปิด LINE PC อัตโนมัติ\n' +
-    '✗ ยกเลิก = กลับไปแก้\n\n' +
-    '(จากนั้นใน LINE: Ctrl+V → Enter)'
-  );
-  if(!ok) return false;
+  // 1. Show non-blocking preparing toast (auto-dismiss 3s) — replaces native confirm()
+  showPreparingBanner(orderId, itemCount, total);
 
   // 2. Auto-copy + store for retry (+ localStorage backup)
   window._lastOrderText = fullText;
@@ -1359,17 +1551,11 @@ async function quickSendPC(orderId, timestamp, customerName, fullText, total){
     }, 200);
   }catch(e){ console.warn('[quickSendPC] line:// trigger failed:', e); }
 
-  // 3. Clear cart + close cart sidebar
-  cart = [];
-  clearCartStorage();
-  resetAllCardButtons();
-  renderCart();
-  closeCart();
-
-  // 4. Show toast (immediate feedback)
+  // 3. Show toast (immediate feedback)
   showQuickSendToast(orderId, itemCount, total, copyOk);
 
-  // 5. Background detection — ถ้า LINE ไม่เปิดใน 8s → auto show Help Modal
+  // 4. Background detection — ถ้า LINE ไม่เปิดใน 8s → auto show Help Modal
+  // (set up FIRST — start counting from t=0 when LINE was triggered)
   let _detected = false;
   let _safetyTimer = null;
   function _cleanup(){
@@ -1393,6 +1579,20 @@ async function quickSendPC(orderId, timestamp, customerName, fullText, total){
       showOrderHelp();
     }
   }, 8000);
+
+  // 5. Clear cart + close — wait 2s ให้ user เห็น loading state + banner ก่อน
+  // ใช้ await Promise → sendOrder's await waits 2s before unlocking _sendingInProgress
+  // ป้องกัน race condition: user คลิก "ส่ง" ซ้ำใน 2s window ที่ cart ยังมี items
+  await new Promise(function(resolve){
+    setTimeout(function(){
+      cart = [];
+      clearCartStorage();
+      resetAllCardButtons();
+      renderCart();
+      closeCart();
+      resolve();
+    }, 2000);
+  });
 
   return true;
 }
@@ -1522,6 +1722,41 @@ window.showOrderTextModal = showOrderTextModal;
 window.closeOrderTextModal = closeOrderTextModal;
 window.copyOrderTextNow = copyOrderTextNow;
 
+// ─── Preparing banner (non-blocking toast 3s) — แสดงตอนเริ่มส่งออเดอร์ PC ───
+function showPreparingBanner(orderId, itemCount, total){
+  // Inject keyframes once
+  if(!document.getElementById('prep-anim')){
+    const s = document.createElement('style');
+    s.id = 'prep-anim';
+    s.textContent = '@keyframes prepSlideDown{from{transform:translate(-50%,-120%);opacity:0}to{transform:translate(-50%,0);opacity:1}}@keyframes prepSlideUp{from{transform:translate(-50%,0);opacity:1}to{transform:translate(-50%,-120%);opacity:0}}';
+    document.head.appendChild(s);
+  }
+  // Remove existing banner if any
+  const existing = document.getElementById('prep-banner');
+  if(existing) existing.remove();
+  // Build banner
+  const b = document.createElement('div');
+  b.id = 'prep-banner';
+  b.style.cssText = 'position:fixed;top:20px;left:50%;transform:translate(-50%,0);background:#fff;color:#0a1628;border:1.5px solid #25a9e0;border-radius:12px;padding:14px 22px;box-shadow:0 8px 28px rgba(37,169,224,.35);z-index:10000;font-family:inherit;animation:prepSlideDown .35s ease;min-width:300px;max-width:90vw';
+  b.innerHTML =
+    '<div style="display:flex;align-items:center;gap:12px">' +
+      '<div style="width:30px;height:30px;border-radius:50%;background:#25a9e0;display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+      '</div>' +
+      '<div style="flex:1;min-width:0;line-height:1.4">' +
+        '<div style="font-size:.85rem;font-weight:600;color:#0a1628">กำลังเตรียมออเดอร์ #' + orderId + '</div>' +
+        '<div style="font-size:.72rem;color:#6B7280;margin-top:2px">' + itemCount.toLocaleString('th-TH') + ' รายการ • ' + total.toLocaleString('th-TH') + ' บาท</div>' +
+        '<div style="font-size:.68rem;color:#0f6e56;margin-top:4px;font-weight:600">คัดลอกแล้ว — เปิด LINE → Ctrl+V → Enter</div>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(b);
+  // Auto-dismiss after 5s with slide-up animation
+  setTimeout(function(){
+    b.style.animation = 'prepSlideUp .35s ease forwards';
+    setTimeout(function(){ if(b.parentNode) b.remove(); }, 400);
+  }, 5000);
+}
+
 function showQuickSendToast(orderId, count, total, copyOk){
   // Remove existing toast if any
   const existing = document.getElementById('quick-send-toast');
@@ -1630,11 +1865,14 @@ function showFallbackModal(orderId, timestamp, text, shortText){
             var pp = [];
             var pLabel = (prod.promoLabel || '').trim();
             if(pLabel) pp.push(pLabel);
-            var pOrig = prod.originalPrice || 0;
-            if(pOrig > c.price && pOrig > 0) pp.push('เดิม ' + pOrig.toLocaleString('th-TH'));
+            var pPP = prod.promoPrice || 0;
+            if(pPP > 0 && prod.promoMinQty && c.qty >= prod.promoMinQty){
+              pp.push('ลดเหลือ ' + pPP.toLocaleString('th-TH') + '/ชิ้น');
+            } else if(pPP > 0 && prod.promoMinQty){
+              pp.push('ซื้อ ' + prod.promoMinQty + '+ ได้ ' + pPP.toLocaleString('th-TH'));
+            }
             if(pp.length > 0){
-              var pColor = prod.promoType === 'sale' ? {bg:'#FFFAEB',fg:'#7C5E00',bd:'#F59E0B'}
-                          : prod.promoType === 'bundle' ? {bg:'#F0F7FF',fg:'#0C447C',bd:'#2080BE'}
+              var pColor = prod.promoType === 'step_price' ? {bg:'#F0F7FF',fg:'#0C447C',bd:'#2080BE'}
                           : prod.promoType === 'flash' ? {bg:'#FEF2F2',fg:'#7F1D1D',bd:'#DC2626'}
                           : {bg:'#f4f8fc',fg:'#666',bd:'#b8d9f0'};
               promoBadge = '<div style="margin-top:4px;display:inline-block;font-size:.65rem;background:'+pColor.bg+';color:'+pColor.fg+';border:1px solid '+pColor.bd+';padding:2px 8px;border-radius:6px;font-weight:700">'+pp.join(' · ').replace(/</g,'&lt;')+'</div>';
@@ -1647,13 +1885,13 @@ function showFallbackModal(orderId, timestamp, text, shortText){
             + '<div style="flex:1;min-width:0">'
             + '<div style="font-size:.78rem;font-weight:600;color:#0a1628;line-height:1.35;margin-bottom:2px">'+(i+1)+'. '+String(c.name||'').replace(/</g,'&lt;')+'</div>'
             + '<div style="font-size:.68rem;color:#999;margin-bottom:2px">#'+String(c.code||'')+'</div>'
-            + '<div style="display:flex;justify-content:space-between;font-size:.72rem"><span style="color:#888">'+c.price.toLocaleString('th-TH')+' × '+c.qty+'</span><span style="color:#2080be;font-weight:700">'+(c.price*c.qty).toLocaleString('th-TH')+' ฿</span></div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:.72rem"><span style="color:#888">'+effectiveUnitPrice(c).toLocaleString('th-TH')+' × '+c.qty+'</span><span style="color:#2080be;font-weight:700">'+effectiveSubtotal(c).toLocaleString('th-TH')+' ฿</span></div>'
             + promoBadge
             + '</div>'
             + '</div>';
         });
         var totalQty = cart.reduce(function(s,c){ return s + (c.qty||0); }, 0);
-        var total = cart.reduce(function(s,c){ return s + (c.price*c.qty); }, 0);
+        var total = cart.reduce(function(s,c){ return s + effectiveSubtotal(c); }, 0);
         return rows
           + '<div style="display:flex;justify-content:space-between;padding:12px 14px;background:#f4f8fc;font-weight:800"><span style="color:#0a1628;font-size:.8rem">ยอดรวม ('+cart.length+' รายการ · '+totalQty+' ชิ้น)</span><span style="color:#0a1628;font-size:1rem">'+total.toLocaleString('th-TH')+' บาท</span></div>';
       })()
@@ -1709,10 +1947,8 @@ function onCatSearchInput(input){
   // Debounce both applyFilter and suggestions
   clearTimeout(_catSearchTimer);
   _catSearchTimer = setTimeout(function(){
-    curSearch = input.value.trim();
-    curPage = 1;
-    applyFilter();
-    _updateHash();
+    // ใช้ setNavState — skip scroll เพราะ user กำลังพิมพ์อยู่ ไม่ควรกระชากขึ้นบนสุด
+    setNavState({search: input.value.trim(), page: 1}, {skipScroll: true});
   }, 200);
   // Suggestions debounced separately (faster)
   clearTimeout(_searchSugTimer);
@@ -1853,16 +2089,11 @@ function selectSug(type, value){
     if(typeof _pushHistory === 'function') _pushHistory();
     document.getElementById('home').style.display='none';
     document.getElementById('catalog').style.display='';
-    curCat='all'; curSub='all'; curTag='all'; curSearch=value; curPage=1;
     const si = document.getElementById('catSearch'); if(si) si.value = value;
-    applyFilter();
-    if(typeof _updateHash === 'function') _updateHash();
-    if(typeof updateSidebarActive === 'function') updateSidebarActive();
-    if(typeof updateMobActive === 'function') updateMobActive();
     const backBtnBar = document.getElementById('backBtnBar');
     if(backBtnBar) backBtnBar.classList.add('show');
     if(typeof updateActiveCatBar === 'function') updateActiveCatBar('search', 'ค้นหา: '+value, FILTER_SVG.search);
-    _scrollTop();
+    setNavState({cat:'all', sub:'all', tag:'all', search:value, page:1});
   }
 }
 
@@ -1894,16 +2125,27 @@ window.closeSearchDropdowns = closeSearchDropdowns;
 // ============================================================
 
 // === Mobile Side Drawer (Hamburger Menu) ===
+// NOTE: เคารพ body.catalog-mode lock (Group I) — เก็บ overflow เดิมไว้ก่อน set
+// ไม่ overwrite class-based lock — ใช้ data attribute เก็บ previous value
 function openMobDrawer(){
   buildMobDrawer();
   document.getElementById('mobDrawerOverlay').classList.add('show');
   document.getElementById('mobDrawer').classList.add('show');
-  document.body.style.overflow = 'hidden';
+  // ถ้า body อยู่ใน catalog-mode อยู่แล้ว → overflow:hidden อยู่แล้ว, ไม่ต้องแตะ
+  // ถ้า home page → ต้อง lock ตอนเปิด drawer
+  if(!document.body.classList.contains('catalog-mode')){
+    document.body.dataset.drawerLocked = '1';
+    document.body.style.overflow = 'hidden';
+  }
 }
 function closeMobDrawer(){
   document.getElementById('mobDrawerOverlay').classList.remove('show');
   document.getElementById('mobDrawer').classList.remove('show');
-  document.body.style.overflow = '';
+  // Restore overflow เฉพาะกรณีที่ open() เป็นคน lock เอง
+  if(document.body.dataset.drawerLocked === '1'){
+    document.body.style.overflow = '';
+    delete document.body.dataset.drawerLocked;
+  }
 }
 function buildMobDrawer(){
   const body = document.getElementById('mobDrawerBody');
@@ -2076,8 +2318,8 @@ async function sendOrder(){
   const origBtnText = sendBtn ? sendBtn.innerHTML : '';
   if(sendBtn){
     sendBtn.disabled = true;
-    sendBtn.innerHTML = '⏳ กำลังส่ง...';
-    sendBtn.style.opacity = '0.7';
+    sendBtn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span> กำลังส่ง<span class="btn-dots" aria-hidden="true"></span>';
+    sendBtn.style.opacity = '0.85';
   }
 
   // Generate order metadata
@@ -2086,10 +2328,10 @@ async function sendOrder(){
   // อ่าน VIP จาก Account input (priority 1) แล้ว fallback localStorage (priority 2)
   const acctVip = document.getElementById('accountVipInput');
   const liveVip = acctVip ? (acctVip.value || '').trim() : '';
-  const savedVip = (function(){ try { return (localStorage.getItem('priao_vip_member') || '').trim(); } catch(e){ return ''; } })();
+  const savedVip = (function(){ try { return (localStorage.getItem(VIP_LS_KEY) || '').trim(); } catch(e){ return ''; } })();
   const memberFromInput = liveVip || savedVip;
   const customerName = (liffProfile && liffProfile.displayName) || memberFromInput || '';
-  const total = cart.reduce((s,c) => s + (c.price * c.qty), 0);
+  const total = cart.reduce((s,c) => s + effectiveSubtotal(c), 0);
 
   // เตรียม text — fullText สำหรับ modal display + clipboard (Format C เต็ม)
   // shortText สำหรับ QR URL (compact เพื่อไม่ให้ URL ยาวเกิน LINE share limit)
@@ -2100,7 +2342,7 @@ async function sendOrder(){
   const qrLines = ['📋 #' + orderId];
   if(customerName) qrLines.push('👤 ' + customerName);
   cart.forEach(function(c, i){
-    qrLines.push((i+1) + '. ' + c.code + ' ×' + c.qty + ' = ' + (c.price*c.qty).toLocaleString('th-TH'));
+    qrLines.push((i+1) + '. ' + c.code + ' ×' + c.qty + ' = ' + effectiveSubtotal(c).toLocaleString('th-TH'));
   });
   qrLines.push('💰 รวม ' + total.toLocaleString('th-TH') + ' บาท');
   const shortText = qrLines.join('\n');
@@ -2160,12 +2402,11 @@ async function sendOrder(){
     } catch(sendErr){
       // Flex ส่งไม่สำเร็จ → fallback ไปใช้ modal ให้ copy เอง
       console.error('[LIFF] Send failed:', sendErr);
-      window.__lastErrors && window.__lastErrors.push({
+      _logError({
         type:'send-fail',
         msg:'Send failed: '+(sendErr && sendErr.message ? sendErr.message : String(sendErr)),
         time:new Date().toLocaleTimeString()
       });
-      restoreBtn();
       const errMsg = (sendErr && sendErr.message) ? sendErr.message : String(sendErr);
       alert('❌ ส่งออเดอร์ผ่าน LIFF ไม่สำเร็จ\n\nError: '+errMsg+'\n\nจะใช้วิธี copy+paste แทน');
       // PC → Quick Send (skip modal) · Mobile → Modal with QR
@@ -2175,13 +2416,13 @@ async function sendOrder(){
       } else {
         showFallbackModal(orderId, timestamp, fullText, shortText);
       }
+      restoreBtn();
       window._sendingInProgress = false;
       return;
     }
   }
 
   // Fallback: เปิดผ่าน browser ปกติ / desktop
-  restoreBtn();
   // PC → Quick Send (skip modal) · Mobile → Modal with QR
   const isMobileUA_f = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   if(!isMobileUA_f){
@@ -2189,6 +2430,8 @@ async function sendOrder(){
   } else {
     showFallbackModal(orderId, timestamp, fullText, shortText);
   }
+  // Restore button AFTER quickSendPC done (user เห็น loading state จริงๆ ระหว่างทำงาน)
+  restoreBtn();
   window._sendingInProgress = false;
 }
 // ============================================================
@@ -2250,8 +2493,19 @@ function initSmartHeader(){
 // GLOBAL ERROR HANDLER + DEBUG TOOLS
 // ============================================================
 window.__lastErrors = [];
+const ERROR_LOG_CAP = 50; // ป้องกัน memory leak — เก็บแค่ 50 error ล่าสุด
+
+/** Cap-enforcing push helper — ลด array ลงเมื่อเกิน ERROR_LOG_CAP */
+function _logError(entry){
+  window.__lastErrors.push(entry);
+  // Trim oldest entries if over cap
+  while(window.__lastErrors.length > ERROR_LOG_CAP){
+    window.__lastErrors.shift();
+  }
+}
+
 window.addEventListener('error', function(e){
-  window.__lastErrors.push({
+  _logError({
     type:'error',
     msg: e.message,
     src: e.filename + ':' + e.lineno + ':' + e.colno,
@@ -2259,7 +2513,7 @@ window.addEventListener('error', function(e){
   });
 });
 window.addEventListener('unhandledrejection', function(e){
-  window.__lastErrors.push({
+  _logError({
     type:'promise',
     msg: (e.reason && e.reason.message) ? e.reason.message : String(e.reason),
     time: new Date().toLocaleTimeString()
@@ -2320,6 +2574,16 @@ async function loadCatalogData() {
   await Promise.all(idx.categories.map(async cat => {
     RAW_DATA[cat] = await fetch('data/' + cat + '.json').then(r => r.json());
   }));
+  // Load suggested_retail overlay (non-blocking — fallback to empty map if missing)
+  try {
+    const overlay = await fetch('data/suggested_retail.json?v=20260622-0448').then(r => r.ok ? r.json() : null);
+    if(overlay && overlay.data && typeof overlay.data === 'object'){
+      SUGGESTED_RETAIL_MAP = overlay.data;
+      console.log('[boot] suggested_retail overlay:', Object.keys(SUGGESTED_RETAIL_MAP).length, 'entries');
+    }
+  } catch(e){
+    console.warn('[boot] suggested_retail overlay not loaded:', e.message);
+  }
 }
 window.addEventListener('DOMContentLoaded', async function () {
   console.log('[boot] DOMContentLoaded fired');
@@ -2360,3 +2624,101 @@ window.addEventListener('DOMContentLoaded', async function () {
     });
   });
 });
+
+/* ============================================================
+ * window.AppAPI — Centralized Public API Surface (Group J — Pub/Sub)
+ * ============================================================
+ *
+ * **Purpose:**
+ *   Single entry point for cross-file communication. ตัด tight coupling
+ *   ระหว่าง bottom-nav.js ↔ app.js (ก่อนหน้านี้ bottom-nav อ่าน cart/liffProfile/curTag
+ *   ตรงๆ จาก global scope → impossible to IIFE-wrap).
+ *
+ * **API Design:**
+ *   - Getters return fresh value ทุกครั้ง (กัน stale reference)
+ *   - Action functions delegate to internal implementations
+ *   - State mutations dispatch CustomEvents ผ่าน document — bottom-nav listens
+ *
+ * **Events emitted:**
+ *   - `app:cart-change`  → fired โดย renderCart() (= every cart mutation)
+ *   - `app:nav-change`   → fired โดย setNavState() (= every navigation)
+ *   - `app:liff-ready`   → fired หลัง liffProfile loaded
+ *
+ * **Consumers:**
+ *   - js/bottom-nav.js (cart badge, tab active, profile display)
+ * ============================================================ */
+window.AppAPI = {
+  // ── State Getters (fresh value every call) ──
+  getCart()        { return cart; },
+  getLiffProfile() { return liffProfile; },
+  getCurTag()      { return curTag; },
+  getCurCat()      { return curCat; },
+  getVipLsKey()    { return VIP_LS_KEY; },
+
+  // ── Actions (delegate to internal functions) ──
+  goHome()       { if(typeof goHome     === 'function') goHome(); },
+  goCat(catId)   { if(typeof goCat      === 'function') goCat(catId); },
+  setMobTag(tag) { if(typeof setMobTag  === 'function') setMobTag(tag); },
+  toggleCart()   { if(typeof toggleCart === 'function') toggleCart(); },
+};
+
+/** Dispatch CustomEvent ผ่าน document — bottom-nav.js listens */
+function _emit(event, detail){
+  try{
+    document.dispatchEvent(new CustomEvent('app:' + event, { detail: detail || {} }));
+  } catch(e){ /* IE polyfill needed if support old browser */ }
+}
+
+
+// ============================================================
+// 📤 Public API — window.* exports (HTML inline handlers + bottom-nav AppAPI)
+// ============================================================
+// Required exposure for HTML onclick handlers (after IIFE wrap, function declarations
+// are local to IIFE scope — must be explicitly exposed to global for inline handlers)
+window.addCart        = addCart;
+window.applyFilter    = applyFilter;
+window.changeQty      = changeQty;
+window.clearCart      = clearCart;
+window.closeCart      = closeCart;
+window.doSearch       = doSearch;
+window.goB            = goB;
+window.goBack         = goBack;
+window.goCat          = goCat;
+window.goHome         = goHome;
+window.goPage         = goPage;
+window.goTag          = goTag;
+window.openQrZoom     = openQrZoom;
+window.removeCardItem = removeCardItem;
+window.removeCart     = removeCart;
+window.setMobTag      = setMobTag;
+window.setSub         = setSub;
+window.setTag         = setTag;
+window.setView        = setView;
+window.toggleCart     = toggleCart;
+window.toggleSubDropdown = toggleSubDropdown;
+
+})(); // ─── end Main IIFE ───
+
+/* === Double-scroll fix: sync body.catalog-mode with #catalog visibility === */
+(function(){
+  if(window.__catalogModeObserverInstalled) return;
+  window.__catalogModeObserverInstalled = true;
+  function _initCatalogObserver(){
+    const cat = document.getElementById('catalog');
+    const home = document.getElementById('home');
+    if(!cat || !home) { setTimeout(_initCatalogObserver, 100); return; }
+    const sync = () => {
+      const isCatalog = cat.style.display !== 'none' && getComputedStyle(cat).display !== 'none';
+      document.body.classList.toggle('catalog-mode', isCatalog);
+      document.documentElement.classList.toggle('catalog-mode-html', isCatalog);
+    };
+    new MutationObserver(sync).observe(cat, {attributes:true, attributeFilter:['style']});
+    new MutationObserver(sync).observe(home, {attributes:true, attributeFilter:['style']});
+    sync(); // initial
+  }
+  if(document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _initCatalogObserver);
+  } else {
+    _initCatalogObserver();
+  }
+})();
