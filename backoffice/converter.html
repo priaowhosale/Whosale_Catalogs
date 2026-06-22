@@ -105,7 +105,15 @@ const COL = {
   category: 0, subcategory: 1, barcode: 2, name: 3,
   pack_qty: 4, unit: 5, brand: 6, psale: 7, tag: 8,
   price: 9, stock: 10, image: 11,
-  promo_type: 12, promo_label: 13, orig_price: 14
+  // Promo schema 2026-06-19: drop orig_price, add promo_price + condition
+  promo_type: 12, promo_label: 13, promo_price: 14, condition: 15
+};
+// Map promo_type → min_qty threshold (single source of truth)
+const PROMO_MIN_QTY = { step_price: 6, flash: 1 };
+// Default labels when col promo_label is empty
+const PROMO_DEFAULT_LABELS = {
+  step_price: 'ซื้อสินค้า 6 หน่วยขึ้นไป',
+  flash: '⚡ FLASH SALE'
 };
 const DATA_START_ROW = 4; // 1-based; row 3 = header
 
@@ -123,7 +131,7 @@ function showError(msg) {
 }
 
 // ====== Download Template / Current Data ======
-const TEMPLATE_HEADERS = ['หมวดสินค้า','หมวดย่อยสินค้า','รหัสสินค้า','ชื่อสินค้า','จำนวน/หน่วย','หน่วย','แบรนด์','PSaleStatus','Tag','price_wholesale','OnStockFG','ลิงก์รูปภาพ','promo_type','promo_label','original_price'];
+const TEMPLATE_HEADERS = ['หมวดสินค้า','หมวดย่อยสินค้า','รหัสสินค้า','ชื่อสินค้า','จำนวน/หน่วย','หน่วย','แบรนด์','PSaleStatus','Tag','price_wholesale','OnStockFG','ลิงก์รูปภาพ','promo_type','promo_label','promo_price','เงื่อนไข'];
 const CAT_REVERSE = {};
 for (const [name, code] of Object.entries(CATEGORY_MAP)) CAT_REVERSE[code] = name;
 const FLAG_REVERSE = {1:'A', 2:'New', 3:'B'};
@@ -155,8 +163,8 @@ function downloadEmptyTemplate() {
   try {
     const examples = [
       ['เครื่องสำอาง','ลิป','8850080754278','ตัวอย่างสินค้าปกติ — ลบทิ้งได้',1,'แท่ง','BRAND-EN ชื่อแบรนด์ไทย','A','สินค้าขายดี',43,28,'','','',''],
-      ['ผลิตภัณฑ์ดูแลผิวหน้า','ครีม','8857127482897','ตัวอย่างสินค้า SALE — ลบทิ้งได้',1,'หลอด','BRAND2-EN ชื่อแบรนด์ไทย2','A','สินค้าขายดี',100,10,'','sale','🔥 SALE — ลด 30%',150],
-      ['น้ำหอม','น้ำหอม','8859214800874','ตัวอย่างสินค้า BUNDLE — ลบทิ้งได้',6,'กล่อง','BRAND3-EN ชื่อแบรนด์ไทย3','A','',675,3,'','bundle','🎁 ซื้อ 1 แถม 1',0],
+      ['ผลิตภัณฑ์ดูแลผิวหน้า','ครีม','8857127482897','ตัวอย่างสินค้า SALE — ลบทิ้งได้',1,'หลอด','BRAND2-EN ชื่อแบรนด์ไทย2','A','สินค้าขายดี',100,10,'','step_price','🔥 SALE — ลด 30%',150],
+      ['น้ำหอม','น้ำหอม','8859214800874','ตัวอย่างสินค้า BUNDLE — ลบทิ้งได้',6,'กล่อง','BRAND3-EN ชื่อแบรนด์ไทย3','A','',675,3,'','step_price','🎁 ซื้อ 1 แถม 1',0],
       ['คอนซูเมอร์','แชมพู','8859214800999','ตัวอย่างสินค้า FLASH — ลบทิ้งได้',1,'ขวด','BRAND4-EN ชื่อแบรนด์ไทย4','New','สินค้าใหม่',125,5,'','flash','⚡ FLASH SALE — เหลือ 24 ชม.',250]
     ];
     const wb = XLSX.utils.book_new();
@@ -171,8 +179,10 @@ function downloadEmptyTemplate() {
 }
 
 async function downloadCurrentData() {
-  dlStatus('กำลังโหลดข้อมูลล่าสุดจาก GitHub Pages...');
-  const baseUrl = 'https://priaowhosale.github.io/Whosale_Catalogs';
+  dlStatus('กำลังโหลดข้อมูลล่าสุดจาก server...');
+  // Auto-detect base URL — works on any host (GitHub Pages, Vercel, custom domain, local)
+  // ใช้ origin ของหน้าปัจจุบัน + ตัด /backoffice ออกถ้าอยู่ใน subfolder
+  const baseUrl = window.location.origin + window.location.pathname.replace(/\/backoffice\/.*$/, '');
   try {
     const idx = await fetch(baseUrl + '/data/index.json').then(r => {
       if (!r.ok) throw new Error('โหลด index.json ไม่สำเร็จ');
@@ -427,17 +437,38 @@ function convertRows(rows, ws) {
       newBrands.add(`${brand} → ${slug}`);
     }
 
-    // Promo fields (optional)
-    const promoTypeRaw = String(row[COL.promo_type] || '').toLowerCase().trim();
-    const promoType = ['sale','bundle','flash'].indexOf(promoTypeRaw) >= 0 ? promoTypeRaw : '';
-    const promoLabel = String(row[COL.promo_label] || '').trim();
-    const origPrice = toNum(row[COL.orig_price], 0);
+    // Promo fields (optional) — schema 2026-06-19
+    // Normalize: "step price" → "step_price"; only step_price/flash valid
+    const promoTypeRaw = String(row[COL.promo_type] || '').toLowerCase().trim().replace(/\s+/g, '_');
+    const promoType = (promoTypeRaw in PROMO_MIN_QTY) ? promoTypeRaw : '';
+    let promoLabel = String(row[COL.promo_label] || '').trim();
+    if (promoType && !promoLabel) promoLabel = PROMO_DEFAULT_LABELS[promoType] || '';
+    const promoPrice = toNum(row[COL.promo_price], 0);
+    const promoMinQty = PROMO_MIN_QTY[promoType] || 0;
+
+    // Validate: col P (condition) should match derived qty
+    const condText = String(row[COL.condition] || '').trim();
+    if (promoType && condText) {
+      const cm = condText.match(/\d+/);
+      const condQty = cm ? parseInt(cm[0], 10) : 0;
+      if (condQty && condQty !== promoMinQty) {
+        warnings.push(`barcode=${barcode} promo_type=${promoType} qty mismatch (derive=${promoMinQty}, col P says ${condQty})`);
+      }
+    }
+
+    // Sanity: drop promo if promo_price missing
+    let validPromo = promoType;
+    if (promoType && !promoPrice) {
+      warnings.push(`barcode=${barcode} promo_type='${promoType}' but promo_price empty → skip promo`);
+      validPromo = '';
+    }
 
     const baseRow = [
       barcode, name, subcat, tag, price, stock, imageUrl, brand, packQty, `${packQty} / ${unit}`, flag
     ];
-    if (promoType || promoLabel || origPrice) {
-      baseRow.push(promoType, promoLabel, origPrice);
+    // Promo block (4 elements: type, label, price, min_qty) — only when valid
+    if (validPromo) {
+      baseRow.push(validPromo, promoLabel, promoPrice, promoMinQty);
     }
     byCategory[catCode].push(baseRow);
   }

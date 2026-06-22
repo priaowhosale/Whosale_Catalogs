@@ -51,6 +51,7 @@ CATEGORY_MAP = {
 STATUS_FLAG_MAP = {"A": 1, "New": 2, "B": 3}
 
 # Excel column index (1-based, row 3 is header, row 4+ is data)
+# Schema updated 2026-06-19: drop suggest_retail, change promo schema
 COL = {
     "category":    1,   # หมวดสินค้า
     "subcategory": 2,   # หมวดย่อยสินค้า
@@ -65,9 +66,22 @@ COL = {
     "stock":       11,  # OnStockFG
     "image":       12,  # ลิงก์รูปภาพ (hyperlink)
     # promo columns (optional — empty if no promo)
-    "promo_type":  13,  # sale / bundle / flash / (empty)
-    "promo_label": 14,  # ข้อความบน ribbon (ไม่ใส่ = auto-generate)
-    "orig_price":  15,  # ราคาก่อนลด (ตัวเลข)
+    "promo_type":  13,  # "step price" / "flash" / (empty)
+    "promo_label": 14,  # "ซื้อสินค้า 6 หน่วยขึ้นไป" / "⚡ FLASH SALE" / auto
+    "promo_price": 15,  # ราคาพิเศษเมื่อเข้าเงื่อนไข (ตัวเลข)
+    "condition":   16,  # เงื่อนไข (sentence — for validation only)
+}
+
+# Map promo_type → min_qty threshold (single source of truth)
+PROMO_MIN_QTY = {
+    "step_price": 6,   # ซื้อ 6 ชิ้นขึ้นไป → ใช้ promo_price ทั้งหมด
+    "flash":      1,   # ซื้อ 1 ชิ้นขึ้นไป → ใช้ promo_price ทันที
+}
+
+# Default labels (เมื่อ Excel ปล่อย col 14 ว่าง — auto-generate)
+PROMO_DEFAULT_LABELS = {
+    "step_price": "ซื้อสินค้า 6 หน่วยขึ้นไป",
+    "flash":      "⚡ FLASH SALE",
 }
 
 DATA_START_ROW = 4   # หัวตาราง row 3, data เริ่ม row 4
@@ -165,10 +179,39 @@ def convert(xlsx_path: Path, out_dir: Path, brands_dir: Path = None):
             image_url = s(img_cell.value)
 
         # Promo fields (optional)
+        # Normalize promo_type: "step price"/"flash" → "step_price"/"flash" (snake_case)
         promo_type_raw = s(ws.cell(row_idx, COL["promo_type"]).value).lower().strip()
-        promo_type = promo_type_raw if promo_type_raw in ("sale", "bundle", "flash") else ""
-        promo_label = s(ws.cell(row_idx, COL["promo_label"]).value)
-        orig_price = to_float(ws.cell(row_idx, COL["orig_price"]).value, 0)
+        promo_type_norm = promo_type_raw.replace(" ", "_")
+        promo_type = promo_type_norm if promo_type_norm in PROMO_MIN_QTY else ""
+
+        # promo_label: trim + fallback to default if empty
+        promo_label = s(ws.cell(row_idx, COL["promo_label"]).value).strip()
+        if promo_type and not promo_label:
+            promo_label = PROMO_DEFAULT_LABELS.get(promo_type, "")
+
+        # promo_price: ราคาพิเศษ (ตัวเลข)
+        promo_price = to_float(ws.cell(row_idx, COL["promo_price"]).value, 0)
+
+        # promo_min_qty: derive from promo_type (single source of truth)
+        promo_min_qty = PROMO_MIN_QTY.get(promo_type, 0)
+
+        # Validation: เงื่อนไข (col P) ตรงกับ promo_type ที่ derive หรือไม่
+        cond_text = s(ws.cell(row_idx, COL["condition"]).value).strip()
+        if promo_type and cond_text:
+            m = re.search(r"\d+", cond_text)
+            cond_qty = int(m.group(0)) if m else 0
+            if cond_qty and cond_qty != promo_min_qty:
+                warnings.append(
+                    f"Row {row_idx}: barcode={barcode} promo_type={promo_type} qty mismatch — "
+                    f"derive={promo_min_qty} from promo_type but col P says qty={cond_qty}"
+                )
+
+        # Sanity check: ต้องมี promo_price ถ้ามี promo_type
+        if promo_type and not promo_price:
+            warnings.append(f"Row {row_idx}: barcode={barcode} promo_type='{promo_type}' but promo_price empty → skip promo")
+            promo_type = ""
+            promo_label = ""
+            promo_min_qty = 0
 
         # Validation
         if not barcode:
@@ -184,7 +227,7 @@ def convert(xlsx_path: Path, out_dir: Path, brands_dir: Path = None):
         # Auto-override Tag เมื่อ stock = 0
         if stock <= 0 and tag != "สินค้าหมดชั่วคราว":
             if tag:
-                warnings.append(f"Row {row_idx}: barcode={barcode} stock=0 แต่ Tag='{tag}' → auto-override เป็น 'สินค้าหมดชั่วคราว'")
+                warnings.append(f"Row {row_idx}: barcode={barcode} stock=0 but Tag='{tag}' → auto-override")
             tag = "สินค้าหมดชั่วคราว"
             auto_fixed_stock += 1
 
@@ -204,23 +247,31 @@ def convert(xlsx_path: Path, out_dir: Path, brands_dir: Path = None):
         # Build pack_label "1 / แท่ง"
         pack_label = f"{pack_qty} / {unit}"
 
-        # Build product row (11 base + 3 promo = 14 elements ถ้ามีโปร, 11 ถ้าไม่มี)
+        # Build product row
+        # Base: 11 elements (cols 0-10) — required for all products
+        # Promo: 4 elements (cols 11-14) — only when promo_type is set
+        # Total: 11 (no promo) or 15 (with promo)
         product = [
-            barcode,
-            name,
-            subcat,
-            tag,
-            price,
-            stock,
-            image_url,
-            brand,
-            pack_qty,
-            pack_label,
-            flag,
+            barcode,       # 0
+            name,          # 1
+            subcat,        # 2
+            tag,           # 3
+            price,         # 4
+            stock,         # 5
+            image_url,     # 6
+            brand,         # 7
+            pack_qty,      # 8
+            pack_label,    # 9
+            flag,          # 10
         ]
-        # ใส่ promo เฉพาะรายการที่มี (รักษา backward-compat สำหรับสินค้าปกติ)
-        if promo_type or promo_label or orig_price:
-            product += [promo_type, promo_label, orig_price]
+        # Promo block (4 elements) — only if valid promo
+        if promo_type:
+            product += [
+                promo_type,    # 11 — "step_price" | "flash"
+                promo_label,   # 12 — ribbon text
+                promo_price,   # 13 — discounted unit price
+                promo_min_qty, # 14 — qty threshold (6 or 1)
+            ]
 
         by_category[cat_code].append(product)
 
@@ -233,7 +284,6 @@ def convert(xlsx_path: Path, out_dir: Path, brands_dir: Path = None):
         items = by_category.get(cat_code, [])
         out_path = out_dir / f"{cat_code}.json"
         with out_path.open("w", encoding="utf-8") as f:
-            # indent=0 → array-per-line (อ่านง่าย, git diff สวย)
             f.write("[\n")
             for i, item in enumerate(items):
                 line = json.dumps(item, ensure_ascii=False)
@@ -266,9 +316,9 @@ def convert(xlsx_path: Path, out_dir: Path, brands_dir: Path = None):
         f"",
         f"## By category",
     ]
-    for cat_code, name in sorted(CATEGORY_MAP.items(), key=lambda kv: kv[1]):
-        cnt = len(by_category.get(name, []))
-        report_lines.append(f"- **{name}** ({cat_code}): {cnt:,} รายการ")
+    for cat_name, cat_code in sorted(CATEGORY_MAP.items(), key=lambda kv: kv[1]):
+        cnt = len(by_category.get(cat_code, []))
+        report_lines.append(f"- **{cat_name}** ({cat_code}): {cnt:,} รายการ")
 
     if new_brands:
         report_lines += ["", "## ⚠️ Brands ที่อาจยังไม่มีไฟล์รูปใน assets/brands/"]
