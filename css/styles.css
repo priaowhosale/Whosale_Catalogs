@@ -424,6 +424,100 @@ body{font-family:"Noto Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   box-shadow:0 3px 10px rgba(37,169,224,.35)
 }
 .pg-btn.active:active{transform:translateY(-1px) scale(1)}
+/* ============================================================
+ * Promo Activated Banner — แสดงเมื่อ qty ≥ threshold (กดเข้าเงื่อนไข)
+ * Premium feel: gradient + shimmer + glow + sparkle
+ * ============================================================ */
+.promo-activated-banner{
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(135deg,#fef3c7 0%,#fde68a 30%,#fbbf24 60%,#f59e0b 100%);
+  color:#7c2d12;
+  font-size:.72rem;
+  font-weight:800;
+  padding:5px 12px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  letter-spacing:.2px;
+  text-shadow:0 1px 0 rgba(255,255,255,.5);
+  box-shadow:inset 0 -1px 2px rgba(180,83,9,.3),
+             0 1px 4px rgba(245,158,11,.4);
+  animation:promoBannerGlow 2.4s ease-in-out infinite
+}
+@keyframes promoBannerGlow{
+  0%,100%{box-shadow:inset 0 -1px 2px rgba(180,83,9,.3),0 1px 4px rgba(245,158,11,.4)}
+  50%{box-shadow:inset 0 -1px 2px rgba(180,83,9,.3),0 2px 10px rgba(245,158,11,.7),0 0 16px rgba(251,191,36,.5)}
+}
+.promo-activated-icon{
+  display:inline-block;
+  font-size:.85rem;
+  animation:promoSparkle 1.6s ease-in-out infinite;
+  filter:drop-shadow(0 0 4px rgba(251,191,36,.8))
+}
+@keyframes promoSparkle{
+  0%,100%{transform:scale(1) rotate(0deg);opacity:1}
+  25%{transform:scale(1.25) rotate(15deg);opacity:.85}
+  50%{transform:scale(1.1) rotate(-10deg);opacity:1}
+  75%{transform:scale(1.2) rotate(5deg);opacity:.9}
+}
+.promo-activated-text{
+  flex:1;
+  z-index:1;
+  position:relative
+}
+.promo-activated-shimmer{
+  position:absolute;
+  top:0;left:-100%;right:0;bottom:0;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.5) 50%,transparent 100%);
+  animation:promoShimmer 2.8s ease-in-out infinite;
+  pointer-events:none;
+  z-index:0
+}
+@keyframes promoShimmer{
+  0%{left:-100%}
+  60%{left:100%}
+  100%{left:100%}
+}
+
+/* Promo Hint Banner — แสดงเมื่อยังไม่ครบ threshold (แนะนำให้เพิ่ม) */
+.promo-hint-banner{
+  background:rgba(245,158,11,.08);
+  color:#92400e;
+  font-size:.66rem;
+  font-weight:500;
+  padding:4px 12px;
+  border-bottom:1px dashed rgba(245,158,11,.35);
+  font-style:italic
+}
+
+/* Promo Active Cart Item — subtle border glow */
+.cart-item.promo-active{
+  position:relative;
+  animation:promoItemGlow 3s ease-in-out infinite
+}
+@keyframes promoItemGlow{
+  0%,100%{box-shadow:0 0 0 rgba(245,158,11,0)}
+  50%{box-shadow:0 0 12px rgba(245,158,11,.25)}
+}
+
+/* Theme-specific colors (override default gold for flash-type promos) */
+.cart-item.promo-item[data-promo="flash"] .promo-activated-banner{
+  background:linear-gradient(135deg,#fef2f2 0%,#fecaca 30%,#f87171 60%,#dc2626 100%);
+  color:#7f1d1d;
+  text-shadow:0 1px 0 rgba(255,255,255,.4)
+}
+.cart-item.promo-item[data-promo="flash"] .promo-activated-icon{
+  filter:drop-shadow(0 0 6px rgba(248,113,113,.9))
+}
+.cart-item.promo-item[data-promo="flash"]{
+  animation-name:promoItemGlowFlash
+}
+@keyframes promoItemGlowFlash{
+  0%,100%{box-shadow:0 0 0 rgba(220,38,38,0)}
+  50%{box-shadow:0 0 14px rgba(220,38,38,.3)}
+}
+
 .cart-panel{position:fixed;right:-360px;top:0;width:360px;height:100vh;background:var(--surf);box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:200;transition:right .3s;display:flex;flex-direction:column}
 .cart-panel.open{right:0}
 .cart-hdr{background:var(--acc);color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
@@ -578,7 +672,101 @@ body{font-family:"Noto Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   .mob-cat-btn{padding:.5rem .875rem;font-size:.78rem;min-height:2.25rem}
 
   /* Cart panel — full width on mobile */
-  .cart-panel{width:100vw;max-width:100vw;right:-100vw;top:0;bottom:0;height:100vh;height:100dvh}
+  /* ============================================================
+ * Promo Activated Banner — แสดงเมื่อ qty ≥ threshold (กดเข้าเงื่อนไข)
+ * Premium feel: gradient + shimmer + glow + sparkle
+ * ============================================================ */
+.promo-activated-banner{
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(135deg,#fef3c7 0%,#fde68a 30%,#fbbf24 60%,#f59e0b 100%);
+  color:#7c2d12;
+  font-size:.72rem;
+  font-weight:800;
+  padding:5px 12px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  letter-spacing:.2px;
+  text-shadow:0 1px 0 rgba(255,255,255,.5);
+  box-shadow:inset 0 -1px 2px rgba(180,83,9,.3),
+             0 1px 4px rgba(245,158,11,.4);
+  animation:promoBannerGlow 2.4s ease-in-out infinite
+}
+@keyframes promoBannerGlow{
+  0%,100%{box-shadow:inset 0 -1px 2px rgba(180,83,9,.3),0 1px 4px rgba(245,158,11,.4)}
+  50%{box-shadow:inset 0 -1px 2px rgba(180,83,9,.3),0 2px 10px rgba(245,158,11,.7),0 0 16px rgba(251,191,36,.5)}
+}
+.promo-activated-icon{
+  display:inline-block;
+  font-size:.85rem;
+  animation:promoSparkle 1.6s ease-in-out infinite;
+  filter:drop-shadow(0 0 4px rgba(251,191,36,.8))
+}
+@keyframes promoSparkle{
+  0%,100%{transform:scale(1) rotate(0deg);opacity:1}
+  25%{transform:scale(1.25) rotate(15deg);opacity:.85}
+  50%{transform:scale(1.1) rotate(-10deg);opacity:1}
+  75%{transform:scale(1.2) rotate(5deg);opacity:.9}
+}
+.promo-activated-text{
+  flex:1;
+  z-index:1;
+  position:relative
+}
+.promo-activated-shimmer{
+  position:absolute;
+  top:0;left:-100%;right:0;bottom:0;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.5) 50%,transparent 100%);
+  animation:promoShimmer 2.8s ease-in-out infinite;
+  pointer-events:none;
+  z-index:0
+}
+@keyframes promoShimmer{
+  0%{left:-100%}
+  60%{left:100%}
+  100%{left:100%}
+}
+
+/* Promo Hint Banner — แสดงเมื่อยังไม่ครบ threshold (แนะนำให้เพิ่ม) */
+.promo-hint-banner{
+  background:rgba(245,158,11,.08);
+  color:#92400e;
+  font-size:.66rem;
+  font-weight:500;
+  padding:4px 12px;
+  border-bottom:1px dashed rgba(245,158,11,.35);
+  font-style:italic
+}
+
+/* Promo Active Cart Item — subtle border glow */
+.cart-item.promo-active{
+  position:relative;
+  animation:promoItemGlow 3s ease-in-out infinite
+}
+@keyframes promoItemGlow{
+  0%,100%{box-shadow:0 0 0 rgba(245,158,11,0)}
+  50%{box-shadow:0 0 12px rgba(245,158,11,.25)}
+}
+
+/* Theme-specific colors (override default gold for flash-type promos) */
+.cart-item.promo-item[data-promo="flash"] .promo-activated-banner{
+  background:linear-gradient(135deg,#fef2f2 0%,#fecaca 30%,#f87171 60%,#dc2626 100%);
+  color:#7f1d1d;
+  text-shadow:0 1px 0 rgba(255,255,255,.4)
+}
+.cart-item.promo-item[data-promo="flash"] .promo-activated-icon{
+  filter:drop-shadow(0 0 6px rgba(248,113,113,.9))
+}
+.cart-item.promo-item[data-promo="flash"]{
+  animation-name:promoItemGlowFlash
+}
+@keyframes promoItemGlowFlash{
+  0%,100%{box-shadow:0 0 0 rgba(220,38,38,0)}
+  50%{box-shadow:0 0 14px rgba(220,38,38,.3)}
+}
+
+.cart-panel{width:100vw;max-width:100vw;right:-100vw;top:0;bottom:0;height:100vh;height:100dvh}
   .cart-panel .cart-footer{padding-bottom:calc(5.5rem + env(safe-area-inset-bottom))}
 
   /* Cart action buttons */
@@ -705,7 +893,101 @@ body{font-family:"Noto Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
 
 /* === Cart Panel — adjust for Bottom Tab Bar (Tablet ≤1024px) === */
 @media(min-width:641px) and (max-width:1024px){
-  .cart-panel{
+  /* ============================================================
+ * Promo Activated Banner — แสดงเมื่อ qty ≥ threshold (กดเข้าเงื่อนไข)
+ * Premium feel: gradient + shimmer + glow + sparkle
+ * ============================================================ */
+.promo-activated-banner{
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(135deg,#fef3c7 0%,#fde68a 30%,#fbbf24 60%,#f59e0b 100%);
+  color:#7c2d12;
+  font-size:.72rem;
+  font-weight:800;
+  padding:5px 12px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  letter-spacing:.2px;
+  text-shadow:0 1px 0 rgba(255,255,255,.5);
+  box-shadow:inset 0 -1px 2px rgba(180,83,9,.3),
+             0 1px 4px rgba(245,158,11,.4);
+  animation:promoBannerGlow 2.4s ease-in-out infinite
+}
+@keyframes promoBannerGlow{
+  0%,100%{box-shadow:inset 0 -1px 2px rgba(180,83,9,.3),0 1px 4px rgba(245,158,11,.4)}
+  50%{box-shadow:inset 0 -1px 2px rgba(180,83,9,.3),0 2px 10px rgba(245,158,11,.7),0 0 16px rgba(251,191,36,.5)}
+}
+.promo-activated-icon{
+  display:inline-block;
+  font-size:.85rem;
+  animation:promoSparkle 1.6s ease-in-out infinite;
+  filter:drop-shadow(0 0 4px rgba(251,191,36,.8))
+}
+@keyframes promoSparkle{
+  0%,100%{transform:scale(1) rotate(0deg);opacity:1}
+  25%{transform:scale(1.25) rotate(15deg);opacity:.85}
+  50%{transform:scale(1.1) rotate(-10deg);opacity:1}
+  75%{transform:scale(1.2) rotate(5deg);opacity:.9}
+}
+.promo-activated-text{
+  flex:1;
+  z-index:1;
+  position:relative
+}
+.promo-activated-shimmer{
+  position:absolute;
+  top:0;left:-100%;right:0;bottom:0;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.5) 50%,transparent 100%);
+  animation:promoShimmer 2.8s ease-in-out infinite;
+  pointer-events:none;
+  z-index:0
+}
+@keyframes promoShimmer{
+  0%{left:-100%}
+  60%{left:100%}
+  100%{left:100%}
+}
+
+/* Promo Hint Banner — แสดงเมื่อยังไม่ครบ threshold (แนะนำให้เพิ่ม) */
+.promo-hint-banner{
+  background:rgba(245,158,11,.08);
+  color:#92400e;
+  font-size:.66rem;
+  font-weight:500;
+  padding:4px 12px;
+  border-bottom:1px dashed rgba(245,158,11,.35);
+  font-style:italic
+}
+
+/* Promo Active Cart Item — subtle border glow */
+.cart-item.promo-active{
+  position:relative;
+  animation:promoItemGlow 3s ease-in-out infinite
+}
+@keyframes promoItemGlow{
+  0%,100%{box-shadow:0 0 0 rgba(245,158,11,0)}
+  50%{box-shadow:0 0 12px rgba(245,158,11,.25)}
+}
+
+/* Theme-specific colors (override default gold for flash-type promos) */
+.cart-item.promo-item[data-promo="flash"] .promo-activated-banner{
+  background:linear-gradient(135deg,#fef2f2 0%,#fecaca 30%,#f87171 60%,#dc2626 100%);
+  color:#7f1d1d;
+  text-shadow:0 1px 0 rgba(255,255,255,.4)
+}
+.cart-item.promo-item[data-promo="flash"] .promo-activated-icon{
+  filter:drop-shadow(0 0 6px rgba(248,113,113,.9))
+}
+.cart-item.promo-item[data-promo="flash"]{
+  animation-name:promoItemGlowFlash
+}
+@keyframes promoItemGlowFlash{
+  0%,100%{box-shadow:0 0 0 rgba(220,38,38,0)}
+  50%{box-shadow:0 0 14px rgba(220,38,38,.3)}
+}
+
+.cart-panel{
     bottom: 0;
     height: 100vh;
     height: 100dvh;
@@ -783,7 +1065,7 @@ body{font-family:"Noto Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
 
 /* === Product Card — Unit suffix + Suggested Retail === */
 .p-unit-suffix{color:#6B7280;font-weight:400;font-size:.92em;margin-left:3px;white-space:nowrap}
-.p-suggest{display:inline-flex;align-items:center;font-size:.55rem;color:#0a1628;background:transparent;border:1px solid #0a1628;padding:1px 6px;border-radius:5px;font-weight:500;line-height:1.2;white-space:nowrap}
+.p-suggest{display:inline-flex;align-items:center;font-size:.55rem;color:#6b7280;background:transparent;border:1px solid #d1d5db;padding:1px 6px;border-radius:5px;font-weight:500;line-height:1.2;white-space:nowrap}
 
 /* === Button Loading State — Spinning Ring + Animated Dots === */
 .btn-spinner{

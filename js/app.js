@@ -11,6 +11,10 @@ let RAW_DATA = {}; // populated by loadCatalogData() before init() runs
 // Source: ERP ISCode → Price_Prod.Shop (ราคาแนะนำขายต่อให้ผู้บริโภคปลายทาง)
 // Loaded separately from main JSON, merged into product.suggestedRetail after init
 let SUGGESTED_RETAIL_MAP = {}; // { barcode: price } — populated by loadSuggestedRetail()
+// === FGStore Stock Overlay (data/stock_fg.json) ===
+// Source: ERP priao_stock_level_quicksight where store='FGStore'
+// = "คงเหลือ(FG-Store)" column in ERP "ProductStock & Price" report
+let STOCK_FG_MAP = {}; // { barcode: qty_onstock } — populated by loadCatalogData()
 
 // ============================================================
 // 📚 window.* — Shared Cross-File State + Public API
@@ -245,13 +249,19 @@ function init(){
       const promoTypeRaw = String(raw[11] || '').toLowerCase().trim().replace(/\s+/g,'_');
       const promoType = ['step_price','flash'].indexOf(promoTypeRaw) >= 0 ? promoTypeRaw : '';
       const _barcode = String(raw[0]);
+      // If ERP overlay has stock=0 → mark as OOS regardless of Excel tag
+      const _erpStock = STOCK_FG_MAP[_barcode];
+      const _hasErpStock = (_erpStock !== undefined);
+      const _isOOS = _hasErpStock ? (Number(_erpStock) <= 0) : false;
+      const _excelTag = raw[3] || '';
+      const _finalTag = _isOOS ? 'สินค้าหมดชั่วคราว' : _excelTag;
       const p={
         code:_barcode,name:raw[1]||'',
         cat:cat+' '+(CAT_NAMES[cat]||''),catId:cat,
-        subCat:raw[2]||'',status:'',tag:raw[3]||'',
+        subCat:raw[2]||'',status:'',tag:_finalTag,
         stdPrice:Number(raw[4])||0,retailPrice:0,
         packQty:Number(raw[8])||1,baseUnit:raw[9]||'',
-        stock:Number(raw[5])||0,imageUrl:raw[6]||'',
+        stock:(STOCK_FG_MAP[_barcode] !== undefined ? Number(STOCK_FG_MAP[_barcode]) : Number(raw[5]))||0,imageUrl:raw[6]||'',
         brand:raw[7]||'',excelOrder:Number(raw[10])||0,
         // promo (cols 11-14) — empty/0 when no promo
         promoType: promoType,
@@ -779,7 +789,7 @@ function imgTag(p){
   if(p.promoType === 'flash'){
     ribbon = '<span class="p-ribbon p-ribbon-flash">⚡ FLASH SALE</span>';
   } else if(p.promoType === 'step_price'){
-    ribbon = '<span class="p-ribbon p-ribbon-step">🏷 ซื้อ '+(p.promoMinQty||6)+'+</span>';
+    ribbon = '<span class="p-ribbon p-ribbon-step">🏷 ซื้อ '+(p.promoMinQty||6)+' ชิ้น+</span>';
   }
   if(p.imageUrl) return ribbon+'<img src="'+p.imageUrl+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
   return ribbon+'<div class="p-img-ph">🧴</div>';
@@ -794,9 +804,9 @@ function priceRow(p){
   return '<span class="p-price">'+ws+'</span>';
 }
 function promoHintHTML(p){
-  // Step price: show hint "ซื้อ 6+ ลดเหลือ 222"
+  // Step price: show hint "ซื้อ 6 หน่วยขึ้นไป ลดเหลือ 222"
   if(p.promoType === 'step_price' && p.promoPrice > 0 && p.promoMinQty > 0){
-    return '<span class="p-promo-hint" title="ราคาพิเศษเมื่อสั่ง '+p.promoMinQty+' ชิ้นขึ้นไป">ซื้อ '+p.promoMinQty+'+ ลดเหลือ '+p.promoPrice.toLocaleString('th-TH')+'</span>';
+    return '<span class="p-promo-hint" title="ราคาพิเศษเมื่อสั่ง '+p.promoMinQty+' ชิ้นขึ้นไป">ซื้อ '+p.promoMinQty+' หน่วยขึ้นไป ลดเหลือ '+p.promoPrice.toLocaleString('th-TH')+'</span>';
   }
   return '';
 }
@@ -1123,8 +1133,27 @@ function renderCart(){
         : (pLabel || (theme ? theme.emoji+' '+theme.txt : ''));
 
       if(theme){
+        // === Promo Activated Banner (เมื่อ qty ≥ threshold, ราคา promo applied) ===
+        // คำนวณส่วนลด → แสดง premium banner เด่นๆ ให้รู้ว่าได้ราคาพิเศษ
+        let activatedBanner = '';
+        if(promoApplied && pPromoPrice > 0 && c.price > pPromoPrice){
+          const savedPerUnit = c.price - pPromoPrice;
+          const totalSaved = savedPerUnit * c.qty;
+          activatedBanner = '<div class="promo-activated-banner">'
+            + '<span class="promo-activated-icon">✨</span>'
+            + '<span class="promo-activated-text">ราคาพิเศษ! ลด '+totalSaved.toLocaleString('th-TH')+' บาท</span>'
+            + '<span class="promo-activated-shimmer"></span>'
+            + '</div>';
+        } else if(prod && prod.promoMinQty > 0 && c.qty < prod.promoMinQty){
+          // Hint: ยังไม่ครบ threshold — แนะนำให้เพิ่ม
+          const remaining = prod.promoMinQty - c.qty;
+          activatedBanner = '<div class="promo-hint-banner">'
+            + '<span style="opacity:.7">💡 เพิ่มอีก '+remaining+' ชิ้น = ราคาพิเศษ '+pPromoPrice.toLocaleString('th-TH')+' บาท</span>'
+            + '</div>';
+        }
         // PROMO CART ITEM
-        h += '<div class="cart-item" style="padding:0 !important;border:1.5px solid '+theme.c1+';background:'+theme.bg+';border-radius:8px;overflow:hidden">'
+        h += '<div class="cart-item promo-item' + (promoApplied ? ' promo-active' : '') + '" data-promo="'+pType+'" style="padding:0 !important;border:1.5px solid '+theme.c1+';background:'+theme.bg+';border-radius:8px;overflow:hidden">'
+          + activatedBanner
           + '<div style="background:'+theme.c1+';color:#fff;font-size:.7rem;font-weight:800;padding:3px 10px">'+esc(ribbonText)+'</div>'
           + '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px">'
           + (imgUrl
@@ -1138,7 +1167,7 @@ function renderCart(){
           + '<span style="font-weight:700;min-width:18px;text-align:center">'+c.qty+'</span>'
           + '<button onclick="changeQty(\''+c.code+'\',1)" style="border:1px solid var(--border);border-radius:4px;width:24px;height:24px;cursor:pointer;background:#fff">+</button>'
           + '<span style="flex:1;text-align:right;font-weight:700;color:'+theme.c1+';font-size:.85rem">'
-          + ''
+          + (promoApplied && c.price > pPromoPrice ? '<span style="text-decoration:line-through;color:#999;font-weight:400;font-size:.7rem">'+(c.price*c.qty).toLocaleString('th-TH')+'</span> ' : '')
           + effectiveSubtotal(c).toLocaleString('th-TH')+' บาท</span>'
           + '<button onclick="removeCart(\''+c.code+'\')" style="color:#dc2626;background:none;border:none;cursor:pointer;font-size:.95rem">✕</button>'
           + '</div></div></div></div>';
@@ -2580,13 +2609,23 @@ async function loadCatalogData() {
   }));
   // Load suggested_retail overlay (non-blocking — fallback to empty map if missing)
   try {
-    const overlay = await fetch('data/suggested_retail.json?v=20260622-0648').then(r => r.ok ? r.json() : null);
+    const overlay = await fetch('data/suggested_retail.json?v=20260622-0708').then(r => r.ok ? r.json() : null);
     if(overlay && overlay.data && typeof overlay.data === 'object'){
       SUGGESTED_RETAIL_MAP = overlay.data;
       console.log('[boot] suggested_retail overlay:', Object.keys(SUGGESTED_RETAIL_MAP).length, 'entries');
     }
   } catch(e){
     console.warn('[boot] suggested_retail overlay not loaded:', e.message);
+  }
+  // Load FGStore stock overlay (NEW — overrides Excel stock values from ERP)
+  try {
+    const stockOverlay = await fetch('data/stock_fg.json?v=20260622-0708').then(r => r.ok ? r.json() : null);
+    if(stockOverlay && stockOverlay.data && typeof stockOverlay.data === 'object'){
+      STOCK_FG_MAP = stockOverlay.data;
+      console.log('[boot] stock_fg overlay:', Object.keys(STOCK_FG_MAP).length, 'entries');
+    }
+  } catch(e){
+    console.warn('[boot] stock_fg overlay not loaded:', e.message);
   }
 }
 window.addEventListener('DOMContentLoaded', async function () {
