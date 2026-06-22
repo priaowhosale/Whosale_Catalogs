@@ -323,8 +323,35 @@ body{font-family:"Noto Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
 
 .p-body{padding:6px}
 .p-name{font-size:.68rem;font-weight:600;color:var(--txt);line-height:1.35;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;min-height:calc(1.35em * 2)}
-.p-brand{font-size:.60rem;color:var(--txt3);margin-bottom:0}
-.p-brand{font-size:.60rem;color:var(--txt3);margin-bottom:3px}
+/* === Meta row: SKU | Brand (Phase B brand redesign 2026-06-22) === */
+.p-meta-row{
+  display:flex;
+  align-items:baseline;
+  gap:6px;
+  margin-bottom:2px;
+  font-size:.55rem;
+  line-height:1.3;
+  min-height:1em
+}
+.p-code{font-size:.55rem;color:#bbb;flex-shrink:0;font-weight:400}
+.p-brand-inline{
+  font-size:.58rem;
+  color:#6b7280;
+  font-weight:500;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  flex:1;
+  min-width:0
+}
+.p-brand-inline::before{
+  content:'|';
+  color:#d1d5db;
+  margin-right:6px;
+  font-weight:300
+}
+/* Legacy .p-brand class — keep for backward compat but hide (now in meta row) */
+.p-brand{display:none !important}
 .p-price-row{display:flex;align-items:center;margin-bottom:2px;justify-content:space-between}
 .p-price{font-size:.85rem;font-weight:800;color:var(--acc)}
 

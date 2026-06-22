@@ -846,9 +846,11 @@ function renderProducts(){
       html+='<div class="p-card">'
         +'<div class="p-img">'+imgTag(p)+'</div>'
         +'<div class="p-body">'
-        +'<span class="p-code">#'+p.code+'</span>'
+        +'<div class="p-meta-row">'
+        +  '<span class="p-code">#'+p.code+'</span>'
+        +  (p.brand?'<span class="p-brand-inline">'+esc(p.brand)+'</span>':'')
+        +'</div>'
         +'<div class="p-name">'+esc(p.name)+'<span class="p-unit-suffix">'+esc(unitSuffix(p))+'</span></div>'
-        +'<div class="p-brand">'+esc(p.brand)+'</div>'
         +'<div class="p-price-row">'+priceRow(p)+(badge(p)?'<span class="p-badge-inline">'+badge(p)+'</span>':'')+'</div>'
         +(promoHintHTML(p)?'<div class="p-promo-row">'+promoHintHTML(p)+'</div>':'')
         +'<div class="p-stock-row">'+(suggestRetailHTML(p)||'<span></span>')+stockInfo(p)+'</div>'
@@ -862,9 +864,11 @@ function renderProducts(){
       html+='<div class="p-list-card">'
         +'<div class="p-list-img">'+imgTag(p)+'</div>'
         +'<div class="p-list-body">'
-        +'<span class="p-code">#'+p.code+'</span>'
+        +'<div class="p-meta-row">'
+        +  '<span class="p-code">#'+p.code+'</span>'
+        +  (p.brand?'<span class="p-brand-inline">'+esc(p.brand)+'</span>':'')
+        +'</div>'
         +'<div class="p-list-name">'+esc(p.name)+'<span class="p-unit-suffix">'+esc(unitSuffix(p))+'</span></div>'
-        +'<div class="p-brand">'+esc(p.brand)+'</div>'
         +'<div class="p-price-row">'+priceRow(p)+(badge(p)?'<span class="p-badge-inline">'+badge(p)+'</span>':'')+'</div>'
         +(promoHintHTML(p)?'<div class="p-promo-row">'+promoHintHTML(p)+'</div>':'')
         +'<div style="display:flex;gap:8px;align-items:center">'+(suggestRetailHTML(p)||'')+stockInfo(p)+'</div>'
@@ -2576,7 +2580,7 @@ async function loadCatalogData() {
   }));
   // Load suggested_retail overlay (non-blocking — fallback to empty map if missing)
   try {
-    const overlay = await fetch('data/suggested_retail.json?v=20260622-0504').then(r => r.ok ? r.json() : null);
+    const overlay = await fetch('data/suggested_retail.json?v=20260622-0648').then(r => r.ok ? r.json() : null);
     if(overlay && overlay.data && typeof overlay.data === 'object'){
       SUGGESTED_RETAIL_MAP = overlay.data;
       console.log('[boot] suggested_retail overlay:', Object.keys(SUGGESTED_RETAIL_MAP).length, 'entries');

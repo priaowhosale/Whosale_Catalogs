@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Refresh data/suggested_retail.json from ERP Price_Prod.Shop
-========================================================
+Refresh data/suggested_retail.json from ERP priao_stock_level_quicksight
+=========================================================================
 
-ดึงราคาแนะนำขาย (Shop tier) จาก ERP ISCode → save เป็น overlay file
+ดึงราคาแนะนำขาย (= "ราคาขาย" column ใน ERP page "ProductStock & Price")
+จาก ERP ISCode → save เป็น overlay file
 ที่ app.js ใช้แสดง "แนะนำขาย XXX" บน product card
 
 USAGE:
@@ -16,10 +17,9 @@ REQUIREMENTS:
 
 SOURCE:
     Database: priao-production (PostgreSQL)
-    Table:    "Price_Prod"
-    Filter:   "CustPriceId" = 'Shop'
-    Format:   "StepPrice" = "1=179" (qty=price)
-    Logic:    DISTINCT ON (PId) ORDER BY UpdateOn DESC
+    View:     priao_stock_level_quicksight
+    Field:    unit_price (= "ราคาขาย" column on "ProductStock & Price" page in ERP UI)
+    Note:     This view aggregates data — unit_price is product-level (same across stores)
 
 OUTPUT:
     ../data/suggested_retail.json
@@ -118,18 +118,13 @@ except Exception as e:
 
 print()
 print("=" * 60)
-print("Step 3: Querying Price_Prod (CustPriceId='Shop')")
+print("Step 3: Querying priao_stock_level_quicksight (unit_price)")
 print("=" * 60)
 
 query = """
-SELECT DISTINCT ON ("PId")
-    "PId",
-    "StepPrice"
-FROM "Price_Prod"
-WHERE "CustPriceId" = 'Shop'
-  AND "StepPrice" IS NOT NULL
-  AND "StepPrice" != ''
-ORDER BY "PId", "UpdateOn" DESC, "SeqNo" DESC;
+SELECT DISTINCT pid, unit_price
+FROM priao_stock_level_quicksight
+WHERE unit_price > 0;
 """
 
 try:
@@ -145,34 +140,31 @@ except Exception as e:
 cur.close()
 conn.close()
 
-# === Step 4: Parse StepPrice + filter to catalog ===
+# === Step 4: Parse unit_price + filter to catalog ===
 print()
 print("=" * 60)
-print("Step 4: Parsing StepPrice + filtering catalog SKUs")
+print("Step 4: Parsing unit_price + filtering catalog SKUs")
 print("=" * 60)
 
-def parse_step_price(step_str):
-    """Parse '1=179' or '1=179.50' → 179 (int) or 179.5 (float)"""
-    if not step_str:
-        return 0
-    m = re.search(r"=\s*([\d.]+)", step_str)
-    if not m:
+def parse_unit_price(price_val):
+    """Parse unit_price (Decimal) → 179 (int) or 179.5 (float)"""
+    if price_val is None:
         return 0
     try:
-        f = float(m.group(1))
+        f = float(price_val)
         return int(f) if f.is_integer() else f
     except (ValueError, TypeError):
         return 0
 
 overlay = {}
 zero_count = 0
-for pid, step_price in rows:
+for pid, unit_price in rows:
     if not pid:
         continue
     pid_str = str(pid)
     if pid_str not in catalog_barcodes:
         continue  # not in our catalog — skip
-    price = parse_step_price(step_price)
+    price = parse_unit_price(unit_price)
     if price > 0:
         overlay[pid_str] = price
     else:
@@ -195,9 +187,9 @@ print("=" * 60)
 
 output = {
     "_meta": {
-        "source": "ERP Price_Prod.Shop (CustPriceId='Shop', StepPrice format '1=price')",
+        "source": "ERP priao_stock_level_quicksight.unit_price (= ProductStock & Price page → ราคาขาย column)",
         "description": "ราคาแนะนำขายต่อให้ผู้บริโภคปลายทาง",
-        "sql": "SELECT DISTINCT ON (\"PId\") ... FROM \"Price_Prod\" WHERE \"CustPriceId\"='Shop' ORDER BY \"PId\", \"UpdateOn\" DESC",
+        "sql": "SELECT DISTINCT pid, unit_price FROM priao_stock_level_quicksight WHERE unit_price > 0",
         "count": len(overlay),
         "catalog_total": len(catalog_barcodes),
         "coverage_pct": round(100 * len(overlay) / len(catalog_barcodes), 1),
@@ -227,7 +219,7 @@ print("=" * 60)
 print("✓ DONE")
 print("=" * 60)
 print(f"   Catalog SKUs:      {len(catalog_barcodes):,}")
-print(f"   Shop prices:       {len(overlay):,} ({100*len(overlay)/len(catalog_barcodes):.1f}%)")
+print(f"   unit_prices:       {len(overlay):,} ({100*len(overlay)/len(catalog_barcodes):.1f}%)")
 print(f"   Missing:           {len(catalog_barcodes) - len(overlay):,}")
 print()
 print("Next steps:")
