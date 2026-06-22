@@ -1,14 +1,16 @@
 {
   "_meta": {
-    "source": "ERP priao_stock_level_quicksight (FGStore only)",
-    "description": "Stock คงเหลือจาก ERP FGStore — overlay บน Excel stock",
+    "source": "ERP priao_stock_level_quicksight (store='FGStore')",
+    "description": "คงเหลือ FG-Store (Final Goods Store) — real-time จาก ERP",
     "sql": "SELECT pid, qty_onstock FROM priao_stock_level_quicksight WHERE store='FGStore'",
-    "count": 3373,
-    "in_stock": 2830,
-    "out_of_stock": 543,
+    "count": 3381,
+    "in_stock": 2837,
+    "out_of_stock": 544,
     "catalog_total": 3568,
-    "coverage_pct": 94.5,
-    "last_updated": "2026-06-22"
+    "coverage_pct": 94.8,
+    "last_updated": "2026-06-22",
+    "refresh_method": "MCP via Claude Cowork (manual)",
+    "note": "Overrides Excel stock values — ERP is source of truth"
   },
   "data": {
     "0230002": 324,
@@ -3383,6 +3385,14 @@
     "9556006060438": 24,
     "9556006060513": 0,
     "9556006060636": 0,
-    "99129110444": 17
+    "99129110444": 17,
+    "AT01001003200": 6,
+    "AT01016003200": 53,
+    "AT02001003200": 0,
+    "AT02016003200": 17,
+    "AT08001000035": 78,
+    "AT08001001000": 48,
+    "AT08002000500": 168,
+    "TU2315": 26
   }
 }

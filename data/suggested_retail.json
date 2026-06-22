@@ -3,13 +3,11 @@
     "source": "ERP priao_stock_level_quicksight.unit_price (= ProductStock & Price page → ราคาขาย column)",
     "description": "ราคาแนะนำขายต่อให้ผู้บริโภคปลายทาง",
     "sql": "SELECT DISTINCT pid, unit_price FROM priao_stock_level_quicksight WHERE unit_price > 0",
-    "count": 3483,
+    "count": 3475,
     "catalog_total": 3568,
-    "coverage_pct": 97.6,
+    "coverage_pct": 97.4,
     "last_updated": "2026-06-22",
-    "refresh_method": "MCP via Claude Cowork (manual)",
-    "previous_source": "Price_Prod.Shop (WRONG — should use quicksight view)",
-    "migration_note": "Changed source 2026-06-22: user feedback that Shop ≠ ราคาขาย"
+    "refresh_script": "backoffice/refresh_suggested_retail.py"
   },
   "data": {
     "0230002": 15,
@@ -3486,14 +3484,6 @@
     "9556006060438": 199,
     "9556006060513": 179,
     "9556006060636": 60,
-    "99129110444": 89,
-    "AT01001003200": 140,
-    "AT01016003200": 145,
-    "AT02001003200": 169,
-    "AT02016003200": 179,
-    "AT08001000035": 12,
-    "AT08001001000": 189,
-    "AT08002000500": 99,
-    "TU2315": 179
+    "99129110444": 89
   }
 }

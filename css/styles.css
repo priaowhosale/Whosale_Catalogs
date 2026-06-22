@@ -54,6 +54,53 @@ body{font-family:"Noto Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
 .sb-btn:hover{background:#f0f7ff;color:var(--acc)}
 .sb-btn.active{background:var(--acc);color:#fff;font-weight:700}
 .sb-divider{height:1px;background:var(--border);margin:6px 8px}
+/* === Promo sub-items === */
+.sb-sub-btn{
+  padding-left:28px !important;
+  font-size:.74rem;
+  position:relative;
+  color:var(--txt3);
+  animation:subSlideIn .2s ease-out
+}
+.sb-sub-btn::before{
+  content:'';
+  position:absolute;
+  left:18px;
+  top:50%;
+  width:6px;
+  height:1px;
+  background:var(--border)
+}
+.sb-sub-btn:hover{background:#f0f7ff;color:var(--acc)}
+.sb-sub-btn.active{
+  background:#e3f4ff;
+  color:var(--acc);
+  font-weight:700
+}
+.sb-sub-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:1.05em;
+  height:1.05em;
+  flex-shrink:0;
+  vertical-align:-0.18em;
+  margin-right:4px
+}
+.sb-sub-icon svg{width:100%;height:100%}
+.sb-promo-emoji{font-size:1em;line-height:1}
+.sb-sub-count{
+  color:var(--txt3);
+  font-size:.72rem;
+  margin-left:2px;
+  font-weight:500;
+  opacity:.85
+}
+.sb-sub-btn.active .sb-sub-count{color:var(--acc);opacity:1}
+@keyframes subSlideIn{
+  from{opacity:0;transform:translateX(-6px)}
+  to{opacity:1;transform:translateX(0)}
+}
 .pc-main{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:12px 12px 5rem}
 .filter-bar{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap}
 .result-cnt{font-size:.78rem;color:var(--txt3)}
@@ -258,10 +305,27 @@ body{font-family:"Noto Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
 @media(min-width:1024px){.prod-grid{grid-template-columns:repeat(4,1fr);gap:.75rem}}
 @media(min-width:1440px){.prod-grid{grid-template-columns:repeat(5,1fr);gap:.875rem}}
 .prod-list{display:flex;flex-direction:column;gap:8px}
-.p-card{background:var(--surf);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:all .18s;box-shadow:0 2px 8px rgba(32,128,190,.07)}
+.p-card{
+  background:var(--surf);
+  border:1.5px solid var(--border);
+  border-radius:var(--radius);
+  overflow:hidden;
+  transition:all .18s;
+  box-shadow:0 2px 8px rgba(32,128,190,.07);
+  /* Flex column → ปุ่ม "+ใส่ตะกร้า" align บรรทัดเดียวกันทั่วทุก card ใน row */
+  display:flex;
+  flex-direction:column
+}
 .p-card:hover{box-shadow:0 6px 20px rgba(32,128,190,.18);transform:translateY(-2px)}
 .p-img{aspect-ratio:1/1;background:#f5f9ff;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
 /* === Product Promo Ribbon + Hint (Phase 4-5, 2026-06-19) === */
+/* === Ribbon Standard (Phase 4-5, 2026-06-19) ===
+   มาตรฐาน: ทุก ribbon ใช้ขนาด/ตำแหน่ง/animation timing เดียวกัน
+   เปลี่ยนได้แค่ 3 อย่าง:
+     1. ชื่อโปร (text content)
+     2. SVG icon
+     3. สี ribbon (background gradient + glow color)
+*/
 .p-ribbon{
   position:absolute;
   top:6px;
@@ -275,18 +339,33 @@ body{font-family:"Noto Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   letter-spacing:.2px;
   box-shadow:0 2px 6px rgba(0,0,0,.18);
   white-space:nowrap;
-  pointer-events:none
+  pointer-events:none;
+  display:inline-flex;
+  align-items:center;
+  gap:4px
 }
+.p-ribbon-icon{
+  width:13px;
+  height:13px;
+  flex-shrink:0;
+  fill:currentColor
+}
+/* Variant 1 — FLASH SALE: แดง */
 .p-ribbon-flash{
   background:linear-gradient(135deg,#DC2626,#991B1B);
-  animation:flashPulse 1.6s ease-in-out infinite
+  animation:ribbonPulse 1.6s ease-in-out infinite;
+  --pulse-color:220,38,38;
 }
-@keyframes flashPulse{
-  0%,100%{box-shadow:0 2px 6px rgba(220,38,38,.4)}
-  50%{box-shadow:0 3px 12px rgba(220,38,38,.7)}
-}
+/* Variant 2 — STEP PRICE: ฟ้า */
 .p-ribbon-step{
-  background:linear-gradient(135deg,#25a9e0,#2080BE)
+  background:linear-gradient(135deg,#06B6D4,#2080BE);
+  animation:ribbonPulse 1.6s ease-in-out infinite;
+  --pulse-color:14,165,233;
+}
+/* Standard pulse — variant override --pulse-color */
+@keyframes ribbonPulse{
+  0%,100%{box-shadow:0 2px 6px rgba(var(--pulse-color),.4)}
+  50%{box-shadow:0 3px 12px rgba(var(--pulse-color),.7)}
 }
 
 /* Strike-through stdPrice when flash promo active */
@@ -316,12 +395,42 @@ body{font-family:"Noto Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   max-width:100%
 }
 .p-img img{width:100%;height:100%;object-fit:contain}
-.p-img-ph{font-size:2rem;color:#c8dff0}
+/* Ghost placeholder — แสดงเมื่อไม่มีรูปหรือรูปโหลดไม่ได้ */
+.p-img-ph{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  height:100%;
+  font-size:.85rem;
+  font-weight:500;
+  font-style:italic;
+  letter-spacing:1.2px;
+  color:#c8dff0;
+  text-transform:uppercase;
+  user-select:none;
+  background:linear-gradient(135deg,#fbfdff 0%,#eef5fb 100%)
+}
+/* List view: smaller text เพราะ .p-list-img มีแค่ 60x60 */
+.p-list-img .p-img-ph{font-size:.55rem;letter-spacing:.5px}
 
 .badge-hot{background:#f59e0b;color:#fff;font-size:.58rem;font-weight:800;padding:2px 7px;border-radius:10px;white-space:nowrap}.p-badge-inline{display:flex;align-items:center;margin-left:auto}
 .badge-new{background:#16a34a;color:#fff;font-size:.58rem;font-weight:800;padding:2px 7px;border-radius:10px;white-space:nowrap}
 
-.p-body{padding:6px}
+.p-body{
+  padding:6px;
+  /* Flex column → ดัน button ไปล่างสุดด้วย margin-top:auto */
+  display:flex;
+  flex-direction:column;
+  flex:1
+}
+/* Push cart button (add-btn / preorder-btn / qty-ctrl) ไปล่างสุดของ body
+   เพื่อให้ทุก card ใน row เดียวกันมีปุ่มตรงตำแหน่งเดียวกัน */
+.p-body > .add-btn,
+.p-body > .preorder-btn,
+.p-body > .qty-ctrl{
+  margin-top:auto
+}
 .p-name{font-size:.68rem;font-weight:600;color:var(--txt);line-height:1.35;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;min-height:calc(1.35em * 2)}
 /* === Meta row: SKU | Brand (Phase B brand redesign 2026-06-22) === */
 .p-meta-row{
@@ -611,8 +720,50 @@ body{font-family:"Noto Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
 .mob-drawer-btn{display:block;width:100%;text-align:left;padding:11px 16px;font-size:.88rem;border:none;background:none;cursor:pointer;color:var(--txt2);font-family:inherit;transition:background .15s,color .15s,padding-left .15s,transform .2s cubic-bezier(.4,0,.2,1)}
 .mob-drawer-btn:hover{background:#f0f7ff;color:var(--acc);padding-left:20px}
 .mob-drawer-btn.active{background:var(--acc);color:#fff;font-weight:700}
+.mob-drawer-btn.parent-active{background:#f0f7ff;color:var(--acc);font-weight:600}
+.mob-drawer-chevron{
+  float:right;
+  font-size:.9em;
+  opacity:.6;
+  margin-left:6px;
+  transition:transform .18s ease
+}
 .mob-drawer-btn .cnt{opacity:.75;font-size:.78rem;margin-left:4px}
 .mob-drawer-divider{height:1px;background:var(--border);margin:8px 14px}
+/* === Mobile drawer promo sub-items === */
+.mob-drawer-sub{
+  padding-left:36px !important;
+  font-size:.82rem !important;
+  position:relative;
+  color:var(--txt3);
+  animation:subSlideIn .22s ease-out
+}
+.mob-drawer-sub::before{
+  content:'';
+  position:absolute;
+  left:24px;
+  top:50%;
+  width:8px;
+  height:1px;
+  background:var(--border)
+}
+.mob-drawer-sub:hover{background:#f0f7ff;color:var(--acc);padding-left:40px !important}
+.mob-drawer-sub.active{
+  background:#e3f4ff;
+  color:var(--acc);
+  font-weight:700
+}
+.drawer-sub-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:1.15em;
+  height:1.15em;
+  flex-shrink:0;
+  vertical-align:-0.2em;
+  margin-right:6px
+}
+.drawer-sub-icon svg{width:100%;height:100%}
 
 /* === Drawer body — single smooth entrance (no per-item stagger = no jank on rapid toggle) === */
 .mob-drawer-body{

@@ -190,7 +190,7 @@ function loadCart(){
 function clearCartStorage(){
   try{ localStorage.removeItem(CART_LS_KEY); }catch(e){}
 }
-let curCat='all',curSub='all',curTag='all';
+let curCat='all',curSub='all',curTag='all',curPromoType='all';
 let curSearch='',curPage=1,viewMode='grid';
 let subcatMap={},navHistory=[];
 
@@ -421,11 +421,20 @@ window._applyHashRoute = _applyHashRoute;
 function setNavState(updates, options){
   updates = updates || {};
   options = options || {};
-  if(updates.cat    !== undefined) curCat    = updates.cat;
-  if(updates.sub    !== undefined) curSub    = updates.sub;
-  if(updates.tag    !== undefined) curTag    = updates.tag;
-  if(updates.search !== undefined) curSearch = updates.search;
-  if(updates.page   !== undefined) curPage   = updates.page;
+  if(updates.cat       !== undefined) curCat       = updates.cat;
+  if(updates.sub       !== undefined) curSub       = updates.sub;
+  if(updates.tag       !== undefined){
+    curTag = updates.tag;
+    // Auto-reset promoType เมื่อออกจาก Promo (เว้นแต่มีการตั้ง promoType ใหม่พร้อมกัน)
+    if(updates.tag !== 'Promo' && updates.promoType === undefined){
+      curPromoType = 'all';
+    } else if(updates.tag === 'Promo' && updates.promoType === undefined){
+      curPromoType = 'all'; // คลิก "โปรโมชั่น" จากภายนอก → reset เป็น "ทั้งหมด"
+    }
+  }
+  if(updates.promoType !== undefined) curPromoType = updates.promoType;
+  if(updates.search    !== undefined) curSearch    = updates.search;
+  if(updates.page      !== undefined) curPage      = updates.page;
   if(!options.skipFilter) applyFilter();
   if(typeof updateSidebarActive === 'function') updateSidebarActive();
   if(typeof updateMobActive     === 'function') updateMobActive();
@@ -472,7 +481,7 @@ function goHome(){
   // Clear any modal/panel override first (cart, account)
   if(typeof _clearTabOverride === 'function') _clearTabOverride();
   // Reset filter state (so trend/products doesn't think we're filtering)
-  curCat = 'all'; curSub = 'all'; curTag = 'all'; curSearch = ''; curPage = 1;
+  curCat = 'all'; curSub = 'all'; curTag = 'all'; curPromoType = 'all'; curSearch = ''; curPage = 1;
   const hb=document.getElementById('backBtnBar');if(hb)hb.classList.remove('show');
   updateActiveCatBar('all','','');
   document.getElementById('catalog').style.display='none';
@@ -586,7 +595,10 @@ function applyFilter(){
     if(curSub!=='all'&&p.subCat!==curSub)return false;
     if(curTag==='Hot'&&p.tag!=='สินค้าขายดี')return false;
     if(curTag==='New'&&p.tag!=='สินค้าใหม่')return false;
-    if(curTag==='Promo'&&!p.promoType)return false; // กรองสินค้าที่มี promo (sale/bundle/flash)
+    if(curTag==='Promo'){
+      if(!p.promoType) return false;                                          // ต้องมี promo type
+      if(curPromoType !== 'all' && p.promoType !== curPromoType) return false; // sub-filter (flash/step_price/...)
+    }
     if(words.length>0){if(!matchProduct(p,words))return false;}
     return true;
   });
@@ -619,6 +631,20 @@ function buildSidebar(){
   h+='<button class="sb-btn" data-tag="Hot" onclick="setTag(\'Hot\')">'+I(FILTER_SVG.hot,'sb-icon-hot')+' สินค้าขายดี</button>';
   h+='<button class="sb-btn" data-tag="New" onclick="setTag(\'New\')">'+I(FILTER_SVG.new,'sb-icon-new')+' สินค้าใหม่</button>';
   h+='<button class="sb-btn" data-tag="Promo" onclick="setTag(\'Promo\')">'+I(FILTER_SVG.promo,'sb-icon-promo')+' โปรโมชั่น</button>';
+  // Promo sub-items — แสดงเฉพาะตอน curTag === 'Promo'
+  // Auto-hide types ที่ไม่มีสินค้า (เช่น flash หมดอายุ → ลบ promo จากสินค้า → sub item หายไปเอง)
+  if(curTag === 'Promo'){
+    const promoCounts = countPromoTypes();
+    for(const [pkey, pconf] of Object.entries(PROMO_TYPES)){
+      const cnt = promoCounts[pkey] || 0;
+      if(cnt === 0) continue; // auto-hide
+      h+='<button class="sb-btn sb-sub-btn" data-promo-type="'+pkey+'" onclick="setPromoType(\''+pkey+'\')">'
+        +'<span class="sb-sub-icon" style="color:'+pconf.color+'">'+pconf.icon+'</span> '
+        +pconf.label
+        +' <span class="sb-sub-count">('+cnt+')</span>'
+        +'</button>';
+    }
+  }
   h+='<div class="sb-divider"></div>';
   h+='<div class="sb-hdr">หมวดหมู่</div>';
   h+='<button class="sb-btn" data-cat="all" onclick="goCat(\'all\')">'+I(FILTER_SVG.all)+' ทั้งหมด</button>';
@@ -648,14 +674,27 @@ function updateSidebarActive(){
   if(typeof _clearTabOverride === 'function') _clearTabOverride();
   // Also sync bottom tab (Group D2 paired)
   if(typeof updateBottomTabActive === 'function') updateBottomTabActive();
+  // Re-render sidebar เฉพาะตอน sub-items presence ต้องเปลี่ยน
+  // (เลี่ยง re-render ทุก navigation → ไม่ให้ animation slideIn ซ้ำ + ลด DOM churn)
+  const sb = document.getElementById('sidebar');
+  if(sb && typeof buildSidebar === 'function'){
+    const hasSubItems = sb.querySelector('.sb-sub-btn') !== null;
+    const shouldHaveSubItems = curTag === 'Promo';
+    if(hasSubItems !== shouldHaveSubItems){
+      buildSidebar();
+    }
+  }
   const btns = document.querySelectorAll('#sidebar .sb-btn');
   btns.forEach(function(b){
     let isActive = false;
-    const dc = b.dataset.cat, dt = b.dataset.tag;
-    if(curCat !== 'all'){
+    const dc = b.dataset.cat, dt = b.dataset.tag, dp = b.dataset.promoType;
+    if(dp){
+      // Promo sub-item: active เฉพาะตอน curPromoType ตรง
+      isActive = (curTag === 'Promo' && curPromoType === dp);
+    } else if(curCat !== 'all'){
       isActive = (dc === curCat); // ตรงกับหมวดที่เลือก
     } else if(curTag !== 'all'){
-      isActive = (dt === curTag); // ตรงกับ tag ที่เลือก (Hot/New)
+      isActive = (dt === curTag); // ตรงกับ tag (Hot/New/Promo)
     } else if(!curSearch){
       isActive = (dt === 'all'); // ทั้งหมด (default state)
     }
@@ -678,6 +717,10 @@ function updateMobActive(){
   });
 }
 function setTag(tag){ setNavState({tag:tag, page:1}); }
+function setPromoType(type){
+  setNavState({tag:'Promo', promoType:type, page:1});
+}
+window.setPromoType = setPromoType;
 function setSub(sub){
   document.querySelectorAll('.sub-btn,.sub-dd-item').forEach(b=>b.classList.toggle('active',b.dataset.val===sub));
   // Auto-close mobile dropdown after selection
@@ -783,17 +826,68 @@ function badge(p){
   if(p.tag==='สินค้าขายดี')return '<span class="badge-hot">🔥 ขายดี</span>';
   return '';
 }
+// Inline "6+" icon (from assets/icons/age-6.svg) — uses currentColor → adapts to ribbon color
+const ICON_AGE6 = '<svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" class="p-ribbon-icon" aria-hidden="true"><path d="M21 0C20.4477 0 20 0.447715 20 1V2H19C18.4477 2 18 2.44772 18 3C18 3.55228 18.4477 4 19 4H20V5C20 5.55228 20.4477 6 21 6C21.5523 6 22 5.55228 22 5V4H23C23.5523 4 24 3.55228 24 3C24 2.44772 23.5523 2 23 2L22 2V1C22 0.447715 21.5523 0 21 0Z"/><path d="M22.4669 8.6169C22.297 8.09138 21.7016 7.85776 21.1936 8.07463C20.6857 8.29149 20.4525 8.87941 20.6116 9.40826C21.113 11.074 21.1224 12.8572 20.6271 14.5397C20.0373 16.5433 18.7684 18.2792 17.0383 19.4493C15.3082 20.6195 13.2248 21.1509 11.1455 20.9525C9.06632 20.754 7.12102 19.8381 5.6435 18.3618C4.16598 16.8855 3.24839 14.9409 3.04823 12.8619C2.84806 10.7828 3.3778 8.69891 4.54651 6.96784C5.71523 5.23677 7.45005 3.96647 9.45321 3.37498C11.1353 2.8783 12.9185 2.88626 14.5846 3.38623C15.1136 3.54496 15.7013 3.31122 15.9178 2.80311C16.1342 2.29501 15.9001 1.69979 15.3745 1.53036C13.276 0.853957 11.0142 0.821568 8.88489 1.4503C6.43473 2.17379 4.31278 3.72755 2.88327 5.84491C1.45375 7.96227 0.805798 10.5112 1.05063 13.0542C1.29547 15.5972 2.41781 17.9757 4.22504 19.7814C6.03227 21.5871 8.41167 22.7075 10.9549 22.9502C13.4981 23.193 16.0464 22.5429 18.1626 21.1117C20.2788 19.6804 21.8308 17.5572 22.5523 15.1064C23.1792 12.9766 23.145 10.7148 22.4669 8.6169Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M9 9C9 7.89543 9.89543 7 11 7H14C14.5523 7 15 7.44772 15 8C15 8.55229 14.5523 9 14 9H11.2C11.0895 9 11 9.08954 11 9.2V10.8C11 10.9105 11.0895 11 11.2 11H13C14.1046 11 15 11.8954 15 13V15C15 16.1046 14.1046 17 13 17H11C9.89543 17 9 16.1046 9 15V9ZM11 14C11 14.5523 11.4477 15 12 15C12.5523 15 13 14.5523 13 14C13 13.4477 12.5523 13 12 13C11.4477 13 11 13.4477 11 14Z"/></svg>';
+
+// === Promo Type Registry ===
+// เพิ่ม promo type ใหม่ที่นี่ → sub-menu จะ render อัตโนมัติ
+// ถ้า data ไม่มีสินค้า type นั้นแล้ว → sub item ถูกซ่อนอัตโนมัติ
+// (auto-hide จาก countPromoTypes() — promo หมดอายุ = ลบสินค้า/promoType ออก = sub-item หายไปเอง)
+const PROMO_TYPES = {
+  flash: {
+    label: 'FLASH SALE',
+    icon:  '<span class="sb-promo-emoji">⚡</span>',  // emoji matches ribbon
+    color: '#DC2626'
+  },
+  step_price: {
+    label: 'ซื้อ 6 หน่วยขึ้นไป ราคาพิเศษ',
+    icon:  ICON_AGE6,                                 // SVG matches ribbon
+    color: '#0EA5E9'
+  }
+  // Future:
+  // bundle: { label: 'แพ็คคู่/ชุดประหยัด', icon: '...', color: '#10B981' },
+  // sale:   { label: 'ลดราคา',           icon: '...', color: '#F97316' },
+};
+
+// นับจำนวนสินค้าต่อ promo type โดยใช้ filter หมวด/sub ปัจจุบัน
+// → ตัวเลขที่แสดงใน sub-menu ตรงกับจำนวนที่ user จะเห็นจริงเมื่อคลิก (context-aware)
+// → auto-hide sub-item ถ้า count = 0 (เช่น flash หมดอายุ หรือ ไม่มี flash ในหมวดนี้)
+function countPromoTypes(){
+  const counts = {};
+  if(typeof allProducts === 'undefined' || !Array.isArray(allProducts)) return counts;
+  for(let i = 0; i < allProducts.length; i++){
+    const p = allProducts[i];
+    if(!p.promoType) continue;
+    // เคารพ filter หมวด/sub ปัจจุบัน → count ตรงกับ result ที่จะแสดง
+    if(curCat !== 'all' && p.catId !== curCat) continue;
+    if(curSub !== 'all' && p.subCat !== curSub) continue;
+    counts[p.promoType] = (counts[p.promoType] || 0) + 1;
+  }
+  return counts;
+}
 function imgTag(p){
   // Promo ribbon overlay on image — flash gets red ribbon, step_price gets blue chip
   let ribbon = '';
   if(p.promoType === 'flash'){
     ribbon = '<span class="p-ribbon p-ribbon-flash">⚡ FLASH SALE</span>';
   } else if(p.promoType === 'step_price'){
-    ribbon = '<span class="p-ribbon p-ribbon-step">🏷 ซื้อ '+(p.promoMinQty||6)+' ชิ้น+</span>';
+    ribbon = '<span class="p-ribbon p-ribbon-step">'+ICON_AGE6+'ซื้อ '+(p.promoMinQty||6)+' หน่วย+</span>';
   }
-  if(p.imageUrl) return ribbon+'<img src="'+p.imageUrl+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
-  return ribbon+'<div class="p-img-ph">🧴</div>';
+  // No image → ghost text "No Picture" จางๆ (ใช้ window.handleImgError ถ้า img โหลดไม่ได้)
+  if(p.imageUrl){
+    return ribbon+'<img src="'+p.imageUrl+'" alt="" loading="lazy" onerror="handleImgError(this)">';
+  }
+  return ribbon+'<div class="p-img-ph">No Picture</div>';
 }
+// Global handler — เรียกจาก <img onerror="..."> เพื่อ swap img ที่โหลดไม่ได้
+// เป็น "No Picture" placeholder (เลี่ยงปัญหา quote escaping ใน HTML attribute)
+window.handleImgError = function(img){
+  if(!img || !img.parentNode) return;
+  const ph = document.createElement('div');
+  ph.className = 'p-img-ph';
+  ph.textContent = 'No Picture';
+  img.parentNode.replaceChild(ph, img);
+};
 function priceRow(p){
   // Flash: show ~~stdPrice~~ promoPrice (immediate discount, qty>=1)
   if(p.promoType === 'flash' && p.promoPrice > 0){
@@ -1366,6 +1460,7 @@ async function initLiff(){
 }
 
 // สร้าง Order ID อัตโนมัติ: PR + YYMMDD + HHmm + random 2 หลัก
+// (ใช้เป็น internal tracking ID ใน history — ไม่ได้แสดงให้ลูกค้าเห็นโดยตรง)
 function genOrderId(){
   const d = new Date();
   const pad = n => String(n).padStart(2,'0');
@@ -1376,6 +1471,20 @@ function genOrderId(){
   const mi = pad(d.getMinutes());
   const rand = pad(Math.floor(Math.random()*100));
   return 'PR'+yy+mm+dd+hh+mi+rand;
+}
+
+// สร้าง Order Title แบบอ่านง่าย (ใช้แสดงในแชท/modal)
+// รูปแบบ: "📋 ออเดอร์ขายส่ง DD-MM-YYYY+543/HH.MMน." (พ.ศ. ไทย)
+// ตัวอย่าง: "📋 ออเดอร์ขายส่ง 22-06-2569/14.40น."
+function genOrderTitle(){
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dd = pad(d.getDate());
+  const mm = pad(d.getMonth()+1);
+  const yyyy = d.getFullYear() + 543; // ค.ศ. → พ.ศ.
+  const hh = pad(d.getHours());
+  const mi = pad(d.getMinutes());
+  return '📋 ออเดอร์ขายส่ง '+dd+'-'+mm+'-'+yyyy+'/'+hh+'.'+mi+'น.';
 }
 
 function getTimestampTH(){
@@ -1402,7 +1511,7 @@ const FLEX_BATCH_SIZE = 5;          // LIFF cap per call (used in sendOrder)
 // ============================================================
 const TEXT_MSG_LIMIT = 4500;  // safety margin under LINE 5000 cap
 
-function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
+function buildOrderMessages(orderId, orderTitle, timestamp, customerName, cartItems, total){
   // แยกสินค้าพร้อมส่ง vs สั่งจอง (สินค้าหมด)
   const regularItems = [];
   const preorderItems = [];
@@ -1451,7 +1560,7 @@ function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
 
   // สร้าง lines ทั้งหมด
   const lines = [];
-  lines.push('🛒 #' + orderId);
+  lines.push(orderTitle || ('🛒 #' + orderId));
   lines.push('ลูกค้า: ' + (customerName || '-') + ' · ' + cartItems.length + ' รายการ · ' + totalQty + ' ชิ้น');
   lines.push(timestamp);
   lines.push('');
@@ -1497,7 +1606,7 @@ function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
   const totalParts = chunks.length;
   const messages = chunks.map(function(text, idx){
     const finalText = (totalParts > 1 && idx > 0)
-      ? '🛒 #' + orderId + ' (ต่อ ' + (idx + 1) + '/' + totalParts + ')\n' + text
+      ? (orderTitle || ('🛒 #' + orderId)) + ' (ต่อ ' + (idx + 1) + '/' + totalParts + ')\n' + text
       : text;
     console.log('[Text] msg', (idx+1)+'/'+totalParts, '·', finalText.length, 'chars');
     return { type: 'text', text: finalText };
@@ -1508,14 +1617,15 @@ function buildOrderMessages(orderId, timestamp, customerName, cartItems, total){
 }
 
 // แสดง success modal
-function showSuccessModal(orderId){
+function showSuccessModal(orderId, orderTitle){
+  const titleDisplay = orderTitle || ('#' + orderId);
   const mo = document.createElement('div');
   mo.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
   mo.innerHTML =
     '<div style="background:#fff;border-radius:20px;padding:32px 24px;max-width:380px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3);animation:slideUp .4s ease">'
     +'<div style="width:72px;height:72px;background:#e8f8ee;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:38px;color:#06c755">✓</div>'
     +'<div style="font-size:1.2rem;font-weight:800;color:#0a1628;margin-bottom:8px">ส่งออเดอร์สำเร็จ!</div>'
-    +'<div style="font-size:.85rem;color:#666;margin-bottom:4px">เลขออเดอร์: <strong style="color:#2080be">#'+orderId+'</strong></div>'
+    +'<div style="font-size:.85rem;color:#2080be;margin-bottom:4px;font-weight:700">'+titleDisplay+'</div>'
     +'<div style="font-size:.78rem;color:#888;line-height:1.6;margin-bottom:20px">รอน้อง Salesman แจ้งยอดชำระสักครู่ค่ะ</div>'
     +'<button onclick="this.parentElement.parentElement.remove()" style="width:100%;padding:12px;background:#2080be;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.9rem;font-family:inherit">ปิดหน้านี้</button>'
     +'</div>'
@@ -1541,16 +1651,16 @@ function openQrZoom(qrSrc){
 // ============================================================
 // Quick Send for PC — skip modal, do confirm + auto-copy + open LINE OA
 // ============================================================
-async function quickSendPC(orderId, timestamp, customerName, fullText, total){
+async function quickSendPC(orderId, orderTitle, timestamp, customerName, fullText, total){
   const itemCount = cart.length;
   const totalQty = cart.reduce(function(s,c){ return s + (c.qty || 0); }, 0);
 
   // 1. Show non-blocking preparing toast (auto-dismiss 3s) — replaces native confirm()
-  showPreparingBanner(orderId, itemCount, total);
+  showPreparingBanner(orderId, orderTitle, itemCount, total);
 
   // 2. Auto-copy + store for retry (+ localStorage backup)
   window._lastOrderText = fullText;
-  window._lastOrderInfo = { orderId: orderId, total: total, itemCount: itemCount, customerName: customerName, fullText: fullText, ts: Date.now() };
+  window._lastOrderInfo = { orderId: orderId, orderTitle: orderTitle, total: total, itemCount: itemCount, customerName: customerName, fullText: fullText, ts: Date.now() };
   try{ localStorage.setItem(ORDER_BACKUP_KEY, JSON.stringify(window._lastOrderInfo)); }catch(e){}
   let copyOk = false;
   if(navigator.clipboard && navigator.clipboard.writeText){
@@ -1585,7 +1695,7 @@ async function quickSendPC(orderId, timestamp, customerName, fullText, total){
   }catch(e){ console.warn('[quickSendPC] line:// trigger failed:', e); }
 
   // 3. Show toast (immediate feedback)
-  showQuickSendToast(orderId, itemCount, total, copyOk);
+  showQuickSendToast(orderId, orderTitle, itemCount, total, copyOk);
 
   // 4. Background detection — ถ้า LINE ไม่เปิดใน 8s → auto show Help Modal
   // (set up FIRST — start counting from t=0 when LINE was triggered)
@@ -1651,7 +1761,7 @@ function showOrderHelp(){
   if(infoEl){
     if(window._lastOrderInfo){
       const i = window._lastOrderInfo;
-      infoEl.textContent = '#' + (i.orderId||'?') + ' · ' + (i.itemCount||0) + ' รายการ · ' + (i.total||0).toLocaleString('th-TH') + ' บาท';
+      infoEl.textContent = (i.orderTitle || ('#' + (i.orderId||'?'))) + ' · ' + (i.itemCount||0) + ' รายการ · ' + (i.total||0).toLocaleString('th-TH') + ' บาท';
     } else {
       infoEl.textContent = '(ไม่พบข้อมูลออเดอร์ล่าสุด)';
     }
@@ -1756,7 +1866,7 @@ window.closeOrderTextModal = closeOrderTextModal;
 window.copyOrderTextNow = copyOrderTextNow;
 
 // ─── Preparing banner (non-blocking toast 3s) — แสดงตอนเริ่มส่งออเดอร์ PC ───
-function showPreparingBanner(orderId, itemCount, total){
+function showPreparingBanner(orderId, orderTitle, itemCount, total){
   // Inject keyframes once
   if(!document.getElementById('prep-anim')){
     const s = document.createElement('style');
@@ -1777,7 +1887,7 @@ function showPreparingBanner(orderId, itemCount, total){
         '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
       '</div>' +
       '<div style="flex:1;min-width:0;line-height:1.4">' +
-        '<div style="font-size:.85rem;font-weight:600;color:#0a1628">กำลังเตรียมออเดอร์ #' + orderId + '</div>' +
+        '<div style="font-size:.85rem;font-weight:600;color:#0a1628">กำลังเตรียม ' + (orderTitle || ('ออเดอร์ #' + orderId)) + '</div>' +
         '<div style="font-size:.72rem;color:#6B7280;margin-top:2px">' + itemCount.toLocaleString('th-TH') + ' รายการ • ' + total.toLocaleString('th-TH') + ' บาท</div>' +
         '<div style="font-size:.68rem;color:#0f6e56;margin-top:4px;font-weight:600">คัดลอกแล้ว — เปิด LINE → Ctrl+V → Enter</div>' +
       '</div>' +
@@ -1790,7 +1900,7 @@ function showPreparingBanner(orderId, itemCount, total){
   }, 5000);
 }
 
-function showQuickSendToast(orderId, count, total, copyOk){
+function showQuickSendToast(orderId, orderTitle, count, total, copyOk){
   // Remove existing toast if any
   const existing = document.getElementById('quick-send-toast');
   if(existing) existing.remove();
@@ -1812,7 +1922,7 @@ function showQuickSendToast(orderId, count, total, copyOk){
     : '⚠ คัดลอกอัตโนมัติไม่สำเร็จ';
 
   t.innerHTML = ''
-    + '<div style="font-weight:800;font-size:1rem;margin-bottom:8px">✓ #' + orderId + ' พร้อมส่ง</div>'
+    + '<div style="font-weight:800;font-size:1rem;margin-bottom:8px">✓ ' + (orderTitle || ('#' + orderId)) + ' พร้อมส่ง</div>'
     + '<div style="font-size:.8rem;line-height:1.7;opacity:.95;margin-bottom:10px">'
       + count + ' รายการ · ' + total.toLocaleString('th-TH') + ' บาท<br>'
       + '<strong>' + copyStatus + '</strong>'
@@ -1861,7 +1971,7 @@ function showQuickSendToast(orderId, count, total, copyOk){
   }, 12000);
 }
 
-function showFallbackModal(orderId, timestamp, text, shortText){
+function showFallbackModal(orderId, orderTitle, timestamp, text, shortText){
   // shortText: optional compact version for QR URL (fits LINE share URL ~1000 char limit)
   // text: full version for clipboard + modal display
   shortText = shortText || text;
@@ -1884,7 +1994,7 @@ function showFallbackModal(orderId, timestamp, text, shortText){
 
   mo.innerHTML =
     '<div style="background:#fff;border-radius:16px;padding:24px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3)">'
-    +'<div style="font-weight:800;font-size:1.05rem;color:#2080be;margin-bottom:4px">สรุปออเดอร์ #'+orderId+'</div>'
+    +'<div style="font-weight:800;font-size:1.05rem;color:#2080be;margin-bottom:4px">'+(orderTitle || ('สรุปออเดอร์ #'+orderId))+'</div>'
     +'<div style="font-size:.75rem;color:#888;margin-bottom:14px">'+timestamp+'</div>'
     +'<div style="background:#e8f8ee;border:1px solid #06c755;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.82rem;color:#07a248;font-weight:700;text-align:center">✓ คัดลอกออเดอร์แล้ว</div>'
     +'<div style="border:1px solid #e0eaf3;border-radius:10px;margin:0 0 14px;max-height:280px;overflow-y:auto">'
@@ -2190,7 +2300,21 @@ function buildMobDrawer(){
   h += '<button class="mob-drawer-btn '+(isHome?'active':'')+'" onclick="goHomeFromDrawer()"><span class="drawer-icon">'+FILTER_SVG.home+'</span> หน้าหลัก</button>';
   h += '<button class="mob-drawer-btn '+(curTag==='Hot'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'Hot\')"><span class="drawer-icon drawer-icon-hot">'+FILTER_SVG.hot+'</span> สินค้าขายดี</button>';
   h += '<button class="mob-drawer-btn '+(curTag==='New'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'New\')"><span class="drawer-icon drawer-icon-new">'+FILTER_SVG.new+'</span> สินค้าใหม่</button>';
-  h += '<button class="mob-drawer-btn '+(curTag==='Promo'?'active':'')+'" onclick="closeMobDrawer();setMobTag(\'Promo\')"><span class="drawer-icon drawer-icon-promo">'+FILTER_SVG.promo+'</span> สินค้าโปรโมชั่น</button>';
+  h += '<button class="mob-drawer-btn '+(curTag==='Promo' && curPromoType==='all' ? 'active':(curTag==='Promo'?'parent-active':''))+'" onclick="expandMobPromo()"><span class="drawer-icon drawer-icon-promo">'+FILTER_SVG.promo+'</span> สินค้าโปรโมชั่น <span class="mob-drawer-chevron">'+(curTag==='Promo'?'▾':'▸')+'</span></button>';
+  // Promo sub-items — แสดงเฉพาะตอน curTag === 'Promo' (auto-hide types ที่ไม่มีสินค้า)
+  if(curTag === 'Promo'){
+    const promoCounts = countPromoTypes();
+    for(const [pkey, pconf] of Object.entries(PROMO_TYPES)){
+      const cnt = promoCounts[pkey] || 0;
+      if(cnt === 0) continue;
+      const subActive = (curPromoType === pkey) ? 'active' : '';
+      h += '<button class="mob-drawer-btn mob-drawer-sub '+subActive+'" data-promo-type="'+pkey+'" onclick="closeMobDrawer();setPromoType(\''+pkey+'\')">'
+         + '<span class="drawer-icon drawer-sub-icon" style="color:'+pconf.color+'">'+pconf.icon+'</span> '
+         + pconf.label
+         + ' <span class="cnt">('+cnt.toLocaleString()+')</span>'
+         + '</button>';
+    }
+  }
   h += '<div class="mob-drawer-divider"></div>';
   // Categories section
   h += '<div class="mob-drawer-hdr-section">หมวดหมู่</div>';
@@ -2208,9 +2332,16 @@ function goHomeFromDrawer(){
   closeMobDrawer();
   goHome();
 }
+// คลิก "สินค้าโปรโมชั่น" ใน mobile drawer → ใช้ filter Promo (all)
+// ไม่ปิด drawer เพื่อให้ user เห็น sub-items ที่แตกออกมา
+function expandMobPromo(){
+  setMobTag('Promo');   // sets state + shows catalog + applies filter
+  buildMobDrawer();     // re-render to show sub-items
+}
 window.openMobDrawer = openMobDrawer;
 window.closeMobDrawer = closeMobDrawer;
 window.goHomeFromDrawer = goHomeFromDrawer;
+window.expandMobPromo = expandMobPromo;
 
 // === LINE Modal Helpers ===
 function openLineModal(){
@@ -2356,7 +2487,8 @@ async function sendOrder(){
   }
 
   // Generate order metadata
-  const orderId = genOrderId();
+  const orderId = genOrderId();             // internal tracking (PR + YYMMDD + HHmm + rand)
+  const orderTitle = genOrderTitle();       // human-friendly "📋 ออเดอร์ขายส่ง 22-06-2569/14.40น."
   const timestamp = getTimestampTH();
   // อ่าน VIP จาก Account input (priority 1) แล้ว fallback localStorage (priority 2)
   const acctVip = document.getElementById('accountVipInput');
@@ -2368,11 +2500,11 @@ async function sendOrder(){
 
   // เตรียม text — fullText สำหรับ modal display + clipboard (Format C เต็ม)
   // shortText สำหรับ QR URL (compact เพื่อไม่ให้ URL ยาวเกิน LINE share limit)
-  const messagesForText = buildOrderMessages(orderId, timestamp, customerName, cart, total);
+  const messagesForText = buildOrderMessages(orderId, orderTitle, timestamp, customerName, cart, total);
   const fullText = messagesForText.map(function(m){ return m.text; }).join('\n\n');
 
   // Compact version สำหรับ QR (~25 chars/item)
-  const qrLines = ['📋 #' + orderId];
+  const qrLines = [orderTitle];
   if(customerName) qrLines.push('👤 ' + customerName);
   cart.forEach(function(c, i){
     qrLines.push((i+1) + '. ' + c.code + ' ×' + c.qty + ' = ' + effectiveSubtotal(c).toLocaleString('th-TH'));
@@ -2403,7 +2535,7 @@ async function sendOrder(){
 
     // ส่ง Flex card — auto split + batch (5/call) สำหรับ cart ใหญ่
     try{
-      const messages = buildOrderMessages(orderId, timestamp, customerName, cart, total);
+      const messages = buildOrderMessages(orderId, orderTitle, timestamp, customerName, cart, total);
       console.log('[LIFF] Sending', messages.length, 'flex card(s) total size:', JSON.stringify(messages).length, 'bytes');
 
       // Batch sending: LIFF อนุญาต 5 messages ต่อ 1 call → ส่งหลายรอบถ้าจำเป็น
@@ -2428,7 +2560,7 @@ async function sendOrder(){
       renderCart();
       closeCart();
       restoreBtn();
-      showSuccessModal(orderId);
+      showSuccessModal(orderId, orderTitle);
       window._sendingInProgress = false;
       return;
 
@@ -2445,9 +2577,9 @@ async function sendOrder(){
       // PC → Quick Send (skip modal) · Mobile → Modal with QR
       const isMobileUA_e = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       if(!isMobileUA_e){
-        await quickSendPC(orderId, timestamp, customerName, fullText, total);
+        await quickSendPC(orderId, orderTitle, timestamp, customerName, fullText, total);
       } else {
-        showFallbackModal(orderId, timestamp, fullText, shortText);
+        showFallbackModal(orderId, orderTitle, timestamp, fullText, shortText);
       }
       restoreBtn();
       window._sendingInProgress = false;
@@ -2459,9 +2591,9 @@ async function sendOrder(){
   // PC → Quick Send (skip modal) · Mobile → Modal with QR
   const isMobileUA_f = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   if(!isMobileUA_f){
-    await quickSendPC(orderId, timestamp, customerName, fullText, total);
+    await quickSendPC(orderId, orderTitle, timestamp, customerName, fullText, total);
   } else {
-    showFallbackModal(orderId, timestamp, fullText, shortText);
+    showFallbackModal(orderId, orderTitle, timestamp, fullText, shortText);
   }
   // Restore button AFTER quickSendPC done (user เห็น loading state จริงๆ ระหว่างทำงาน)
   restoreBtn();
