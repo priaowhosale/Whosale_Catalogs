@@ -2576,7 +2576,7 @@ async function loadCatalogData() {
   }));
   // Load suggested_retail overlay (non-blocking — fallback to empty map if missing)
   try {
-    const overlay = await fetch('data/suggested_retail.json?v=20260622-0448').then(r => r.ok ? r.json() : null);
+    const overlay = await fetch('data/suggested_retail.json?v=20260622-0504').then(r => r.ok ? r.json() : null);
     if(overlay && overlay.data && typeof overlay.data === 'object'){
       SUGGESTED_RETAIL_MAP = overlay.data;
       console.log('[boot] suggested_retail overlay:', Object.keys(SUGGESTED_RETAIL_MAP).length, 'entries');

@@ -756,7 +756,7 @@ body{font-family:"Noto Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
 
 /* === Product Card — Unit suffix + Suggested Retail === */
 .p-unit-suffix{color:#6B7280;font-weight:400;font-size:.92em;margin-left:3px;white-space:nowrap}
-.p-suggest{display:inline-flex;align-items:center;font-size:.66rem;color:#854f0b;background:#fef3c7;border:0.5px solid #facc15;padding:2px 8px;border-radius:6px;font-weight:600;line-height:1.3;white-space:nowrap}
+.p-suggest{display:inline-flex;align-items:center;font-size:.55rem;color:#0a1628;background:transparent;border:1px solid #0a1628;padding:1px 6px;border-radius:5px;font-weight:500;line-height:1.2;white-space:nowrap}
 
 /* === Button Loading State — Spinning Ring + Animated Dots === */
 .btn-spinner{
